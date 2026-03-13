@@ -871,7 +871,7 @@ export function Landing() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6 items-start">
+          <div className="grid md:grid-cols-3 gap-6 items-stretch">
             {plans.map(
               (
                 { name, price, period, desc, features, cta, highlight, color },
@@ -883,7 +883,7 @@ export function Landing() {
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1 }}
                   viewport={{ once: true }}
-                  className={`relative rounded-2xl border-2 ${color} ${highlight ? "bg-[#2563EB]" : "bg-white dark:bg-[#1E293B]"} p-6 ${highlight ? "shadow-2xl shadow-blue-500/25 scale-105" : ""} transition-all duration-300`}
+                  className={`relative h-full flex flex-col rounded-2xl border-2 ${color} ${highlight ? "bg-[#2563EB]" : "bg-white dark:bg-[#1E293B]"} p-6 ${highlight ? "shadow-2xl shadow-blue-500/25 scale-105" : ""} transition-all duration-300`}
                 >
                   {highlight && (
                     <div
@@ -934,7 +934,7 @@ export function Landing() {
                     </div>
                   </div>
 
-                  <ul className="space-y-2.5 mb-6">
+                  <ul className="space-y-2.5 mb-6 flex-1">
                     {features.map((feature) => (
                       <li key={feature} className="flex items-center gap-2.5">
                         <CheckCircle2
