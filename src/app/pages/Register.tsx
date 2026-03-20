@@ -15,14 +15,14 @@ const benefits = [
   { icon: Star, title: 'Priority analysis queue', desc: 'Pro users jump the queue for instant results.' },
 ];
 
-type Plan = 'free' | 'pro';
+type Plan = '1month' | '3month' | '6month' | '1year';
 
 export function Register() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [plan, setPlan] = useState<Plan>('free');
+  const [plan, setPlan] = useState<Plan>('1month');
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -175,8 +175,10 @@ export function Register() {
             {/* Plan picker */}
             <div className="grid grid-cols-2 gap-3 mb-6">
               {([
-                { id: 'free', label: 'Free Plan', sub: '3 scans/day', accent: '#10B981' },
-                { id: 'pro', label: 'Pro Plan', sub: '$29/month', accent: '#2563EB' },
+                { id: '1month', label: '1 month', sub: '199.000 vnd', accent: '#10B981' },
+                { id: '3month', label: '3 month', sub: '539.000 vnd', accent: '#2563EB' },
+                { id: '6month', label: '6 month', sub: '1.019.000 vnd', accent: '#8B5CF6' },
+                { id: '1year', label: '1 year', sub: '1.920.000 vnd', accent: '#F59E0B' },
               ] as const).map(({ id, label, sub, accent }) => (
                 <button
                   key={id}
@@ -185,7 +187,7 @@ export function Register() {
                   className={`p-3.5 rounded-xl border-2 text-left transition-all ${
                     plan === id
                       ? 'bg-white dark:bg-[#1E293B]'
-                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] opacity-60 hover:opacity-80'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] opacity-70 hover:opacity-90'
                   }`}
                   style={{ borderColor: plan === id ? accent : undefined }}
                 >
