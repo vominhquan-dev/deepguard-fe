@@ -1,6 +1,6 @@
-import { ReactNode, useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router';
-import { Sidebar } from './Sidebar';
+import { ReactNode, useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router";
+import { Sidebar } from "./Sidebar";
 import {
   Shield,
   Menu,
@@ -17,9 +17,9 @@ import {
   HelpCircle,
   Sun,
   Moon,
-} from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
-import { Toaster } from 'sonner';
+} from "lucide-react";
+import { useTheme } from "../contexts/ThemeContext";
+import { Toaster } from "sonner";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -28,54 +28,54 @@ interface DashboardLayoutProps {
 const notifications = [
   {
     id: 1,
-    type: 'danger',
+    type: "danger",
     icon: AlertTriangle,
-    title: 'High-risk deepfake detected',
-    desc: 'interview_clip.mp4 scored 87% risk',
-    time: '2m ago',
+    title: "High-risk deepfake detected",
+    desc: "interview_clip.mp4 scored 87% risk",
+    time: "2m ago",
     read: false,
   },
   {
     id: 2,
-    type: 'info',
+    type: "info",
     icon: Info,
-    title: 'Weekly report ready',
-    desc: 'Your scan summary for this week is available',
-    time: '1h ago',
+    title: "Weekly report ready",
+    desc: "Your scan summary for this week is available",
+    time: "1h ago",
     read: false,
   },
   {
     id: 3,
-    type: 'warning',
+    type: "warning",
     icon: AlertTriangle,
-    title: 'Suspicious audio flagged',
-    desc: 'voice_message.mp3 needs manual review',
-    time: '3h ago',
+    title: "Suspicious audio flagged",
+    desc: "voice_message.mp3 needs manual review",
+    time: "3h ago",
     read: false,
   },
   {
     id: 4,
-    type: 'success',
+    type: "success",
     icon: CheckCircle2,
-    title: 'Scan complete',
-    desc: 'headshot.png analyzed — Authentic (8%)',
-    time: 'Yesterday',
+    title: "Scan complete",
+    desc: "headshot.png analyzed — Authentic (8%)",
+    time: "Yesterday",
     read: true,
   },
 ];
 
 const notifColors: Record<string, string> = {
-  danger: 'text-red-500',
-  warning: 'text-amber-500',
-  info: 'text-[#2563EB] dark:text-[#22D3EE]',
-  success: 'text-emerald-500',
+  danger: "text-red-500",
+  warning: "text-amber-500",
+  info: "text-[#2563EB] dark:text-[#22D3EE]",
+  success: "text-emerald-500",
 };
 
 const notifBg: Record<string, string> = {
-  danger: 'bg-red-500/10',
-  warning: 'bg-amber-500/10',
-  info: 'bg-blue-500/10',
-  success: 'bg-emerald-500/10',
+  danger: "bg-red-500/10",
+  warning: "bg-amber-500/10",
+  info: "bg-blue-500/10",
+  success: "bg-emerald-500/10",
 };
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -88,7 +88,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifList.filter(n => !n.read).length;
+  const unreadCount = notifList.filter((n) => !n.read).length;
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -96,16 +96,23 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setNotifOpen(false);
       }
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(e.target as Node)
+      ) {
         setProfileOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const markAllRead = () => setNotifList(ns => ns.map(n => ({ ...n, read: true })));
-  const markRead = (id: number) => setNotifList(ns => ns.map(n => n.id === id ? { ...n, read: true } : n));
+  const markAllRead = () =>
+    setNotifList((ns) => ns.map((n) => ({ ...n, read: true })));
+  const markRead = (id: number) =>
+    setNotifList((ns) =>
+      ns.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-[#0F172A]">
@@ -114,12 +121,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         position="top-right"
         toastOptions={{
           style: {
-            background: theme === 'dark' ? '#1E293B' : '#fff',
-            border: theme === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
-            color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
-            borderRadius: '12px',
+            background: theme === "dark" ? "#1E293B" : "#fff",
+            border:
+              theme === "dark" ? "1px solid #334155" : "1px solid #e2e8f0",
+            color: theme === "dark" ? "#e2e8f0" : "#0f172a",
+            borderRadius: "12px",
             fontFamily: "'Inter', sans-serif",
-            fontSize: '13px',
+            fontSize: "13px",
           },
         }}
       />
@@ -163,14 +171,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="w-6 h-6 rounded-md bg-[#2563EB] flex items-center justify-center">
               <Shield className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="text-slate-900 dark:text-white" style={{ fontWeight: 700, fontSize: '15px' }}>
+            <span
+              className="text-slate-900 dark:text-white"
+              style={{ fontWeight: 700, fontSize: "15px" }}
+            >
               Deep<span className="text-[#22D3EE]">Guard</span>
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate('/detect')}
+              onClick={() => navigate("/detect")}
               className="w-9 h-9 rounded-lg bg-[#2563EB] flex items-center justify-center text-white"
             >
               <ScanSearch className="w-4 h-4" />
@@ -189,9 +200,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div />
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/detect')}
+              onClick={() => navigate("/detect")}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#2563EB]/10 hover:bg-[#2563EB]/20 text-[#2563EB] dark:text-[#22D3EE] transition-colors"
-              style={{ fontSize: '12px', fontWeight: 700 }}
+              style={{ fontSize: "12px", fontWeight: 700 }}
             >
               <ScanSearch className="w-3.5 h-3.5" />
               New Scan
@@ -201,15 +212,26 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <button
               onClick={toggleTheme}
               className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-all"
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={
+                theme === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+              }
             >
-              {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              {theme === "dark" ? (
+                <Sun className="w-3.5 h-3.5" />
+              ) : (
+                <Moon className="w-3.5 h-3.5" />
+              )}
             </button>
 
             {/* Notification Bell */}
             <div ref={notifRef} className="relative">
               <button
-                onClick={() => { setNotifOpen(v => !v); setProfileOpen(false); }}
+                onClick={() => {
+                  setNotifOpen((v) => !v);
+                  setProfileOpen(false);
+                }}
                 className="relative w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <Bell className="w-3.5 h-3.5" />
@@ -225,16 +247,26 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-2">
                       <Bell className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="text-slate-900 dark:text-white" style={{ fontSize: '13px', fontWeight: 700 }}>Notifications</span>
+                      <span
+                        className="text-slate-900 dark:text-white"
+                        style={{ fontSize: "13px", fontWeight: 700 }}
+                      >
+                        Notifications
+                      </span>
                       {unreadCount > 0 && (
-                        <span className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-white" style={{ fontSize: '10px', fontWeight: 800 }}>{unreadCount}</span>
+                        <span
+                          className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-white"
+                          style={{ fontSize: "10px", fontWeight: 800 }}
+                        >
+                          {unreadCount}
+                        </span>
                       )}
                     </div>
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllRead}
                         className="text-[#2563EB] dark:text-[#22D3EE] hover:underline"
-                        style={{ fontSize: '11px', fontWeight: 600 }}
+                        style={{ fontSize: "11px", fontWeight: 600 }}
                       >
                         Mark all read
                       </button>
@@ -243,33 +275,55 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
                   {/* Notification list */}
                   <div className="max-h-72 overflow-y-auto">
-                    {notifList.map(({ id, type, icon: Icon, title, desc, time, read }) => (
-                      <button
-                        key={id}
-                        onClick={() => markRead(id)}
-                        className={`w-full flex gap-3 px-4 py-3 text-left border-b border-slate-100 dark:border-slate-700/60 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${!read ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''}`}
-                      >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${notifBg[type]}`}>
-                          <Icon className={`w-4 h-4 ${notifColors[type]}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-slate-900 dark:text-slate-200" style={{ fontSize: '12px', fontWeight: 600 }}>{title}</p>
-                          <p className="text-slate-500 dark:text-slate-400 mt-0.5" style={{ fontSize: '11px', lineHeight: 1.4 }}>{desc}</p>
-                          <p className="text-slate-400 mt-1" style={{ fontSize: '10px' }}>{time}</p>
-                        </div>
-                        {!read && (
-                          <div className="w-2 h-2 rounded-full bg-[#2563EB] flex-shrink-0 mt-2" />
-                        )}
-                      </button>
-                    ))}
+                    {notifList.map(
+                      ({ id, type, icon: Icon, title, desc, time, read }) => (
+                        <button
+                          key={id}
+                          onClick={() => markRead(id)}
+                          className={`w-full flex gap-3 px-4 py-3 text-left border-b border-slate-100 dark:border-slate-700/60 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${!read ? "bg-blue-50/40 dark:bg-blue-900/10" : ""}`}
+                        >
+                          <div
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${notifBg[type]}`}
+                          >
+                            <Icon className={`w-4 h-4 ${notifColors[type]}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className="text-slate-900 dark:text-slate-200"
+                              style={{ fontSize: "12px", fontWeight: 600 }}
+                            >
+                              {title}
+                            </p>
+                            <p
+                              className="text-slate-500 dark:text-slate-400 mt-0.5"
+                              style={{ fontSize: "11px", lineHeight: 1.4 }}
+                            >
+                              {desc}
+                            </p>
+                            <p
+                              className="text-slate-400 mt-1"
+                              style={{ fontSize: "10px" }}
+                            >
+                              {time}
+                            </p>
+                          </div>
+                          {!read && (
+                            <div className="w-2 h-2 rounded-full bg-[#2563EB] flex-shrink-0 mt-2" />
+                          )}
+                        </button>
+                      ),
+                    )}
                   </div>
 
                   {/* Footer */}
                   <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40">
                     <button
-                      onClick={() => { setNotifOpen(false); navigate('/history'); }}
+                      onClick={() => {
+                        setNotifOpen(false);
+                        navigate("/history");
+                      }}
                       className="w-full flex items-center justify-center gap-1.5 text-[#2563EB] dark:text-[#22D3EE] hover:underline"
-                      style={{ fontSize: '12px', fontWeight: 600 }}
+                      style={{ fontSize: "12px", fontWeight: 600 }}
                     >
                       View all in History
                       <ChevronRight className="w-3.5 h-3.5" />
@@ -282,10 +336,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             {/* User Avatar + Dropdown */}
             <div ref={profileRef} className="relative">
               <button
-                onClick={() => { setProfileOpen(v => !v); setNotifOpen(false); }}
+                onClick={() => {
+                  setProfileOpen((v) => !v);
+                  setNotifOpen(false);
+                }}
                 className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center hover:ring-2 hover:ring-[#2563EB]/40 transition-all"
               >
-                <span className="text-white" style={{ fontSize: '11px', fontWeight: 700 }}>A</span>
+                <span
+                  className="text-white"
+                  style={{ fontSize: "11px", fontWeight: 700 }}
+                >
+                  A
+                </span>
               </button>
 
               {/* Profile Dropdown */}
@@ -295,30 +357,71 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
-                        <span className="text-white" style={{ fontSize: '13px', fontWeight: 800 }}>A</span>
+                        <span
+                          className="text-white"
+                          style={{ fontSize: "13px", fontWeight: 800 }}
+                        >
+                          A
+                        </span>
                       </div>
                       <div className="min-w-0">
-                        <p className="text-slate-900 dark:text-white truncate" style={{ fontSize: '13px', fontWeight: 700 }}>Admin User</p>
-                        <p className="text-slate-400 truncate" style={{ fontSize: '11px' }}>admin@deepguard.ai</p>
+                        <p
+                          className="text-slate-900 dark:text-white truncate"
+                          style={{ fontSize: "13px", fontWeight: 700 }}
+                        >
+                          Admin User
+                        </p>
+                        <p
+                          className="text-slate-400 truncate"
+                          style={{ fontSize: "11px" }}
+                        >
+                          admin@deepguard.ai
+                        </p>
                       </div>
                     </div>
                     <div className="mt-2 px-1 py-0.5 rounded-md bg-[#2563EB]/10 w-fit">
-                      <span className="text-[#2563EB] dark:text-[#22D3EE]" style={{ fontSize: '10px', fontWeight: 700 }}>PRO PLAN</span>
+                      <span
+                        className="text-[#2563EB] dark:text-[#22D3EE]"
+                        style={{ fontSize: "10px", fontWeight: 700 }}
+                      >
+                        PREMIUM PLAN
+                      </span>
                     </div>
                   </div>
 
                   {/* Menu items */}
                   <div className="py-1.5">
                     {[
-                      { icon: User, label: 'Profile', action: () => { navigate('/settings'); setProfileOpen(false); } },
-                      { icon: Settings, label: 'Settings', action: () => { navigate('/settings'); setProfileOpen(false); } },
-                      { icon: HelpCircle, label: 'Help & Support', action: () => { navigate('/contact'); setProfileOpen(false); } },
+                      {
+                        icon: User,
+                        label: "Profile",
+                        action: () => {
+                          navigate("/settings");
+                          setProfileOpen(false);
+                        },
+                      },
+                      {
+                        icon: Settings,
+                        label: "Settings",
+                        action: () => {
+                          navigate("/settings");
+                          setProfileOpen(false);
+                        },
+                      },
+                      {
+                        icon: HelpCircle,
+                        label: "Help & Support",
+                        action: () => {
+                          navigate("/contact");
+                          setProfileOpen(false);
+                        },
+                      },
                     ].map(({ icon: Icon, label, action }) => (
                       <button
                         key={label}
                         onClick={action}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white transition-colors"
-                        style={{ fontSize: '13px', fontWeight: 500 }}
+                        style={{ fontSize: "13px", fontWeight: 500 }}
                       >
                         <Icon className="w-4 h-4" />
                         {label}
@@ -329,9 +432,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   {/* Divider + Logout */}
                   <div className="border-t border-slate-200 dark:border-slate-700 py-1.5">
                     <button
-                      onClick={() => { navigate('/'); setProfileOpen(false); }}
+                      onClick={() => {
+                        navigate("/");
+                        setProfileOpen(false);
+                      }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                      style={{ fontSize: '13px', fontWeight: 600 }}
+                      style={{ fontSize: "13px", fontWeight: 600 }}
                     >
                       <LogOut className="w-4 h-4" />
                       Sign Out
@@ -343,9 +449,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto">{children}</div>
       </main>
     </div>
   );
