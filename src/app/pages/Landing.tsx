@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { motion } from 'motion/react';
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import {
@@ -143,6 +146,12 @@ const testimonials = [
 
 const plans = [
   {
+    name: '1 month',
+    price: '199.000',
+    period: 'vnd',
+    desc: 'Gói linh hoạt theo tháng',
+    features: ['Thanh toán theo tháng', 'Kích hoạt ngay', 'Hỗ trợ tiêu chuẩn'],
+    cta: 'Chọn gói',
     name: "Free",
     price: "Miễn phí",
     period: "",
@@ -159,6 +168,12 @@ const plans = [
     color: "border-slate-200 dark:border-slate-700",
   },
   {
+    name: '3 month',
+    price: '539.000',
+    period: 'vnd',
+    desc: 'Tiết kiệm hơn so với gói tháng',
+    features: ['Sử dụng trong 3 tháng', 'Ưu đãi chi phí tốt hơn', 'Hỗ trợ tiêu chuẩn'],
+    cta: 'Chọn gói',
     name: "Premium",
     price: "199.000",
     period: "VND / tháng",
@@ -177,6 +192,22 @@ const plans = [
     color: "border-[#2563EB]",
   },
   {
+    name: '6 month',
+    price: '1.019.000',
+    period: 'vnd',
+    desc: 'Cân bằng giữa chi phí và thời hạn',
+    features: ['Sử dụng trong 6 tháng', 'Chi phí tối ưu hơn', 'Hỗ trợ ưu tiên'],
+    cta: 'Chọn gói',
+    highlight: false,
+    color: 'border-slate-200 dark:border-slate-700',
+  },
+  {
+    name: '1 year',
+    price: '1.920.000',
+    period: 'vnd',
+    desc: 'Giá tốt nhất cho nhu cầu dài hạn',
+    features: ['Sử dụng trọn năm', 'Tiết kiệm tối đa', 'Hỗ trợ ưu tiên'],
+    cta: 'Chọn gói',
     name: "Family",
     price: "399.000",
     period: "VND / tháng",
@@ -200,6 +231,7 @@ const plans = [
 export function Landing() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
@@ -871,6 +903,28 @@ export function Landing() {
             </p>
           </motion.div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+            {plans.map(({ name, price, period, desc, features, cta, highlight, color }, i) => (
+              <motion.div
+                key={name}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                viewport={{ once: true }}
+                className={`relative rounded-2xl border-2 p-6 transition-all duration-300 ${selectedPlan === name ? 'border-[#2563EB] ring-2 ring-[#2563EB]/20 shadow-2xl shadow-blue-500/20 -translate-y-1 bg-white dark:bg-[#1E293B]' : `${color} ${highlight ? 'bg-[#2563EB] shadow-2xl shadow-blue-500/25 scale-105' : 'bg-white dark:bg-[#1E293B]'}`}`}
+              >
+                {highlight && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#22D3EE] text-slate-900" style={{ fontSize: '11px', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                    ✦ MOST POPULAR
+                  </div>
+                )}
+
+                <div className="mb-5">
+                  <h3 className={`mb-1 ${highlight ? 'text-white' : 'text-slate-900 dark:text-white'}`} style={{ fontSize: '18px', fontWeight: 800 }}>{name}</h3>
+                  <p className={`${highlight ? 'text-blue-200' : 'text-slate-500 dark:text-slate-400'} mb-4`} style={{ fontSize: '13px' }}>{desc}</p>
+                  <div className="flex items-end gap-1">
+                    <span className={`${highlight ? 'text-white' : 'text-slate-900 dark:text-white'}`} style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '-1px', lineHeight: 1 }}>{price}</span>
+                    {period && <span className={`${highlight ? 'text-blue-200' : 'text-slate-400'} mb-1`} style={{ fontSize: '14px' }}>{period}</span>}
           <div className="grid md:grid-cols-3 gap-6 items-stretch">
             {plans.map(
               (
@@ -934,6 +988,30 @@ export function Landing() {
                     </div>
                   </div>
 
+                {selectedPlan === name && (
+                  <div className="mb-4 px-3 py-2 rounded-lg bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE] border border-[#2563EB]/20" style={{ fontSize: '12px', fontWeight: 700 }}>
+                    Bạn đã chọn gói {name}
+                  </div>
+                )}
+
+                <ul className="space-y-2.5 mb-6">
+                  {features.map(feature => (
+                    <li key={feature} className="flex items-center gap-2.5">
+                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${highlight ? 'text-[#22D3EE]' : 'text-emerald-500'}`} />
+                      <span className={`${highlight ? 'text-blue-100' : 'text-slate-600 dark:text-slate-400'}`} style={{ fontSize: '13px' }}>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={() => setSelectedPlan(name)}
+                  className={`w-full py-3 rounded-xl transition-all duration-200 ${selectedPlan === name ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/25' : highlight ? 'bg-white text-[#2563EB] hover:bg-blue-50 hover:shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                  style={{ fontSize: '14px', fontWeight: 700 }}
+                >
+                  {selectedPlan === name ? 'Đã chọn' : cta}
+                </button>
+              </motion.div>
+            ))}
                   <ul className="space-y-2.5 mb-6 flex-1">
                     {features.map((feature) => (
                       <li key={feature} className="flex items-center gap-2.5">
@@ -961,6 +1039,26 @@ export function Landing() {
               ),
             )}
           </div>
+
+          {selectedPlan && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mt-8 mx-auto max-w-xl rounded-2xl border border-[#2563EB]/30 bg-[#2563EB]/10 dark:bg-[#1E3A8A]/20 px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-3"
+            >
+              <p className="text-slate-700 dark:text-slate-200" style={{ fontSize: '14px', fontWeight: 600 }}>
+                Bạn đang chọn gói <span className="text-[#2563EB] dark:text-[#22D3EE]">{selectedPlan}</span>
+              </p>
+              <button
+                onClick={() => navigate('/register')}
+                className="px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
+                style={{ fontSize: '13px', fontWeight: 700 }}
+              >
+                Tiếp tục đăng ký
+              </button>
+            </motion.div>
+          )}
 
           <motion.p
             initial={{ opacity: 0 }}
