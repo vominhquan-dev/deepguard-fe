@@ -23,17 +23,9 @@ import { useTheme } from "../contexts/ThemeContext";
 
 const plans = [
   {
-    name: '1 month',
-    tagline: 'Gói linh hoạt theo tháng',
-    price: '199.000',
-type Billing = "monthly";
-
-const plans = [
-  {
-    name: "Free",
-    tagline: "Ad-funded",
-    monthlyPrice: 0,
-    annualPrice: 0,
+    name: "1 month",
+    tagline: "Thanh toán theo tháng",
+    price: "399.000",
     icon: Star,
     iconColor: "#10B981",
     iconBg: "bg-emerald-500/10",
@@ -41,42 +33,20 @@ const plans = [
     highlight: false,
     badge: null,
     features: [
-      { text: 'Kích hoạt ngay', included: true },
-      { text: 'Sử dụng trong 1 tháng', included: true },
-      { text: 'Hỗ trợ tiêu chuẩn', included: true },
-    ],
-    cta: 'Chọn gói',
-    ctaVariant: 'outline',
-  },
-  {
-    name: '3 month',
-    tagline: 'Tiết kiệm hơn so với gói tháng',
-    price: '539.000',
-      { text: "5 Credits/ngày (Free daily quota)", included: true },
-      {
-        text: "Hết lượt phải xem video quảng cáo để nhận thêm 1 lượt",
-        included: true,
-      },
-      {
-        text: "Giải quyết như cầu của 55.8% người dùng khảo sát",
-        included: true,
-      },
+      { text: "500 Credits/tháng", included: true },
       { text: "Image & Audio detection", included: true },
-      { text: "Basic analysis", included: true },
-      { text: "Community support", included: true },
-      { text: "Full technical breakdown", included: false },
-      { text: "Downloadable PDF report", included: false },
-      { text: "Video analysis", included: false },
-      { text: "Priority analysis queue", included: false },
+      { text: "Hỗ trợ tiêu chuẩn", included: true },
+      { text: "PDF reports", included: false },
+      { text: "API access", included: false },
+      { text: "Priority support", included: false },
     ],
-    cta: "Get Started Free",
+    cta: "Chọn gói",
     ctaVariant: "outline",
   },
   {
-    name: "Premium",
-    tagline: "Standard",
-    monthlyPrice: 199000,
-    annualPrice: 199000,
+    name: "3 month",
+    tagline: "Tiết kiệm hơn so với gói tháng",
+    price: "1.049.000",
     icon: Zap,
     iconColor: "#2563EB",
     iconBg: "bg-[#2563EB]/10",
@@ -84,39 +54,20 @@ const plans = [
     highlight: true,
     badge: "Most Popular",
     features: [
-      { text: 'Sử dụng trong 3 tháng', included: true },
-      { text: 'Chi phí tối ưu hơn', included: true },
-      { text: 'Hỗ trợ tiêu chuẩn', included: true },
-    ],
-    cta: 'Chọn gói',
-    ctaVariant: 'primary',
-  },
-  {
-    name: '6 month',
-    tagline: 'Cân bằng giữa chi phí và thời hạn',
-    price: '1.019.000',
       { text: "500 Credits/tháng", included: true },
-      {
-        text: "Phù hợp cho cả nhân kinh doanh online thường xuyên gọi video cho khách lạ",
-        included: true,
-      },
       { text: "Image, Video & Audio detection", included: true },
-      { text: "Full technical breakdown", included: true },
-      { text: "Downloadable PDF reports", included: true },
-      { text: "Priority analysis queue", included: true },
-      { text: "Advanced AI features", included: true },
-      { text: "24/5 email support", included: true },
+      { text: "PDF reports", included: true },
+      { text: "Hỗ trợ tiêu chuẩn", included: true },
       { text: "API access", included: false },
-      { text: "Custom integrations", included: false },
+      { text: "Priority support", included: false },
     ],
-    cta: "Nâng cấp lên Premium",
+    cta: "Chọn gói",
     ctaVariant: "primary",
   },
   {
-    name: "Family",
-    tagline: "Protection",
-    monthlyPrice: 399000,
-    annualPrice: 399000,
+    name: "6 month",
+    tagline: "Cân bằng giữa chi phí và thời hạn",
+    price: "1.799.000",
     icon: Building2,
     iconColor: "#8B5CF6",
     iconBg: "bg-purple-500/10",
@@ -124,70 +75,63 @@ const plans = [
     highlight: false,
     badge: null,
     features: [
-      { text: 'Sử dụng trong 6 tháng', included: true },
-      { text: 'Chi phí tiết kiệm hơn', included: true },
-      { text: 'Hỗ trợ ưu tiên', included: true },
+      { text: "833 Credits/tháng", included: true },
+      { text: "All media types", included: true },
+      { text: "PDF reports + API access", included: true },
+      { text: "Priority support", included: true },
+      { text: "Advanced analytics", included: true },
+      { text: "Dedicated account manager", included: false },
     ],
-    cta: 'Chọn gói',
-    ctaVariant: 'outline',
+    cta: "Chọn gói",
+    ctaVariant: "outline",
   },
   {
-    name: '1 year',
-    tagline: 'Giá tốt nhất cho nhu cầu dài hạn',
-    price: '1.920.000',
+    name: "1 year",
+    tagline: "Giá tốt nhất cho nhu cầu dài hạn",
+    price: "3.299.000",
     icon: Shield,
-    iconColor: '#F59E0B',
-    iconBg: 'bg-amber-500/10',
-    border: 'border-slate-200 dark:border-slate-700',
+    iconColor: "#F59E0B",
+    iconBg: "bg-amber-500/10",
+    border: "border-slate-200 dark:border-slate-700",
     highlight: false,
     badge: null,
     features: [
-      { text: 'Sử dụng trọn 12 tháng', included: true },
-      { text: 'Tiết kiệm tối đa', included: true },
-      { text: 'Hỗ trợ ưu tiên', included: true },
-    ],
-    cta: 'Chọn gói',
-    ctaVariant: 'outline',
-      { text: "1500 Credits dùng chung", included: true },
-      { text: "Đặnh mạnh vào như cầu bảo vệ về gia đình", included: true },
-      { text: "All media types", included: true },
-      { text: "Unlimited file size", included: true },
-      { text: "Family member invites", included: true },
-      { text: "Shared analytics dashboard", included: true },
-      { text: "24/7 priority support", included: true },
-      { text: "Custom alerts", included: true },
+      { text: "1000 Credits/tháng", included: true },
+      { text: "All features included", included: true },
+      { text: "API access + Custom integrations", included: true },
+      { text: "24/7 Priority support", included: true },
+      { text: "Advanced analytics", included: true },
       { text: "Dedicated account manager", included: true },
-      { text: "Family safety features", included: true },
     ],
-    cta: "Nâng cấp lên Family",
+    cta: "Chọn gói",
     ctaVariant: "outline",
   },
 ];
 
 const faqs = [
   {
-    q: "Gói Free có thực sự miễn phí mãi mãi không?",
-    a: "Đúng vậy. Gói Free hoàn toàn miễn phí không cần thẻ tín dụng. Bạn nhận được 5 Credits mỗi ngày. Khi hết lượt, bạn có thể xem video quảng cáo để nhận thêm 1 lượt. Nếu cần nhiều Credits hoặc tính năng nâng cao, bạn có thể nâng cấp sang Premium hoặc Family.",
+    q: "Gói 1 month có gì khác biệt so với các gói khác?",
+    a: "Gói 1 month cung cấp 500 Credits/tháng, phù hợp cho người dùng muốn thanh toán linh hoạt theo tháng. Các gói dài hạn (3 month, 6 month, 1 year) cung cấp giá tốt hơn và nhiều credits hơn.",
   },
   {
-    q: "Sự khác biệt giữa các gói What Premium và Family là gì?",
-    a: "Gói Premium (199,000 VND/tháng) cung cấp 500 Credits phù hợp cho nhân kinh doanh online thường xuyên. Gói Family (399,000 VND/tháng) cung cấp 1500 Credits dùng chung, đặnh mạnh vào bảo vệ gia đình và có thể chia sẻ cho các thành viên trong gia đình.",
+    q: "What is the difference between monthly and annual billing?",
+    a: "Annual billing gives you a 20% discount — Pro drops from $29/month to $23/month, saving you $72 per year. You're billed upfront for the full year.",
   },
   {
-    q: "Tôi có thể hủy gói Premium hoặc Family bất cứ lúc nào không?",
-    a: "Hoàn toàn có thể. Bạn có thể hủy đăng ký Premium hoặc Family bất cứ lúc nào từ Cài đặt → Thanh toán. Quyền truy cập sẽ tiếp tục cho đến hết chu kỳ thanh toán hiện tại, không có phí hủy.",
+    q: "Can I cancel my Pro subscription at any time?",
+    a: "Absolutely. You can cancel your Pro subscription at any time from Settings → Billing. Your access continues until the end of the billing period, with no cancellation fees.",
   },
   {
-    q: "Những định dạng file nào được hỗ trợ?",
-    a: "Tất cả các gói hỗ trợ JPG, PNG, WEBP (images), MP4, MOV, AVI (video), và MP3, WAV, M4A (audio). Gói Premium và Family hỗ trợ thêm các định dạng nâng cao.",
+    q: "What file formats are supported?",
+    a: "Free and Pro plans support JPG, PNG, WEBP (images), MP4, MOV, AVI (video), and MP3, WAV, M4A (audio). Enterprise plans support additional proprietary formats upon request.",
   },
   {
-    q: "Dữ liệu tải lên của tôi có an toàn không?",
-    a: "Vâng. Tất cả các tệp được xử lý trong sandbox riêng lẻ với mã hóa TLS 1.3. Các tệp này được xóa vĩnh viễn trong 60 giây sau khi phân tích hoàn tất. Chúng tôi được chứng nhận SOC 2 Type II và tuân thủ GDPR.",
+    q: "Is my uploaded data secure?",
+    a: "Yes. All files are processed in isolated sandboxes with TLS 1.3 encryption. Media files are permanently deleted within 60 seconds of analysis completion. We are SOC 2 Type II certified and GDPR compliant.",
   },
   {
-    q: "Có dùng thử miễn phí cho gói Premium/Family không?",
-    a: "Bạn có thể thử gói Premium với 3 ngày miễn phí (không cần thẻ tín dụng). Sau đó bạn sẽ bị tính phí hàng tháng nếu tiếp tục sử dụng.",
+    q: "Do you offer a free trial for the Pro plan?",
+    a: "Yes! Pro plan comes with a 7-day free trial — no credit card required. You'll only be charged after the trial period ends.",
   },
 ];
 
@@ -195,7 +139,6 @@ export function Pricing() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [billing] = useState<Billing>("monthly");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
@@ -301,13 +244,15 @@ export function Pricing() {
               className="text-slate-500 dark:text-slate-400 max-w-xl mx-auto mb-8"
               style={{ fontSize: "18px", lineHeight: 1.7 }}
             >
-              Ch\u1ecda c\u00f3 g\u00ec ph\u1ee9c t\u1ea1p. N\u0103ng c\u1ea5p
-              khi b\u1ea1n c\u1ea7n. Kh\u00f4ng ph\u00ed \u1ea9n l\u1ea5u,
-              kh\u00f4ng c\u00f3 ch\u1ee7ng ph\u00ed g\u00e0ng.
+              Start free. Upgrade when you need it. No hidden fees, no surprise
+              charges.
             </p>
 
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
-              <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: '13px', fontWeight: 600 }}>
+              <span
+                className="text-slate-500 dark:text-slate-400"
+                style={{ fontSize: "13px", fontWeight: 600 }}
+              >
                 Bảng giá gói dịch vụ
               </span>
             </div>
@@ -319,29 +264,12 @@ export function Pricing() {
       <section className="pb-24">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-            {plans.map(({ name, tagline, price, icon: Icon, iconColor, iconBg, border, highlight, badge, features, cta, ctaVariant }, i) => {
-              return (
-                <motion.div
-                  key={name}
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className={`relative rounded-2xl bg-white dark:bg-[#1E293B] border-2 p-7 transition-all duration-300 ${selectedPlan === name ? 'border-[#2563EB] ring-2 ring-[#2563EB]/20 shadow-2xl shadow-blue-500/20 -translate-y-1' : `${border} ${highlight ? 'shadow-2xl shadow-blue-500/10' : ''}`}`}
-                >
-                  {/* Popular badge */}
-                  {badge && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#2563EB] text-white" style={{ fontSize: '11px', fontWeight: 700 }}>
-                      {badge}
-                    </div>
-                  )}
-          <div className="grid md:grid-cols-3 gap-6 items-stretch">
             {plans.map(
               (
                 {
                   name,
                   tagline,
-                  monthlyPrice,
-                  annualPrice,
+                  price,
                   icon: Icon,
                   iconColor,
                   iconBg,
@@ -354,14 +282,13 @@ export function Pricing() {
                 },
                 i,
               ) => {
-                const displayPrice = monthlyPrice;
                 return (
                   <motion.div
                     key={name}
                     initial={{ opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className={`relative h-full rounded-2xl bg-white dark:bg-[#1E293B] border-2 ${border} p-7 flex flex-col ${highlight ? "shadow-2xl shadow-blue-500/10" : ""}`}
+                    className={`relative rounded-2xl bg-white dark:bg-[#1E293B] border-2 p-7 transition-all duration-300 ${selectedPlan === name ? "border-[#2563EB] ring-2 ring-[#2563EB]/20 shadow-2xl shadow-blue-500/20 -translate-y-1" : `${border} ${highlight ? "shadow-2xl shadow-blue-500/10" : ""}`}`}
                   >
                     {/* Popular badge */}
                     {badge && (
@@ -392,143 +319,55 @@ export function Pricing() {
                       {tagline}
                     </p>
 
-                  {/* Price */}
-                  <div className="mb-7">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-slate-900 dark:text-white" style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '-1.5px', lineHeight: 1 }}>
-                        {price}
-                      </span>
-                      <span className="text-slate-400" style={{ fontSize: '14px', fontWeight: 600 }}>vnd</span>
-                    </div>
-                  </div>
-
-                  {/* CTA */}
-                  <button
-                    onClick={() => setSelectedPlan(name)}
-                    className={`w-full py-3 rounded-xl mb-7 transition-all ${
-                      selectedPlan === name
-                        ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/25'
-                        : ctaVariant === 'primary'
-                          ? 'bg-[#2563EB] hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25'
-                          : 'border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-                    }`}
-                    style={{ fontSize: '14px', fontWeight: 700 }}
-                  >
-                    {selectedPlan === name ? 'Đã chọn' : cta}
-                  </button>
-
-                  {selectedPlan === name && (
-                    <div className="mb-5 px-3 py-2 rounded-lg bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE] border border-[#2563EB]/20" style={{ fontSize: '12px', fontWeight: 700 }}>
-                      Bạn đã chọn gói {name}
-                    </div>
-                  )}
-
-                  {/* Features */}
-                  <div className="space-y-3">
-                    {features.map(({ text, included }) => (
-                      <div key={text} className={`flex items-center gap-3 ${!included ? 'opacity-40' : ''}`}>
-                        {included ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                        ) : (
-                          <X className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        )}
-                        <span className="text-slate-600 dark:text-slate-400" style={{ fontSize: '13px' }}>{text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              );
-            })}
                     {/* Price */}
                     <div className="mb-7">
-                      {displayPrice === null ? (
-                        <div>
-                          <span
-                            className="text-slate-900 dark:text-white"
-                            style={{
-                              fontSize: "36px",
-                              fontWeight: 900,
-                              letterSpacing: "-1px",
-                            }}
-                          >
-                            Custom
-                          </span>
-                          <p
-                            className="text-slate-400 mt-1"
-                            style={{ fontSize: "13px" }}
-                          >
-                            Talk to our sales team
-                          </p>
-                        </div>
-                      ) : displayPrice === 0 ? (
-                        <div>
-                          <span
-                            className="text-slate-900 dark:text-white"
-                            style={{
-                              fontSize: "36px",
-                              fontWeight: 900,
-                              letterSpacing: "-1px",
-                            }}
-                          >
-                            Free
-                          </span>
-                          <p
-                            className="text-slate-400 mt-1"
-                            style={{ fontSize: "13px" }}
-                          >
-                            Forever, no credit card needed
-                          </p>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="flex items-baseline gap-1">
-                            <span
-                              className="text-slate-400"
-                              style={{ fontSize: "20px", fontWeight: 600 }}
-                            >
-                              VND
-                            </span>
-                            <span
-                              className="text-slate-900 dark:text-white"
-                              style={{
-                                fontSize: "42px",
-                                fontWeight: 900,
-                                letterSpacing: "-2px",
-                                lineHeight: 1,
-                              }}
-                            >
-                              {displayPrice.toLocaleString("vi-VN")}
-                            </span>
-                            <span
-                              className="text-slate-400"
-                              style={{ fontSize: "14px" }}
-                            >
-                              /th\u00e1ng
-                            </span>
-                          </div>
-                        </div>
-                      )}
+                      <div className="flex items-baseline gap-2">
+                        <span
+                          className="text-slate-900 dark:text-white"
+                          style={{
+                            fontSize: "40px",
+                            fontWeight: 900,
+                            letterSpacing: "-1.5px",
+                            lineHeight: 1,
+                          }}
+                        >
+                          {price}
+                        </span>
+                        <span
+                          className="text-slate-400"
+                          style={{ fontSize: "14px", fontWeight: 600 }}
+                        >
+                          vnd
+                        </span>
+                      </div>
                     </div>
 
                     {/* CTA */}
                     <button
-                      onClick={() =>
-                        name === "Family"
-                          ? navigate("/contact")
-                          : navigate("/register")
-                      }
+                      onClick={() => setSelectedPlan(name)}
                       className={`w-full py-3 rounded-xl mb-7 transition-all ${
-                        ctaVariant === "primary"
-                          ? "bg-[#2563EB] hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25"
-                          : "border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                        selectedPlan === name
+                          ? "bg-[#2563EB] text-white shadow-lg shadow-blue-500/25"
+                          : ctaVariant === "primary"
+                            ? "bg-[#2563EB] hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25"
+                            : "border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                       }`}
                       style={{ fontSize: "14px", fontWeight: 700 }}
                     >
-                      {cta}
+                      {selectedPlan === name ? "Đã chọn" : cta}
                     </button>
 
+                    {selectedPlan === name && (
+                      <div
+                        className="mb-5 px-3 py-2 rounded-lg bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE] border border-[#2563EB]/20"
+                        style={{ fontSize: "12px", fontWeight: 700 }}
+                      >
+                        Bạn đã chọn gói {name}
+                      </div>
+                    )}
+
                     {/* Features */}
-                    <div className="space-y-3 flex-1">
+                    <div className="space-y-3">
                       {features.map(({ text, included }) => (
                         <div
                           key={text}
@@ -560,13 +399,19 @@ export function Pricing() {
               animate={{ opacity: 1, y: 0 }}
               className="mt-8 mx-auto max-w-xl rounded-2xl border border-[#2563EB]/30 bg-[#2563EB]/10 dark:bg-[#1E3A8A]/20 px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-3"
             >
-              <p className="text-slate-700 dark:text-slate-200" style={{ fontSize: '14px', fontWeight: 600 }}>
-                Bạn đang chọn gói <span className="text-[#2563EB] dark:text-[#22D3EE]">{selectedPlan}</span>
+              <p
+                className="text-slate-700 dark:text-slate-200"
+                style={{ fontSize: "14px", fontWeight: 600 }}
+              >
+                Bạn đang chọn gói{" "}
+                <span className="text-[#2563EB] dark:text-[#22D3EE]">
+                  {selectedPlan}
+                </span>
               </p>
               <button
-                onClick={() => navigate('/register')}
+                onClick={() => navigate("/register")}
                 className="px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
-                style={{ fontSize: '13px', fontWeight: 700 }}
+                style={{ fontSize: "13px", fontWeight: 700 }}
               >
                 Tiếp tục đăng ký
               </button>
@@ -743,14 +588,13 @@ export function Pricing() {
                 letterSpacing: "-0.8px",
               }}
             >
-              B\u1eaft \u0111\u1ea7u b\u1ea3o v\u1ec7 h\u00f4m nay
+              Start protecting yourself today
             </h2>
             <p
               className="text-blue-100 mb-8"
               style={{ fontSize: "16px", lineHeight: 1.7 }}
             >
-              G\u00f3i Free bao g\u1ed3m 5 Credits m\u1ed7i ng\u00e0y \u2014
-              kh\u00f4ng c\u1ea7n th\u1ebb t\u00edn d\u1ee5ng.
+              Free plan includes 3 scans per day — no credit card required.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
