@@ -25,7 +25,7 @@ const plans = [
   {
     name: "1 month",
     tagline: "Thanh toán theo tháng",
-    price: "399.000",
+    price: "199.000",
     icon: Star,
     iconColor: "#10B981",
     iconBg: "bg-emerald-500/10",
@@ -46,7 +46,7 @@ const plans = [
   {
     name: "3 month",
     tagline: "Tiết kiệm hơn so với gói tháng",
-    price: "1.049.000",
+    price: "539.000",
     icon: Zap,
     iconColor: "#2563EB",
     iconBg: "bg-[#2563EB]/10",
@@ -67,7 +67,7 @@ const plans = [
   {
     name: "6 month",
     tagline: "Cân bằng giữa chi phí và thời hạn",
-    price: "1.799.000",
+    price: "1.019.000",
     icon: Building2,
     iconColor: "#8B5CF6",
     iconBg: "bg-purple-500/10",
@@ -88,7 +88,7 @@ const plans = [
   {
     name: "1 year",
     tagline: "Giá tốt nhất cho nhu cầu dài hạn",
-    price: "3.299.000",
+    price: "1.920.000",
     icon: Shield,
     iconColor: "#F59E0B",
     iconBg: "bg-amber-500/10",

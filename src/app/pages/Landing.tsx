@@ -145,7 +145,7 @@ const testimonials = [
 const plans = [
   {
     name: "1 month",
-    price: "299.000",
+    price: "199.000",
     period: "vnd",
     desc: "Thanh toán theo tháng",
     features: [
@@ -159,7 +159,7 @@ const plans = [
   },
   {
     name: "3 month",
-    price: "799.000",
+    price: "539.000",
     period: "vnd",
     desc: "Tiết kiệm hơn so với gói tháng",
     features: [
@@ -173,7 +173,7 @@ const plans = [
   },
   {
     name: "6 month",
-    price: "1.499.000",
+    price: "1.019.000",
     period: "vnd",
     desc: "Cân bằng giữa chi phí và thời hạn",
     features: [
@@ -187,7 +187,7 @@ const plans = [
   },
   {
     name: "1 year",
-    price: "2.699.000",
+    price: "1.920.000",
     period: "vnd",
     desc: "Giá tốt nhất cho nhu cầu dài hạn",
     features: [
