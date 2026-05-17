@@ -1,9 +1,9 @@
-import { useLocation, Outlet } from 'react-router';
-import { AnimatePresence } from 'motion/react';
-import { ThemeProvider } from '../contexts/ThemeContext';
-import { PageTransition } from './PageTransition';
+import { useLocation, Outlet } from "react-router";
+import { AnimatePresence } from "motion/react";
+import { ThemeProvider } from "../providers/ThemeProvider";
+import { PageTransition } from "../../shared/components/PageTransition";
 
-export function Root() {
+export function RootLayout() {
   const location = useLocation();
 
   return (

@@ -1,27 +1,36 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { motion, AnimatePresence } from 'motion/react';
-import { toast } from 'sonner';
-import { Toaster } from 'sonner';
-import { Shield, Mail, ArrowLeft, Sun, Moon, CheckCircle2, Send, Lock } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import { motion, AnimatePresence } from "motion/react";
+import { toast } from "sonner";
+import { Toaster } from "sonner";
+import {
+  Shield,
+  Mail,
+  ArrowLeft,
+  Sun,
+  Moon,
+  CheckCircle2,
+  Send,
+  Lock,
+} from "lucide-react";
+import { useTheme } from "../../../app/providers/ThemeProvider";
 
 export function ForgotPassword() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      toast.error('Please enter your email address.');
+      toast.error("Please enter your email address.");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.error('Please enter a valid email address.');
+      toast.error("Please enter a valid email address.");
       return;
     }
     setLoading(true);
@@ -41,12 +50,13 @@ export function ForgotPassword() {
         position="top-right"
         toastOptions={{
           style: {
-            background: theme === 'dark' ? '#1E293B' : '#fff',
-            border: theme === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
-            color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
-            borderRadius: '12px',
+            background: theme === "dark" ? "#1E293B" : "#fff",
+            border:
+              theme === "dark" ? "1px solid #334155" : "1px solid #e2e8f0",
+            color: theme === "dark" ? "#e2e8f0" : "#0f172a",
+            borderRadius: "12px",
             fontFamily: "'Inter', sans-serif",
-            fontSize: '13px',
+            fontSize: "13px",
           },
         }}
       />
@@ -57,16 +67,20 @@ export function ForgotPassword() {
           onClick={toggleTheme}
           className="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
         >
-          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          {theme === "dark" ? (
+            <Sun className="w-4 h-4" />
+          ) : (
+            <Moon className="w-4 h-4" />
+          )}
         </button>
       </div>
 
       <div className="w-full max-w-md">
         {/* Back to login */}
         <button
-          onClick={() => navigate('/login')}
+          onClick={() => navigate("/login")}
           className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors mb-10"
-          style={{ fontSize: '13px', fontWeight: 500 }}
+          style={{ fontSize: "13px", fontWeight: 500 }}
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Sign In
@@ -89,16 +103,30 @@ export function ForgotPassword() {
                 </div>
 
                 {/* Header */}
-                <h1 className="text-slate-900 dark:text-white mb-2" style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.5px' }}>
+                <h1
+                  className="text-slate-900 dark:text-white mb-2"
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: 800,
+                    letterSpacing: "-0.5px",
+                  }}
+                >
                   Reset your password
                 </h1>
-                <p className="text-slate-500 dark:text-slate-400 mb-8" style={{ fontSize: '14px', lineHeight: 1.6 }}>
-                  Enter your registered email address and we'll send you a secure link to reset your password.
+                <p
+                  className="text-slate-500 dark:text-slate-400 mb-8"
+                  style={{ fontSize: "14px", lineHeight: 1.6 }}
+                >
+                  Enter your registered email address and we'll send you a
+                  secure link to reset your password.
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block mb-1.5 text-slate-700 dark:text-slate-300" style={{ fontSize: '13px', fontWeight: 600 }}>
+                    <label
+                      className="block mb-1.5 text-slate-700 dark:text-slate-300"
+                      style={{ fontSize: "13px", fontWeight: 600 }}
+                    >
                       Email address
                     </label>
                     <div className="relative">
@@ -106,10 +134,10 @@ export function ForgotPassword() {
                       <input
                         type="email"
                         value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="your@email.com"
                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all"
-                        style={{ fontSize: '14px' }}
+                        style={{ fontSize: "14px" }}
                       />
                     </div>
                   </div>
@@ -118,12 +146,16 @@ export function ForgotPassword() {
                     type="submit"
                     disabled={loading}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25 disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{ fontSize: '15px', fontWeight: 700 }}
+                    style={{ fontSize: "15px", fontWeight: 700 }}
                   >
                     {loading ? (
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: "linear",
+                        }}
                         className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white"
                       />
                     ) : (
@@ -135,10 +167,13 @@ export function ForgotPassword() {
                   </button>
                 </form>
 
-                <p className="text-center mt-6 text-slate-400" style={{ fontSize: '12px' }}>
-                  Remember your password?{' '}
+                <p
+                  className="text-center mt-6 text-slate-400"
+                  style={{ fontSize: "12px" }}
+                >
+                  Remember your password?{" "}
                   <button
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate("/login")}
                     className="text-[#2563EB] dark:text-[#22D3EE] hover:underline"
                     style={{ fontWeight: 600 }}
                   >
@@ -158,37 +193,53 @@ export function ForgotPassword() {
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 200, damping: 14 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 14 }}
                   className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6"
                 >
                   <CheckCircle2 className="w-10 h-10 text-emerald-500" />
                 </motion.div>
 
-                <h2 className="text-slate-900 dark:text-white mb-3" style={{ fontSize: '22px', fontWeight: 800 }}>
+                <h2
+                  className="text-slate-900 dark:text-white mb-3"
+                  style={{ fontSize: "22px", fontWeight: 800 }}
+                >
                   Check your inbox
                 </h2>
-                <p className="text-slate-500 dark:text-slate-400 mb-2" style={{ fontSize: '14px', lineHeight: 1.6 }}>
+                <p
+                  className="text-slate-500 dark:text-slate-400 mb-2"
+                  style={{ fontSize: "14px", lineHeight: 1.6 }}
+                >
                   We've sent a password reset link to
                 </p>
-                <p className="text-slate-900 dark:text-white mb-6" style={{ fontSize: '14px', fontWeight: 700 }}>
+                <p
+                  className="text-slate-900 dark:text-white mb-6"
+                  style={{ fontSize: "14px", fontWeight: 700 }}
+                >
                   {email}
                 </p>
-                <p className="text-slate-400 mb-8" style={{ fontSize: '13px', lineHeight: 1.6 }}>
-                  The link expires in 15 minutes. If you don't see it, check your spam folder.
+                <p
+                  className="text-slate-400 mb-8"
+                  style={{ fontSize: "13px", lineHeight: 1.6 }}
+                >
+                  The link expires in 15 minutes. If you don't see it, check
+                  your spam folder.
                 </p>
 
                 <div className="space-y-3">
                   <button
-                    onClick={() => { setSent(false); setEmail(''); }}
+                    onClick={() => {
+                      setSent(false);
+                      setEmail("");
+                    }}
                     className="w-full py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
-                    style={{ fontSize: '14px', fontWeight: 600 }}
+                    style={{ fontSize: "14px", fontWeight: 600 }}
                   >
                     Try a different email
                   </button>
                   <button
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate("/login")}
                     className="w-full py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
-                    style={{ fontSize: '14px', fontWeight: 700 }}
+                    style={{ fontSize: "14px", fontWeight: 700 }}
                   >
                     Back to Sign In
                   </button>
@@ -203,7 +254,10 @@ export function ForgotPassword() {
           <div className="w-6 h-6 rounded-md bg-[#2563EB] flex items-center justify-center">
             <Shield className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: '13px', fontWeight: 600 }}>
+          <span
+            className="text-slate-500 dark:text-slate-400"
+            style={{ fontSize: "13px", fontWeight: 600 }}
+          >
             Deep<span className="text-[#22D3EE]">Guard</span> AI
           </span>
         </div>
