@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { DashboardLayout } from "../components/DashboardLayout";
+import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { toast } from "sonner";
 import {
   Monitor,
