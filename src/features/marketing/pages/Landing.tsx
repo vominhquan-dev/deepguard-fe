@@ -160,8 +160,8 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "$29",
-    period: "/ month",
+    price: "₫199.000",
+    period: "/ tháng",
     desc: "For journalists and security researchers",
     features: [
       "1,000 scans / month",
