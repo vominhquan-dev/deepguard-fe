@@ -21,14 +21,13 @@ import {
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
 
-type Billing = "monthly" | "annual";
+const currencySymbol = "₫";
 
 const plans = [
   {
-    name: "Free",
-    tagline: "Perfect for individuals",
-    monthlyPrice: 0,
-    annualPrice: 0,
+    name: "1 month",
+    tagline: "Thanh toán theo tháng",
+    price: 199000,
     icon: Star,
     iconColor: "#10B981",
     iconBg: "bg-emerald-500/10",
@@ -36,25 +35,17 @@ const plans = [
     highlight: false,
     badge: null,
     features: [
-      { text: "3 scans per day", included: true },
+      { text: "500 Credits/tháng", included: true },
       { text: "Image & Audio detection", included: true },
-      { text: "Basic risk score (0–100%)", included: true },
-      { text: "5MB max file size", included: true },
-      { text: "Community support", included: true },
-      { text: "Full technical breakdown", included: false },
-      { text: "Downloadable PDF report", included: false },
-      { text: "Video analysis", included: false },
-      { text: "API access", included: false },
-      { text: "Priority analysis queue", included: false },
+      { text: "Hỗ trợ tiêu chuẩn", included: true },
     ],
-    cta: "Get Started Free",
+    cta: "Chọn gói",
     ctaVariant: "outline",
   },
   {
-    name: "Pro",
-    tagline: "For journalists & researchers",
-    monthlyPrice: 29,
-    annualPrice: 23,
+    name: "3 month",
+    tagline: "Tiết kiệm hơn so với gói tháng",
+    price: 539000,
     icon: Zap,
     iconColor: "#2563EB",
     iconBg: "bg-[#2563EB]/10",
@@ -62,25 +53,18 @@ const plans = [
     highlight: true,
     badge: "Most Popular",
     features: [
-      { text: "Unlimited scans", included: true },
+      { text: "500 Credits/tháng", included: true },
       { text: "Image, Video & Audio detection", included: true },
-      { text: "Full technical breakdown", included: true },
-      { text: "500MB max file size", included: true },
-      { text: "Downloadable PDF reports", included: true },
-      { text: "Priority analysis queue", included: true },
-      { text: "API access (10K req/month)", included: true },
-      { text: "Explainable AI visualization", included: true },
-      { text: "Priority email support", included: true },
-      { text: "Custom AI model tuning", included: false },
+      { text: "PDF reports", included: true },
+      { text: "Hỗ trợ tiêu chuẩn", included: true },
     ],
-    cta: "Start Pro Trial",
+    cta: "Chọn gói",
     ctaVariant: "primary",
   },
   {
-    name: "Enterprise",
-    tagline: "For teams & organizations",
-    monthlyPrice: null,
-    annualPrice: null,
+    name: "6 month",
+    tagline: "Cân bằng giữa chi phí và thời hạn",
+    price: 1019000,
     icon: Building2,
     iconColor: "#8B5CF6",
     iconBg: "bg-purple-500/10",
@@ -88,18 +72,29 @@ const plans = [
     highlight: false,
     badge: null,
     features: [
-      { text: "Unlimited scans", included: true },
-      { text: "All media types", included: true },
-      { text: "Custom AI model tuning", included: true },
-      { text: "Unlimited file size", included: true },
-      { text: "SSO & SAML authentication", included: true },
-      { text: "Dedicated API cluster", included: true },
-      { text: "99.9% SLA guarantee", included: true },
-      { text: "24/7 priority support", included: true },
-      { text: "Custom integrations", included: true },
-      { text: "Dedicated account manager", included: true },
+      { text: "833 Credits/tháng", included: true },
+      { text: "All media types + API access", included: true },
+      { text: "Priority support", included: true },
     ],
-    cta: "Contact Sales",
+    cta: "Chọn gói",
+    ctaVariant: "outline",
+  },
+  {
+    name: "1 year",
+    tagline: "Giá tốt nhất cho nhu cầu dài hạn",
+    price: 1920000,
+    icon: Shield,
+    iconColor: "#2563EB",
+    iconBg: "bg-[#2563EB]/10",
+    border: "border-slate-200 dark:border-slate-700",
+    highlight: false,
+    badge: null,
+    features: [
+      { text: "1000 Credits/tháng", included: true },
+      { text: "All features + Dedicated support", included: true },
+      { text: "Custom integrations", included: true },
+    ],
+    cta: "Chọn gói",
     ctaVariant: "outline",
   },
 ];
@@ -134,7 +129,6 @@ const faqs = [
 export function Pricing() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const [billing, setBilling] = useState<Billing>("monthly");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
@@ -243,32 +237,6 @@ export function Pricing() {
               Start free. Upgrade when you need it. No hidden fees, no surprise
               charges.
             </p>
-
-            {/* Billing toggle */}
-            <div className="inline-flex items-center gap-3 p-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
-              {(["monthly", "annual"] as const).map((b) => (
-                <button
-                  key={b}
-                  onClick={() => setBilling(b)}
-                  className={`px-5 py-2 rounded-lg transition-all ${
-                    billing === b
-                      ? "bg-[#2563EB] text-white shadow-md shadow-blue-500/20"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                  style={{ fontSize: "14px", fontWeight: 600 }}
-                >
-                  {b === "monthly" ? "Monthly" : "Annual"}
-                </button>
-              ))}
-              {billing === "annual" && (
-                <span
-                  className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 mr-1"
-                  style={{ fontSize: "11px", fontWeight: 700 }}
-                >
-                  Save 20%
-                </span>
-              )}
-            </div>
           </motion.div>
         </div>
       </section>
@@ -276,14 +244,13 @@ export function Pricing() {
       {/* Plans */}
       <section className="pb-24">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-3 gap-6 items-start">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
             {plans.map(
               (
                 {
                   name,
                   tagline,
-                  monthlyPrice,
-                  annualPrice,
+                  price,
                   icon: Icon,
                   iconColor,
                   iconBg,
@@ -296,8 +263,7 @@ export function Pricing() {
                 },
                 i,
               ) => {
-                const displayPrice =
-                  billing === "annual" ? annualPrice : monthlyPrice;
+                const displayPrice = price;
                 return (
                   <motion.div
                     key={name}
@@ -382,7 +348,7 @@ export function Pricing() {
                               className="text-slate-400"
                               style={{ fontSize: "20px", fontWeight: 600 }}
                             >
-                              $
+                              {currencySymbol}
                             </span>
                             <span
                               className="text-slate-900 dark:text-white"
@@ -393,23 +359,15 @@ export function Pricing() {
                                 lineHeight: 1,
                               }}
                             >
-                              {displayPrice}
+                              {displayPrice?.toLocaleString("vi-VN")}
                             </span>
                             <span
                               className="text-slate-400"
                               style={{ fontSize: "14px" }}
                             >
-                              /month
+                              vnd
                             </span>
                           </div>
-                          {billing === "annual" && (
-                            <p
-                              className="text-emerald-500 mt-1"
-                              style={{ fontSize: "12px", fontWeight: 600 }}
-                            >
-                              Billed annually — save ${(29 - 23) * 12}/year
-                            </p>
-                          )}
                         </div>
                       )}
                     </div>
