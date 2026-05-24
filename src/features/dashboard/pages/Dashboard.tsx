@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import {
   HardDrive,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
+import { useMediaUpload } from "../../detection/hooks/useMediaUpload";
 
 type UploadState = "idle" | "selected" | "scanning" | "done" | "error";
 type ErrorType =
@@ -140,10 +141,11 @@ const demoErrors: { label: string; type: ErrorType; color: string }[] = [
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const { upload, uploading, progress, error: uploadError } = useMediaUpload();
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [progress_display, setProgressDisplay] = useState(0);
   const [scanPhase, setScanPhase] = useState("");
   const [errorType, setErrorType] = useState<ErrorType | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -162,44 +164,92 @@ export function Dashboard() {
     setSelectedFile(null);
   };
 
+  // Handle upload errors
+  useEffect(() => {
+    if (uploadError) {
+      if (uploadError.includes("Network") || uploadError.includes("failed")) {
+        triggerError("network_error");
+      } else if (uploadError.includes("format")) {
+        triggerError("unsupported_format");
+      } else {
+        triggerError("analysis_failed");
+      }
+      toast.error(uploadError);
+    }
+  }, [uploadError]);
+
+  // Handle upload progress
+  useEffect(() => {
+    if (progress && uploading) {
+      setProgressDisplay(progress.percentage);
+      if (progress.percentage === 100) {
+        toast.success("File uploaded! Starting analysis...");
+      }
+    }
+  }, [progress, uploading]);
+
   const resetUpload = () => {
     setUploadState("idle");
     setSelectedFile(null);
-    setProgress(0);
+    setProgressDisplay(0);
     setErrorType(null);
   };
 
   const startScan = useCallback(
-    (file: File) => {
+    async (file: File) => {
       setSelectedFile(file);
       setUploadState("scanning");
-      setProgress(0);
-      toast.info(`Analyzing ${file.name}...`, { duration: 2000 });
+      setProgressDisplay(0);
+      toast.info(`Uploading ${file.name}...`, { duration: 2000 });
 
-      let currentPhase = 0;
-      setScanPhase(scanPhases[0]);
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+          triggerError("network_error");
+          toast.error("Authentication required. Please login again.");
+          return;
+        }
 
-      const interval = setInterval(() => {
-        setProgress((p) => {
-          const next = p + 2;
-          const phaseIdx = Math.floor((next / 100) * scanPhases.length);
-          if (phaseIdx < scanPhases.length && phaseIdx !== currentPhase) {
-            currentPhase = phaseIdx;
-            setScanPhase(scanPhases[phaseIdx]);
-          }
-          if (next >= 100) {
-            clearInterval(interval);
-            setUploadState("done");
-            setTimeout(() => {
-              toast.success("Analysis complete! Redirecting to results...");
-              setTimeout(() => navigate("/results"), 800);
-            }, 300);
-          }
-          return Math.min(next, 100);
-        });
-      }, 60);
+        // Upload file to server
+        await upload(file, token);
+
+        // Simulate analysis after successful upload
+        const scanPhases = [
+          "Initializing AI models...",
+          "Extracting media features...",
+          "Analyzing with neural network...",
+          "Running deepfake classifiers...",
+          "Generating risk report...",
+        ];
+
+        let currentPhase = 0;
+        setScanPhase(scanPhases[0]);
+
+        const interval = setInterval(() => {
+          setProgressDisplay((p) => {
+            const next = p + 2;
+            const phaseIdx = Math.floor((next / 100) * scanPhases.length);
+            if (phaseIdx < scanPhases.length && phaseIdx !== currentPhase) {
+              currentPhase = phaseIdx;
+              setScanPhase(scanPhases[phaseIdx]);
+            }
+            if (next >= 100) {
+              clearInterval(interval);
+              setUploadState("done");
+              setTimeout(() => {
+                toast.success("Analysis complete! Redirecting to results...");
+                setTimeout(() => navigate("/results"), 800);
+              }, 300);
+            }
+            return Math.min(next, 100);
+          });
+        }, 60);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Upload failed";
+        toast.error(message);
+      }
     },
-    [navigate],
+    [navigate, upload],
   );
 
   const handleFile = (file: File) => {
@@ -664,14 +714,14 @@ export function Dashboard() {
                         className="text-[#22D3EE]"
                         style={{ fontSize: "12px", fontWeight: 700 }}
                       >
-                        {Math.round(progress)}%
+                        {Math.round(progress_display)}%
                       </span>
                     </div>
                     <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE]"
                         style={{
-                          width: `${progress}%`,
+                          width: `${progress_display}%`,
                           boxShadow: "0 0 8px rgba(34,211,238,0.5)",
                         }}
                       />

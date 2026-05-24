@@ -1,6 +1,8 @@
 import { ReactNode, useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Sidebar } from "../../shared/components/Sidebar";
+import { ImageWithFallback } from "../../shared/components/ImageWithFallback";
+import { useAuth } from "../../features/auth/context/AuthContext";
 import {
   Shield,
   Menu,
@@ -84,6 +86,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifList, setNotifList] = useState(notifications);
   const { theme, toggleTheme } = useTheme();
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -340,14 +343,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   setProfileOpen((v) => !v);
                   setNotifOpen(false);
                 }}
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center hover:ring-2 hover:ring-[#2563EB]/40 transition-all"
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:ring-2 hover:ring-[#2563EB]/40 transition-all overflow-hidden"
               >
-                <span
-                  className="text-white"
-                  style={{ fontSize: "11px", fontWeight: 700 }}
-                >
-                  A
-                </span>
+                {profile?.avatarUrl ? (
+                  <ImageWithFallback
+                    src={profile.avatarUrl}
+                    alt={profile.fullName}
+                    className="w-8 h-8 object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center">
+                    <span
+                      className="text-white"
+                      style={{ fontSize: "11px", fontWeight: 700 }}
+                    >
+                      {profile?.fullName?.charAt(0).toUpperCase() || "A"}
+                    </span>
+                  </div>
+                )}
               </button>
 
               {/* Profile Dropdown */}
@@ -356,26 +369,34 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   {/* User info */}
                   <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
-                        <span
-                          className="text-white"
-                          style={{ fontSize: "13px", fontWeight: 800 }}
-                        >
-                          A
-                        </span>
-                      </div>
+                      {profile?.avatarUrl ? (
+                        <ImageWithFallback
+                          src={profile.avatarUrl}
+                          alt={profile.fullName}
+                          className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
+                          <span
+                            className="text-white"
+                            style={{ fontSize: "13px", fontWeight: 800 }}
+                          >
+                            {profile?.fullName?.charAt(0).toUpperCase() || "A"}
+                          </span>
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <p
                           className="text-slate-900 dark:text-white truncate"
                           style={{ fontSize: "13px", fontWeight: 700 }}
                         >
-                          Admin User
+                          {profile?.fullName || "User"}
                         </p>
                         <p
                           className="text-slate-400 truncate"
                           style={{ fontSize: "11px" }}
                         >
-                          admin@deepguard.ai
+                          {profile?.bio || "Loading..."}
                         </p>
                       </div>
                     </div>

@@ -18,6 +18,9 @@ import {
   Zap,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
+import { login } from "../api/authApi";
+import { useAuth } from "../context/AuthContext";
+import type { LoginRequest } from "../types/auth";
 
 const leftFeatures = [
   {
@@ -46,24 +49,68 @@ const leftStats = [
 export function Login() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const [email, setEmail] = useState("");
+  const { fetchProfile, setAccessToken } = useAuth();
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!username || !password) {
       toast.error("Please fill in all fields.");
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const credentials: LoginRequest = {
+        identifier: username,
+        password,
+      };
+
+      const response = await login(credentials);
+
+      if (response.success) {
+        // Store tokens in localStorage and AuthContext
+        localStorage.setItem("accessToken", response.data.accessToken);
+        localStorage.setItem("refreshToken", response.data.refreshToken);
+        setAccessToken(response.data.accessToken);
+
+        // Fetch user profile to AuthContext
+        try {
+          await fetchProfile(response.data.accessToken);
+          toast.success("Welcome back! Redirecting to dashboard...");
+          setTimeout(() => navigate("/dashboard"), 600);
+        } catch (profileErr) {
+          console.error("Failed to load profile:", profileErr);
+          // Still navigate to dashboard even if profile fetch fails
+          toast.success("Welcome back! Redirecting to dashboard...");
+          setTimeout(() => navigate("/dashboard"), 600);
+        }
+      }
+    } catch (error) {
+      let errorMessage = "Login failed. Please try again.";
+
+      if (error instanceof Error) {
+        // Check if it's an AuthError with specific error codes
+        const authError = error as any;
+        if (authError.code === "INVALID_CREDENTIALS") {
+          errorMessage = "Invalid username or password. Please try again.";
+        } else if (authError.code === "USER_NOT_FOUND") {
+          errorMessage = "User account not found.";
+        } else if (authError.code === "ACCOUNT_DISABLED") {
+          errorMessage = "This account has been disabled.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      toast.error(errorMessage);
+    } finally {
       setLoading(false);
-      toast.success("Welcome back, Admin!");
-      setTimeout(() => navigate("/dashboard"), 600);
-    }, 1400);
+    }
   };
 
   const handleGuest = () => {
@@ -274,21 +321,21 @@ export function Login() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email */}
+              {/* Username */}
               <div>
                 <label
                   className="block mb-1.5 text-slate-700 dark:text-slate-300"
                   style={{ fontSize: "13px", fontWeight: 600 }}
                 >
-                  Email address
+                  Username
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@company.com"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="admin"
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all"
                     style={{ fontSize: "14px" }}
                   />
