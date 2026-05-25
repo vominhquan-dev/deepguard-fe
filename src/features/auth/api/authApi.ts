@@ -4,11 +4,15 @@ import {
   AuthError,
   UserProfileResponse,
   UserInfoResponse,
+  RegisterRequest,
+  RegisterResponse,
+  VerifyEmailRequest,
+  VerifyEmailResponse,
   type ErrorResponse,
 } from "../types/auth";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+  (import.meta as any).env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
 /**
  * Login with email/username and password
@@ -106,4 +110,74 @@ export async function getUserInfo(token: string): Promise<UserInfoResponse> {
   }
 
   return data as UserInfoResponse;
+}
+
+/**
+ * Register new user
+ */
+export async function register(
+  credentials: RegisterRequest,
+): Promise<RegisterResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(credentials),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new AuthError(error.message, error.code, error.timestamp);
+  }
+
+  return data as RegisterResponse;
+}
+
+/**
+ * Verify email with OTP
+ */
+export async function verifyEmail(
+  payload: VerifyEmailRequest,
+): Promise<VerifyEmailResponse> {
+  const response = await fetch(`${API_BASE_URL}/verify/email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new AuthError(error.message, error.code, error.timestamp);
+  }
+
+  return data as VerifyEmailResponse;
+}
+
+/**
+ * Resend OTP to email
+ */
+export async function resendOtp(email: string): Promise<VerifyEmailResponse> {
+  const response = await fetch(`${API_BASE_URL}/verify/resend-otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new AuthError(error.message, error.code, error.timestamp);
+  }
+
+  return data as VerifyEmailResponse;
 }

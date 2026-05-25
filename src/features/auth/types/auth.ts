@@ -7,7 +7,7 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface TokenData {
+export interface TokenData extends Partial<UserInfo> {
   accessToken: string;
   refreshToken: string;
 }
@@ -81,5 +81,32 @@ export interface UserInfoResponse {
   code: string;
   message: string;
   data: UserInfo;
+  timestamp: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  username: string;
+  password: string;
+}
+
+export interface RegisterResponse {
+  success: boolean;
+  code: string;
+  message: string;
+  data?: any;
+  timestamp: string;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyEmailResponse {
+  success: boolean;
+  code: string;
+  message: string;
+  data?: TokenData;
   timestamp: string;
 }

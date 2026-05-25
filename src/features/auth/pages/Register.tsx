@@ -19,6 +19,8 @@ import {
   FileText,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
+import { register } from "../api/authApi";
+import type { RegisterRequest } from "../types/auth";
 
 const benefits = [
   {
@@ -57,7 +59,7 @@ export function Register() {
   const update = (key: string, value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.password || !form.confirm) {
       toast.error("Please fill in all required fields.");
@@ -76,11 +78,29 @@ export function Register() {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const payload: RegisterRequest = {
+        email: form.email,
+        username: form.email,
+        password: form.password,
+      };
+      const response = await register(payload);
+
+      if (response.success) {
+        toast.success("Account created! Check your email to verify.");
+        setTimeout(() => {
+          navigate("/verify-email", { state: { email: form.email } });
+        }, 700);
+      }
+    } catch (error) {
+      let errorMessage = "Registration failed. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(errorMessage);
+    } finally {
       setLoading(false);
-      toast.success(`Account created! Welcome to DeepGuard AI.`);
-      setTimeout(() => navigate("/dashboard"), 700);
-    }, 1600);
+    }
   };
 
   return (

@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useEffect,
   ReactNode,
 } from "react";
 import { getUserProfile, getUserInfo } from "../api/authApi";
@@ -17,8 +18,9 @@ interface AuthContextType {
   accessToken: string | null;
   isAuthenticated: boolean;
   setProfile: (profile: UserProfile | null) => void;
+  setUserInfo: (userInfo: UserInfo | null) => void;
   setAccessToken: (token: string | null) => void;
-  fetchProfile: (token: string) => Promise<UserProfile>;
+  fetchProfile: (token: string) => Promise<UserInfo>;
   logout: () => void;
 }
 
@@ -26,7 +28,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("userInfo");
+      return stored ? JSON.parse(stored) : null;
+    }
+    return null;
+  });
   const [accessToken, setAccessToken] = useState<string | null>(() => {
     return typeof window !== "undefined"
       ? localStorage.getItem("accessToken")
@@ -35,26 +43,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const logout = useCallback(() => {
+    setProfile(null);
+    setUserInfo(null);
+    setAccessToken(null);
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userInfo");
+  }, []);
+
   const fetchProfile = useCallback(async (token: string) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Fetch both profile and user info
-      const [profileResponse, userInfoResponse] = await Promise.all([
+      // Fetch both profile and user info from API independently
+      // Handle failures individually so a profile failure doesn't block role info
+      const [profileResult, userInfoResult] = await Promise.allSettled([
         getUserProfile(token),
         getUserInfo(token),
       ]);
 
-      if (profileResponse.success) {
-        setProfile(profileResponse.data);
+      if (profileResult.status === "fulfilled" && profileResult.value.success) {
+        setProfile(profileResult.value.data);
+      } else {
+        console.warn(
+          "[AuthContext] getUserProfile failed (non-critical):",
+          profileResult,
+        );
       }
 
-      if (userInfoResponse.success) {
-        setUserInfo(userInfoResponse.data);
+      if (
+        userInfoResult.status === "fulfilled" &&
+        userInfoResult.value.success
+      ) {
+        setUserInfo(userInfoResult.value.data);
+        return userInfoResult.value.data;
+      } else {
+        console.error("[AuthContext] getUserInfo failed:", userInfoResult);
+        throw new Error("Failed to fetch user info");
       }
-
-      return profileResponse.data;
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load profile";
@@ -65,13 +93,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
-    setProfile(null);
-    setUserInfo(null);
-    setAccessToken(null);
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-  }, []);
+  // Auto-fetch user info from auth/me on mount if token exists (page refresh / initial load)
+  useEffect(() => {
+    const token = accessToken;
+
+    if (token) {
+      // If we already have userInfo from localStorage, verify it still matches
+      // Otherwise fetch fresh data from API
+      if (!userInfo) {
+        fetchProfile(token).catch(() => {
+          logout();
+        });
+      }
+    } else {
+      // No token, clear any stale userInfo
+      if (userInfo) {
+        logout();
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSetAccessToken = useCallback((token: string | null) => {
     setAccessToken(token);
@@ -82,6 +122,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const handleSetUserInfo = useCallback((userInfo: UserInfo | null) => {
+    setUserInfo(userInfo);
+    console.log("[AuthContext] UserInfo updated:", userInfo?.role);
+    if (userInfo) {
+      localStorage.setItem("userInfo", JSON.stringify(userInfo));
+    } else {
+      localStorage.removeItem("userInfo");
+    }
+  }, []);
+
   const value: AuthContextType = {
     profile,
     userInfo,
@@ -89,8 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     error,
     accessToken,
-    isAuthenticated: !!accessToken && !!profile,
+    isAuthenticated: !!accessToken,
     setProfile,
+    setUserInfo: handleSetUserInfo,
     setAccessToken: handleSetAccessToken,
     fetchProfile,
     logout,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { toast } from "sonner";
@@ -49,12 +49,12 @@ const leftStats = [
 export function Login() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { fetchProfile, setAccessToken } = useAuth();
+  const { setAccessToken, fetchProfile } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +62,7 @@ export function Login() {
       toast.error("Please fill in all fields.");
       return;
     }
-    setLoading(true);
+    setIsLoggingIn(true);
 
     try {
       const credentials: LoginRequest = {
@@ -73,21 +73,36 @@ export function Login() {
       const response = await login(credentials);
 
       if (response.success) {
-        // Store tokens in localStorage and AuthContext
-        localStorage.setItem("accessToken", response.data.accessToken);
+        // Store tokens
+        const token = response.data.accessToken;
+        localStorage.setItem("accessToken", token);
         localStorage.setItem("refreshToken", response.data.refreshToken);
-        setAccessToken(response.data.accessToken);
 
-        // Fetch user profile to AuthContext
+        // Set token
+        setAccessToken(token);
+
+        // Get role from login response (TokenData extends Partial<UserInfo>)
+        const loginRole = response.data.role;
+
+        // Fetch user info from auth/me API to get correct role
         try {
-          await fetchProfile(response.data.accessToken);
-          toast.success("Welcome back! Redirecting to dashboard...");
-          setTimeout(() => navigate("/dashboard"), 600);
-        } catch (profileErr) {
-          console.error("Failed to load profile:", profileErr);
-          // Still navigate to dashboard even if profile fetch fails
-          toast.success("Welcome back! Redirecting to dashboard...");
-          setTimeout(() => navigate("/dashboard"), 600);
+          const userInfoData = await fetchProfile(token);
+
+          // Redirect based on role
+          const redirectPath =
+            userInfoData.role === "ADMIN" ? "/dashboard" : "/detect";
+          toast.success("Welcome back! Redirecting...");
+
+          setTimeout(() => {
+            navigate(redirectPath, { replace: true });
+          }, 500);
+        } catch {
+          // Fallback: use role from login response if available
+          const redirectPath = loginRole === "ADMIN" ? "/dashboard" : "/detect";
+          toast.success("Welcome back! Redirecting...");
+          setTimeout(() => {
+            navigate(redirectPath, { replace: true });
+          }, 500);
         }
       }
     } catch (error) {
@@ -109,13 +124,13 @@ export function Login() {
 
       toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setIsLoggingIn(false);
     }
   };
 
   const handleGuest = () => {
     toast.info("Continuing as guest — 3 free scans available today.");
-    navigate("/dashboard");
+    navigate("/detect");
   };
 
   return (
@@ -403,11 +418,11 @@ export function Login() {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={isLoggingIn}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25 disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ fontSize: "15px", fontWeight: 700 }}
               >
-                {loading ? (
+                {isLoggingIn ? (
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{

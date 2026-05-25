@@ -16,6 +16,7 @@ import { useAuth } from "../../features/auth/context/AuthContext";
 import { ImageWithFallback } from "./ImageWithFallback";
 
 const allNavItems = [
+  // ADMIN navigation
   {
     to: "/dashboard",
     label: "Dashboard",
@@ -23,23 +24,29 @@ const allNavItems = [
     requiredRole: "ADMIN" as const,
   },
   {
+    to: "/analytics",
+    label: "Analytics",
+    icon: BarChart3,
+    requiredRole: "ADMIN" as const,
+  },
+  // USER navigation
+  {
     to: "/detect",
     label: "Detect Media",
     icon: ScanSearch,
-    requiredRole: null,
+    requiredRole: "USER" as const,
   },
   {
     to: "/realtime",
     label: "Realtime Monitor",
     icon: Radio,
-    requiredRole: null,
+    requiredRole: "USER" as const,
   },
-  { to: "/history", label: "History", icon: History, requiredRole: null },
   {
-    to: "/analytics",
-    label: "Analytics",
-    icon: BarChart3,
-    requiredRole: "ADMIN" as const,
+    to: "/history",
+    label: "History",
+    icon: History,
+    requiredRole: "USER" as const,
   },
 ];
 
