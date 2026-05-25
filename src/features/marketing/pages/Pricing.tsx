@@ -25,9 +25,11 @@ const currencySymbol = "₫";
 
 const plans = [
   {
-    name: "1 month",
+    name: "Premium",
     tagline: "Thanh toán theo tháng",
-    price: 199000,
+    price: 99000,
+    originalPrice: 199000,
+    savePercent: null,
     icon: Star,
     iconColor: "#10B981",
     iconBg: "bg-emerald-500/10",
@@ -35,17 +37,20 @@ const plans = [
     highlight: false,
     badge: null,
     features: [
-      { text: "500 Credits/tháng", included: true },
+      { text: "500 Credits", included: true },
       { text: "Image & Audio detection", included: true },
-      { text: "Hỗ trợ tiêu chuẩn", included: true },
+      { text: "Priority processing", included: true },
+      { text: "Email support", included: true },
     ],
-    cta: "Chọn gói",
+    cta: "Upgrade",
     ctaVariant: "outline",
   },
   {
-    name: "3 month",
-    tagline: "Tiết kiệm hơn so với gói tháng",
+    name: "3 Months",
+    tagline: "Tiết kiệm 10% so với gói tháng",
     price: 539000,
+    originalPrice: 597000,
+    savePercent: 10,
     icon: Zap,
     iconColor: "#2563EB",
     iconBg: "bg-[#2563EB]/10",
@@ -53,18 +58,20 @@ const plans = [
     highlight: true,
     badge: "Most Popular",
     features: [
-      { text: "500 Credits/tháng", included: true },
+      { text: "500 Credits / tháng", included: true },
       { text: "Image, Video & Audio detection", included: true },
       { text: "PDF reports", included: true },
-      { text: "Hỗ trợ tiêu chuẩn", included: true },
+      { text: "Priority support", included: true },
     ],
-    cta: "Chọn gói",
+    cta: "Upgrade",
     ctaVariant: "primary",
   },
   {
-    name: "6 month",
-    tagline: "Cân bằng giữa chi phí và thời hạn",
+    name: "6 Months",
+    tagline: "Tiết kiệm 15% so với gói tháng",
     price: 1019000,
+    originalPrice: 1194000,
+    savePercent: 15,
     icon: Building2,
     iconColor: "#8B5CF6",
     iconBg: "bg-purple-500/10",
@@ -72,17 +79,21 @@ const plans = [
     highlight: false,
     badge: null,
     features: [
-      { text: "833 Credits/tháng", included: true },
-      { text: "All media types + API access", included: true },
+      { text: "833 Credits / tháng", included: true },
+      { text: "All media types", included: true },
+      { text: "PDF reports + API access", included: true },
       { text: "Priority support", included: true },
+      { text: "Advanced analytics", included: true },
     ],
-    cta: "Chọn gói",
+    cta: "Upgrade",
     ctaVariant: "outline",
   },
   {
-    name: "1 year",
+    name: "Enterprise",
     tagline: "Giá tốt nhất cho nhu cầu dài hạn",
     price: 1920000,
+    originalPrice: 2388000,
+    savePercent: null,
     icon: Shield,
     iconColor: "#2563EB",
     iconBg: "bg-[#2563EB]/10",
@@ -90,11 +101,11 @@ const plans = [
     highlight: false,
     badge: null,
     features: [
-      { text: "1000 Credits/tháng", included: true },
+      { text: "Dung lượng cao", included: true },
       { text: "All features + Dedicated support", included: true },
       { text: "Custom integrations", included: true },
     ],
-    cta: "Chọn gói",
+    cta: "Liên hệ",
     ctaVariant: "outline",
   },
 ];
@@ -251,6 +262,8 @@ export function Pricing() {
                   name,
                   tagline,
                   price,
+                  originalPrice,
+                  savePercent,
                   icon: Icon,
                   iconColor,
                   iconBg,
@@ -343,6 +356,23 @@ export function Pricing() {
                         </div>
                       ) : (
                         <div>
+                          {/* Original price with strikethrough */}
+                          {originalPrice && (
+                            <div className="flex items-baseline gap-1 mb-1">
+                              <span
+                                className="text-slate-400 line-through"
+                                style={{ fontSize: "18px", fontWeight: 500 }}
+                              >
+                                {currencySymbol}
+                                {originalPrice.toLocaleString("vi-VN")}
+                              </span>
+                              {savePercent && (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold">
+                                  Save {savePercent}%
+                                </span>
+                              )}
+                            </div>
+                          )}
                           <div className="flex items-baseline gap-1">
                             <span
                               className="text-slate-400"

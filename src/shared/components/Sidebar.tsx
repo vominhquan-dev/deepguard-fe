@@ -10,6 +10,7 @@ import {
   Moon,
   LogOut,
   Radio,
+  CreditCard,
 } from "lucide-react";
 import { useTheme } from "../../app/providers/ThemeProvider";
 import { useAuth } from "../../features/auth/context/AuthContext";
@@ -165,6 +166,29 @@ export function Sidebar() {
           >
             System
           </p>
+          <NavLink
+            to="/plan"
+            end
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 ${
+                isActive
+                  ? "bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE]"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <CreditCard className="w-4 h-4 flex-shrink-0" />
+                <span style={{ fontSize: "14px", fontWeight: 500 }}>
+                  Plan & Billing
+                </span>
+                {isActive && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
+                )}
+              </>
+            )}
+          </NavLink>
           <NavLink
             to="/settings"
             end
