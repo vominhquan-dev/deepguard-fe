@@ -1,12 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import {
   User,
   Bell,
   Shield,
-  Key,
-  Globe,
   Palette,
   ChevronRight,
   Save,
@@ -17,9 +15,24 @@ import {
   Moon,
   Sun,
   Monitor,
+  Camera,
+  X,
+  Loader2,
+  CreditCard,
+  Sparkles,
+  Star,
+  Clock,
+  BarChart3,
+  Zap,
+  ShieldCheck,
+  Headphones,
+  Check,
+  Globe,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
+import { useAuth } from "../../../features/auth/context/AuthContext";
+import { updateUserProfile } from "../../../features/auth/api/userProfilesApi";
 
 type Tab = "profile" | "notifications" | "security" | "api" | "appearance";
 
@@ -27,7 +40,7 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "security", label: "Security", icon: Shield },
-  { id: "api", label: "API Keys", icon: Key },
+  { id: "api", label: "Plan", icon: CreditCard },
   { id: "appearance", label: "Appearance", icon: Palette },
 ];
 
@@ -58,23 +71,187 @@ const notifOptions = [
   },
 ];
 
+const plans = [
+  {
+    id: "free",
+    name: "Free Tier",
+    badge: "Current Plan",
+    price: "0",
+    period: "forever",
+    credits: "5 credits / day",
+    icon: Sparkles,
+    color: "from-slate-400 to-slate-500",
+    features: [
+      "5 credits per day",
+      "Watch ads to earn +1 credit (daily)",
+      "Basic image detection",
+      "Community support",
+    ],
+    note: "Addresses the core needs of 55.8% of surveyed users.",
+  },
+  {
+    id: "premium-1m",
+    name: "Premium",
+    badge: "1 Month",
+    price: "199",
+    period: "month",
+    originalPrice: "299",
+    credits: "500 credits",
+    icon: Star,
+    color: "from-[#2563EB] to-[#22D3EE]",
+    popular: true,
+    features: [
+      "500 credits",
+      "Image & Audio detection",
+      "Priority processing",
+      "Email support",
+    ],
+  },
+  {
+    id: "premium-3m",
+    name: "Premium",
+    badge: "3 Months",
+    price: "539",
+    period: "3 months",
+    originalPrice: "597",
+    saveLabel: "Save 10%",
+    credits: "500 credits / month",
+    icon: Star,
+    color: "from-[#2563EB] to-[#22D3EE]",
+    features: [
+      "500 credits per month",
+      "Image, Video & Audio detection",
+      "PDF reports",
+      "Priority support",
+    ],
+  },
+  {
+    id: "premium-6m",
+    name: "Premium",
+    badge: "6 Months",
+    price: "1,019",
+    period: "6 months",
+    originalPrice: "1,194",
+    saveLabel: "Save 15%",
+    credits: "833 credits / month",
+    icon: BarChart3,
+    color: "from-violet-500 to-[#2563EB]",
+    features: [
+      "833 credits per month",
+      "All media types",
+      "PDF reports + API access",
+      "Priority support",
+      "Advanced analytics",
+    ],
+  },
+  {
+    id: "premium-1y",
+    name: "Enterprise",
+    badge: "1 Year",
+    price: "1,920",
+    period: "year",
+    originalPrice: "2,388",
+    saveLabel: "Save 20%",
+    credits: "1000 credits / month",
+    icon: ShieldCheck,
+    color: "from-amber-500 to-rose-500",
+    features: [
+      "1000 credits per month",
+      "All features included",
+      "API access & Custom integrations",
+      "24/7 Priority support",
+      "Advanced analytics",
+      "Dedicated account manager",
+    ],
+  },
+];
+
 export function Settings() {
   const { theme, toggleTheme } = useTheme();
+  const {
+    profile: authProfile,
+    userInfo,
+    accessToken,
+    setProfile: setAuthProfile,
+  } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [showApiKey, setShowApiKey] = useState(false);
   const [notifs, setNotifs] = useState<Record<string, boolean>>(
     Object.fromEntries(notifOptions.map((n) => [n.key, n.defaultOn])),
   );
   const [profile, setProfile] = useState({
-    name: "Admin User",
-    email: "admin@deepguard.ai",
+    name: authProfile?.fullName || userInfo?.username || "User",
+    email: userInfo?.email || "",
+    bio: authProfile?.bio || "",
     org: "DeepGuard Inc.",
-    role: "Administrator",
+    role: userInfo?.role === "ADMIN" ? "Administrator" : "User",
   });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const fakeApiKey = "dg_sk_live_7fK3mP9qZ2nA8rXv1cE6yB4wT5uN0jQ";
 
-  const handleSaveProfile = () => {
-    toast.success("Profile saved successfully!");
+  // Sync profile form fields when auth context data loads
+  useEffect(() => {
+    if (authProfile?.fullName || userInfo?.email || userInfo?.role) {
+      setProfile((prev) => ({
+        ...prev,
+        name: authProfile?.fullName || userInfo?.username || prev.name,
+        email: userInfo?.email || prev.email,
+        role: userInfo?.role === "ADMIN" ? "Administrator" : "User",
+      }));
+    }
+  }, [authProfile, userInfo]);
+
+  const handleAvatarSelect = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB.");
+      return;
+    }
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setAvatarPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!accessToken) {
+      toast.error("You must be logged in to save your profile.");
+      return;
+    }
+
+    if (!profile.name.trim()) {
+      toast.error("Please enter your full name.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await updateUserProfile(accessToken, {
+        fullName: profile.name.trim(),
+        bio: profile.bio.trim() || undefined,
+        avatar: avatarFile || undefined,
+      });
+
+      if (response.success) {
+        setAuthProfile(response.data);
+        toast.success("Profile saved successfully!");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to save profile. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCopyKey = () => {
@@ -85,6 +262,8 @@ export function Settings() {
   const handleRegenerateKey = () => {
     toast.info("Generating new API key... (demo only)");
   };
+
+  const currentPlan = "free"; // TODO: fetch from backend
 
   return (
     <DashboardLayout>
@@ -108,7 +287,7 @@ export function Settings() {
             className="text-slate-500 dark:text-slate-400 ml-3"
             style={{ fontSize: "14px" }}
           >
-            Manage your account, preferences, and API access
+            Manage your account, preferences, and plan
           </p>
         </div>
 
@@ -158,14 +337,38 @@ export function Settings() {
 
                   {/* Avatar */}
                   <div className="flex items-center gap-5 mb-8 pb-6 border-b border-slate-200 dark:border-slate-700">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
-                      <span
-                        className="text-white"
-                        style={{ fontSize: "24px", fontWeight: 800 }}
-                      >
-                        A
-                      </span>
-                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAvatarSelect(file);
+                      }}
+                      className="hidden"
+                    />
+                    {avatarPreview ? (
+                      <img
+                        src={avatarPreview}
+                        alt="Avatar preview"
+                        className="w-16 h-16 rounded-2xl object-cover flex-shrink-0 ring-2 ring-[#2563EB]/50"
+                      />
+                    ) : authProfile?.avatarUrl ? (
+                      <img
+                        src={authProfile.avatarUrl}
+                        alt={profile.name}
+                        className="w-16 h-16 rounded-2xl object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
+                        <span
+                          className="text-white"
+                          style={{ fontSize: "24px", fontWeight: 800 }}
+                        >
+                          {profile.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <p
                         className="text-slate-900 dark:text-white mb-1"
@@ -179,61 +382,144 @@ export function Settings() {
                       >
                         {profile.email}
                       </p>
-                      <button
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                        style={{ fontSize: "12px", fontWeight: 600 }}
-                      >
-                        Change Photo
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                          style={{ fontSize: "12px", fontWeight: 600 }}
+                        >
+                          <Camera className="w-3.5 h-3.5 inline mr-1.5" />
+                          {avatarPreview ? "Change Photo" : "Upload Photo"}
+                        </button>
+                        {avatarPreview && (
+                          <button
+                            onClick={() => {
+                              setAvatarFile(null);
+                              setAvatarPreview(null);
+                              if (fileInputRef.current)
+                                fileInputRef.current.value = "";
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            style={{ fontSize: "12px", fontWeight: 600 }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      {avatarPreview && (
+                        <p
+                          className="text-emerald-500 mt-2"
+                          style={{ fontSize: "11px", fontWeight: 600 }}
+                        >
+                          New photo ready to upload — save to apply
+                        </p>
+                      )}
                     </div>
                   </div>
 
+                  {/* Editable fields */}
                   <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                    {[
-                      {
-                        label: "Full Name",
-                        key: "name",
-                        type: "text",
-                        placeholder: "John Doe",
-                      },
-                      {
-                        label: "Email Address",
-                        key: "email",
-                        type: "email",
-                        placeholder: "john@example.com",
-                      },
-                      {
-                        label: "Organization",
-                        key: "org",
-                        type: "text",
-                        placeholder: "Your Company",
-                      },
-                      {
-                        label: "Role",
-                        key: "role",
-                        type: "text",
-                        placeholder: "Analyst",
-                      },
-                    ].map(({ label, key, type, placeholder }) => (
-                      <div key={key}>
-                        <label
-                          className="block mb-1.5 text-slate-700 dark:text-slate-300"
-                          style={{ fontSize: "13px", fontWeight: 600 }}
-                        >
-                          {label}
-                        </label>
-                        <input
-                          type={type}
-                          value={profile[key as keyof typeof profile]}
-                          onChange={(e) =>
-                            setProfile((p) => ({ ...p, [key]: e.target.value }))
-                          }
-                          placeholder={placeholder}
-                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all placeholder-slate-400"
-                          style={{ fontSize: "14px" }}
-                        />
-                      </div>
-                    ))}
+                    <div>
+                      <label
+                        className="block mb-1.5 text-slate-700 dark:text-slate-300"
+                        style={{ fontSize: "13px", fontWeight: 600 }}
+                      >
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={profile.name}
+                        onChange={(e) =>
+                          setProfile((p) => ({ ...p, name: e.target.value }))
+                        }
+                        placeholder="John Doe"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all placeholder-slate-400"
+                        style={{ fontSize: "14px" }}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        className="block mb-1.5 text-slate-700 dark:text-slate-300"
+                        style={{ fontSize: "13px", fontWeight: 600 }}
+                      >
+                        Bio
+                      </label>
+                      <textarea
+                        value={profile.bio}
+                        onChange={(e) =>
+                          setProfile((p) => ({ ...p, bio: e.target.value }))
+                        }
+                        placeholder="Tell us a little about yourself..."
+                        rows={3}
+                        maxLength={200}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all placeholder-slate-400 resize-none"
+                        style={{ fontSize: "14px" }}
+                      />
+                      <p
+                        className="text-slate-400 mt-1"
+                        style={{ fontSize: "11px" }}
+                      >
+                        {profile.bio.length}/200 characters
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Read-only info */}
+                  <div className="grid sm:grid-cols-3 gap-3 mb-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <div>
+                      <p
+                        className="text-slate-400 dark:text-slate-500"
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Email Address
+                      </p>
+                      <p
+                        className="text-slate-900 dark:text-white mt-0.5"
+                        style={{ fontSize: "14px", fontWeight: 500 }}
+                      >
+                        {profile.email}
+                      </p>
+                    </div>
+                    <div>
+                      <p
+                        className="text-slate-400 dark:text-slate-500"
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Organization
+                      </p>
+                      <p
+                        className="text-slate-900 dark:text-white mt-0.5"
+                        style={{ fontSize: "14px", fontWeight: 500 }}
+                      >
+                        {profile.org}
+                      </p>
+                    </div>
+                    <div>
+                      <p
+                        className="text-slate-400 dark:text-slate-500"
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Role
+                      </p>
+                      <p
+                        className="text-slate-900 dark:text-white mt-0.5"
+                        style={{ fontSize: "14px", fontWeight: 500 }}
+                      >
+                        {profile.role}
+                      </p>
+                    </div>
                   </div>
 
                   <button
@@ -434,107 +720,80 @@ export function Settings() {
                 </div>
               )}
 
-              {/* API Keys */}
+              {/* Plan & Billing */}
               {activeTab === "api" && (
-                <div className="space-y-5">
+                <div className="space-y-6">
+                  {/* Current plan summary */}
                   <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6">
-                    <div className="flex items-start justify-between mb-5">
+                    <div className="flex items-center justify-between mb-5">
                       <div>
                         <h2
                           className="text-slate-900 dark:text-white mb-1"
                           style={{ fontSize: "16px", fontWeight: 700 }}
                         >
-                          API Keys
+                          Your Plan
                         </h2>
                         <p
                           className="text-slate-500 dark:text-slate-400"
                           style={{ fontSize: "13px" }}
                         >
-                          Use these keys to authenticate API requests.
+                          You are currently on the{" "}
+                          <span className="text-slate-900 dark:text-white font-semibold">
+                            Free Tier
+                          </span>
                         </p>
                       </div>
-                      <span
-                        className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500"
-                        style={{ fontSize: "11px", fontWeight: 700 }}
-                      >
-                        ACTIVE
-                      </span>
-                    </div>
-
-                    <div className="mb-4">
-                      <label
-                        className="block mb-2 text-slate-700 dark:text-slate-300"
-                        style={{ fontSize: "13px", fontWeight: 600 }}
-                      >
-                        Live Secret Key
-                      </label>
-                      <div className="flex gap-2">
-                        <div
-                          className="flex-1 flex items-center px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono"
-                          style={{ fontSize: "13px" }}
+                      <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <p
+                          className="text-emerald-500"
+                          style={{ fontSize: "12px", fontWeight: 700 }}
                         >
-                          <span className="text-slate-900 dark:text-slate-300 truncate">
-                            {showApiKey
-                              ? fakeApiKey
-                              : fakeApiKey.replace(/./g, "•").slice(0, 32) +
-                                "..."}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => setShowApiKey((v) => !v)}
-                          className="w-10 h-10 flex-shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                        >
-                          {showApiKey ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={handleCopyKey}
-                          className="w-10 h-10 flex-shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
+                          Active
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={handleRegenerateKey}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
-                        style={{ fontSize: "13px", fontWeight: 600 }}
+                    {/* Credits today */}
+                    <div className="p-5 rounded-xl bg-gradient-to-br from-[#2563EB]/5 to-[#22D3EE]/5 border border-[#2563EB]/20 mb-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <p
+                          className="text-slate-700 dark:text-slate-300"
+                          style={{ fontSize: "13px", fontWeight: 600 }}
+                        >
+                          <Zap className="w-3.5 h-3.5 inline mr-1.5 text-[#2563EB]" />
+                          Credits Used Today
+                        </p>
+                        <span
+                          className="text-slate-900 dark:text-white"
+                          style={{ fontSize: "13px", fontWeight: 600 }}
+                        >
+                          2 / 5
+                        </span>
+                      </div>
+                      <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full w-[40%] rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE]"
+                          style={{ transition: "width 0.5s ease" }}
+                        />
+                      </div>
+                      <p
+                        className="text-slate-400 mt-2"
+                        style={{ fontSize: "11px" }}
                       >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        Regenerate
-                      </button>
+                        Resets in 12 hours · Watch an ad to earn +1 credit
+                      </p>
                     </div>
-                  </div>
 
-                  <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6">
-                    <h2
-                      className="text-slate-900 dark:text-white mb-4"
-                      style={{ fontSize: "16px", fontWeight: 700 }}
-                    >
-                      API Usage
-                    </h2>
-                    <div className="grid sm:grid-cols-3 gap-4 mb-5">
+                    {/* Quick stats */}
+                    <div className="grid sm:grid-cols-3 gap-3">
                       {[
-                        {
-                          label: "Requests Today",
-                          value: "1,240",
-                          limit: "10,000",
-                        },
-                        {
-                          label: "Requests This Month",
-                          value: "34,820",
-                          limit: "100,000",
-                        },
-                        { label: "Rate Limit", value: "60 / min", limit: "—" },
-                      ].map(({ label, value, limit }) => (
+                        { label: "Total Credits Used", value: "47" },
+                        { label: "Scans Performed", value: "32" },
+                        { label: "Days Active", value: "14" },
+                      ].map(({ label, value }) => (
                         <div
                           key={label}
-                          className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                          className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                         >
                           <p
                             className="text-slate-500 dark:text-slate-400"
@@ -548,39 +807,204 @@ export function Settings() {
                           </p>
                           <p
                             className="text-slate-900 dark:text-white mt-1"
-                            style={{ fontSize: "20px", fontWeight: 800 }}
+                            style={{ fontSize: "18px", fontWeight: 800 }}
                           >
                             {value}
                           </p>
-                          {limit !== "—" && (
-                            <p
-                              className="text-slate-400 dark:text-slate-600"
-                              style={{ fontSize: "11px" }}
-                            >
-                              of {limit}
-                            </p>
-                          )}
                         </div>
                       ))}
                     </div>
-                    <div>
-                      <div className="flex justify-between mb-1.5">
-                        <span
-                          className="text-slate-500 dark:text-slate-400"
-                          style={{ fontSize: "12px", fontWeight: 600 }}
-                        >
-                          Monthly Usage
-                        </span>
-                        <span
-                          className="text-slate-700 dark:text-slate-300"
-                          style={{ fontSize: "12px", fontWeight: 700 }}
-                        >
-                          34.8%
-                        </span>
-                      </div>
-                      <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <div className="h-full w-[34.8%] rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE]" />
-                      </div>
+                  </div>
+
+                  {/* Pricing plans */}
+                  <div>
+                    <h2
+                      className="text-slate-900 dark:text-white mb-1"
+                      style={{ fontSize: "16px", fontWeight: 700 }}
+                    >
+                      Upgrade Your Plan
+                    </h2>
+                    <p
+                      className="text-slate-500 dark:text-slate-400 mb-5"
+                      style={{ fontSize: "13px" }}
+                    >
+                      Choose the plan that fits your needs
+                    </p>
+
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {plans.map((plan) => {
+                        const Icon = plan.icon;
+                        const isCurrent = currentPlan === plan.id;
+                        return (
+                          <div
+                            key={plan.id}
+                            className={`relative rounded-2xl border-2 p-5 transition-all duration-200 hover:shadow-lg ${
+                              isCurrent
+                                ? "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
+                                : plan.popular
+                                  ? "border-[#2563EB] bg-white dark:bg-[#1E293B]"
+                                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]"
+                            }`}
+                          >
+                            {/* Popular badge */}
+                            {plan.popular && !isCurrent && (
+                              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE] text-white text-xs font-bold shadow-lg">
+                                Most Popular
+                              </div>
+                            )}
+
+                            {/* Current badge */}
+                            {isCurrent && (
+                              <div className="absolute -top-2.5 right-4 px-3 py-0.5 rounded-full bg-emerald-500 text-white text-xs font-bold shadow-lg">
+                                Current
+                              </div>
+                            )}
+
+                            {/* Plan header */}
+                            <div className="flex items-center gap-3 mb-4">
+                              <div
+                                className={`w-10 h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center`}
+                              >
+                                <Icon className="w-5 h-5 text-white" />
+                              </div>
+                              <div>
+                                <p
+                                  className="text-slate-900 dark:text-white"
+                                  style={{ fontSize: "15px", fontWeight: 700 }}
+                                >
+                                  {plan.name}
+                                </p>
+                                <p
+                                  className="text-slate-500 dark:text-slate-400"
+                                  style={{ fontSize: "11px", fontWeight: 600 }}
+                                >
+                                  {plan.badge}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Price */}
+                            <div className="mb-3">
+                              <div className="flex items-baseline gap-1">
+                                {plan.originalPrice && (
+                                  <span
+                                    className="text-slate-400 line-through"
+                                    style={{ fontSize: "14px" }}
+                                  >
+                                    {plan.originalPrice}₫
+                                  </span>
+                                )}
+                                <span
+                                  className="text-slate-900 dark:text-white"
+                                  style={{
+                                    fontSize: "24px",
+                                    fontWeight: 800,
+                                    lineHeight: 1,
+                                  }}
+                                >
+                                  {plan.price === "0"
+                                    ? "Free"
+                                    : `${plan.price}₫`}
+                                </span>
+                                <span
+                                  className="text-slate-500 dark:text-slate-400"
+                                  style={{ fontSize: "12px" }}
+                                >
+                                  /{plan.period}
+                                </span>
+                              </div>
+                              {plan.saveLabel && (
+                                <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-xs font-bold">
+                                  {plan.saveLabel}
+                                </span>
+                              )}
+                              <p
+                                className="text-[#2563EB] mt-1"
+                                style={{ fontSize: "12px", fontWeight: 600 }}
+                              >
+                                {plan.credits}
+                              </p>
+                            </div>
+
+                            {/* Note for free tier */}
+                            {plan.note && (
+                              <p
+                                className="text-slate-400 mb-3 italic"
+                                style={{ fontSize: "11px" }}
+                              >
+                                {plan.note}
+                              </p>
+                            )}
+
+                            {/* Features */}
+                            <ul className="space-y-2 mb-5">
+                              {plan.features.map((feature) => (
+                                <li
+                                  key={feature}
+                                  className="flex items-start gap-2"
+                                >
+                                  <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                  <span
+                                    className="text-slate-600 dark:text-slate-400"
+                                    style={{ fontSize: "12px" }}
+                                  >
+                                    {feature}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+
+                            {/* Action button */}
+                            <button
+                              onClick={() => {
+                                if (isCurrent) {
+                                  toast.info("You are already on this plan");
+                                } else {
+                                  toast.success(
+                                    `Upgrading to ${plan.name} (${plan.badge}) — coming soon`,
+                                  );
+                                }
+                              }}
+                              className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all ${
+                                isCurrent
+                                  ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                                  : plan.popular
+                                    ? "bg-[#2563EB] hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25"
+                                    : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                              }`}
+                              disabled={isCurrent}
+                            >
+                              {isCurrent ? "Current Plan" : "Upgrade"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Payment history */}
+                  <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6">
+                    <h2
+                      className="text-slate-900 dark:text-white mb-4"
+                      style={{ fontSize: "16px", fontWeight: 700 }}
+                    >
+                      Billing History
+                    </h2>
+                    <div className="p-8 text-center">
+                      <CreditCard className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                      <p
+                        className="text-slate-500 dark:text-slate-400"
+                        style={{ fontSize: "14px" }}
+                      >
+                        No billing history yet
+                      </p>
+                      <p
+                        className="text-slate-400 dark:text-slate-600 mt-1"
+                        style={{ fontSize: "12px" }}
+                      >
+                        Your invoices and receipts will appear here after your
+                        first purchase.
+                      </p>
                     </div>
                   </div>
                 </div>

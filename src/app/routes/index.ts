@@ -8,7 +8,6 @@ import { Results } from "../../features/detection/pages/Results";
 import { History } from "../../features/history/pages/History";
 import { Analytics } from "../../features/analytics/pages/Analytics";
 import { Settings } from "../../features/settings/pages/Settings";
-import { Unauthorized } from "../../features/marketing/pages/Unauthorized";
 import { NotFound } from "../../features/marketing/pages/NotFound";
 import { About } from "../../features/marketing/pages/About";
 import { Privacy } from "../../features/marketing/pages/Privacy";
@@ -17,6 +16,7 @@ import { Login } from "../../features/auth/pages/Login";
 import { Register } from "../../features/auth/pages/Register";
 import { VerifyEmail } from "../../features/auth/pages/VerifyEmail";
 import { ForgotPassword } from "../../features/auth/pages/ForgotPassword";
+import { CreateProfile } from "../../features/auth/pages/CreateProfile";
 import { Pricing } from "../../features/marketing/pages/Pricing";
 import { RealtimeMonitor } from "../../features/monitoring/pages/RealtimeMonitor";
 
@@ -24,7 +24,8 @@ import { RealtimeMonitor } from "../../features/monitoring/pages/RealtimeMonitor
  * ROLE AUTHORIZATION GUIDE:
  * - Public routes: Landing, Login, Register, Privacy, etc. (no auth required)
  * - USER routes: Detect, Realtime Monitor, History (requires USER role)
- * - ADMIN routes: Dashboard, Analytics, Settings (requires ADMIN role)
+ * - ADMIN routes: Dashboard, Analytics (requires ADMIN role)
+ * - Authenticated routes: Settings (any logged-in user)
  */
 export const router = createBrowserRouter([
   {
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
       { path: "register", Component: Register },
       { path: "verify-email", Component: VerifyEmail },
       { path: "forgot-password", Component: ForgotPassword },
+      { path: "create-profile", Component: CreateProfile },
       { path: "about", Component: About },
       { path: "privacy", Component: Privacy },
       { path: "contact", Component: Contact },
@@ -51,8 +53,10 @@ export const router = createBrowserRouter([
       // ADMIN-only routes
       { path: "dashboard", Component: withAuth(DashboardHome, "ADMIN") },
       { path: "analytics", Component: withAuth(Analytics, "ADMIN") },
-      { path: "settings", Component: withAuth(Settings, "ADMIN") },
-      { path: "unauthorized", Component: Unauthorized },
+
+      // Authenticated routes (any role)
+      { path: "settings", Component: withAuth(Settings) },
+
       { path: "*", Component: NotFound },
     ],
   },
