@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useNavigate } from "react-router";
 import {
   CreditCard,
   Sparkles,
@@ -7,12 +8,33 @@ import {
   ShieldCheck,
   Zap,
   Check,
+  Loader2,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useAuth } from "../../auth/context/AuthContext";
-const plans = [
+import { useState } from "react";
+
+interface PlanConfig {
+  id: string;
+  pricingPlanId: string;
+  name: string;
+  badge: string;
+  price: string;
+  period: string;
+  originalPrice?: string;
+  saveLabel?: string;
+  credits: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  popular?: boolean;
+  features: string[];
+  note?: string;
+}
+
+const plans: PlanConfig[] = [
   {
     id: "free",
+    pricingPlanId: "FREE",
     name: "Free Tier",
     badge: "Current Plan",
     price: "0",
@@ -30,6 +52,7 @@ const plans = [
   },
   {
     id: "premium-1m",
+    pricingPlanId: "BASIC",
     name: "Premium",
     badge: "1 Month",
     price: "99.000",
@@ -48,6 +71,7 @@ const plans = [
   },
   {
     id: "premium-3m",
+    pricingPlanId: "PREMIUM_3M",
     name: "Pro",
     badge: "3 Months",
     price: "539.000",
@@ -66,6 +90,7 @@ const plans = [
   },
   {
     id: "premium-6m",
+    pricingPlanId: "PREMIUM_6M",
     name: "Premium",
     badge: "6 Months",
     price: "1.019.000",
@@ -86,8 +111,29 @@ const plans = [
 ];
 
 export function Plan() {
+  const navigate = useNavigate();
   const currentPlan = "free";
   const { profile } = useAuth();
+  const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
+
+  const handleUpgrade = async (plan: PlanConfig) => {
+    if (plan.id === "free") {
+      toast.info("You are already on this plan");
+      return;
+    }
+
+    setUpgradingPlan(plan.id);
+    try {
+      // Navigate to SePay payment page with the pricingPlanId
+      navigate(`/payment/sepay/${plan.pricingPlanId}`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to initiate payment",
+      );
+    } finally {
+      setUpgradingPlan(null);
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -340,15 +386,7 @@ export function Plan() {
 
                   {/* Action button */}
                   <button
-                    onClick={() => {
-                      if (isCurrent) {
-                        toast.info("You are already on this plan");
-                      } else {
-                        toast.success(
-                          `Upgrading to ${plan.name} (${plan.badge}) — coming soon`,
-                        );
-                      }
-                    }}
+                    onClick={() => handleUpgrade(plan)}
                     className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all ${
                       isCurrent
                         ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
@@ -356,9 +394,18 @@ export function Plan() {
                           ? "bg-[#2563EB] hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25"
                           : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                     }`}
-                    disabled={isCurrent}
+                    disabled={isCurrent || upgradingPlan === plan.id}
                   >
-                    {isCurrent ? "Current Plan" : "Upgrade"}
+                    {isCurrent ? (
+                      "Current Plan"
+                    ) : upgradingPlan === plan.id ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Processing...
+                      </span>
+                    ) : (
+                      "Upgrade"
+                    )}
                   </button>
                 </div>
               );

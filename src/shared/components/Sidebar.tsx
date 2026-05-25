@@ -30,6 +30,13 @@ const allNavItems = [
     icon: BarChart3,
     requiredRole: "ADMIN" as const,
   },
+  // Shared navigation (USER only)
+  {
+    to: "/plan",
+    label: "Plan & Billing",
+    icon: CreditCard,
+    requiredRole: "USER" as const,
+  },
   // USER navigation
   {
     to: "/detect",
@@ -59,7 +66,10 @@ export function Sidebar() {
   // Filter nav items based on user role
   const navItems = allNavItems.filter((item) => {
     if (!item.requiredRole) return true; // Show to all users
-    return role === item.requiredRole; // Show only if role matches
+    const requiredRoles = Array.isArray(item.requiredRole)
+      ? item.requiredRole
+      : [item.requiredRole];
+    return role && requiredRoles.includes(role); // Show if user's role matches
   });
 
   return (
@@ -166,29 +176,6 @@ export function Sidebar() {
           >
             System
           </p>
-          <NavLink
-            to="/plan"
-            end
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 ${
-                isActive
-                  ? "bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE]"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <CreditCard className="w-4 h-4 flex-shrink-0" />
-                <span style={{ fontSize: "14px", fontWeight: 500 }}>
-                  Plan & Billing
-                </span>
-                {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
-                )}
-              </>
-            )}
-          </NavLink>
           <NavLink
             to="/settings"
             end
