@@ -1,6 +1,9 @@
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
+import { useAuthorizationCheck } from "../../auth/hooks/useAuthorizationCheck";
+import { useAuth } from "../../auth/context/AuthContext";
 import {
   ScanSearch,
   AlertTriangle,
@@ -18,6 +21,7 @@ import {
   Activity,
   Zap,
   BarChart2,
+  BarChart3,
 } from "lucide-react";
 import {
   AreaChart,
@@ -113,7 +117,198 @@ const verdictStyle: Record<string, any> = {
 
 export function DashboardHome() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuthorizationCheck();
+  const { profile } = useAuth();
 
+  // Show admin dashboard for admin users
+  if (isAdmin) {
+    return (
+      <DashboardLayout>
+        <div className="p-8">
+          {/* Admin Dashboard Header */}
+          <div className="flex items-start justify-between mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-1 h-6 rounded-full bg-purple-500" />
+                <h1
+                  className="text-slate-900 dark:text-white"
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: 800,
+                    letterSpacing: "-0.5px",
+                  }}
+                >
+                  Admin Dashboard
+                </h1>
+              </div>
+              <p
+                className="text-slate-500 dark:text-slate-400 ml-3"
+                style={{ fontSize: "14px" }}
+              >
+                System overview & analytics — Wednesday, March 4, 2026
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/analytics")}
+              className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white transition-all hover:shadow-lg hover:shadow-purple-500/25"
+              style={{ fontSize: "14px", fontWeight: 700 }}
+            >
+              <BarChart3 className="w-4 h-4" />
+              View Analytics
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+
+          {/* Admin KPI cards */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[
+              {
+                label: "Total Users",
+                value: "1,247",
+                sub: "+52 this week",
+                icon: Shield,
+                color: "#8B5CF6",
+                bg: "bg-purple-500/10",
+                trend: "+12%",
+              },
+              {
+                label: "Total Scans",
+                value: "45,829",
+                sub: "Across all users",
+                icon: Cpu,
+                color: "#2563EB",
+                bg: "bg-blue-500/10",
+                trend: "+8%",
+              },
+              {
+                label: "Deepfakes Detected",
+                value: "15,847",
+                sub: "34.5% detection rate",
+                icon: AlertTriangle,
+                color: "#EF4444",
+                bg: "bg-red-500/10",
+                trend: "+3%",
+              },
+              {
+                label: "System Health",
+                value: "99.8%",
+                sub: "Uptime last 30 days",
+                icon: Activity,
+                color: "#10B981",
+                bg: "bg-emerald-500/10",
+                trend: "Stable",
+              },
+            ].map(({ label, value, sub, icon: Icon, color, bg, trend }, i) => (
+              <motion.div
+                key={label}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.08 }}
+                className="p-5 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${bg}`}
+                  >
+                    <Icon className="w-5 h-5" style={{ color }} />
+                  </div>
+                  <span className="text-xs font-semibold" style={{ color }}>
+                    {trend}
+                  </span>
+                </div>
+                <p
+                  className="text-slate-500 dark:text-slate-400"
+                  style={{ fontSize: "12px", fontWeight: 600 }}
+                >
+                  {label}
+                </p>
+                <p
+                  className="text-slate-900 dark:text-white mt-1"
+                  style={{ fontSize: "20px", fontWeight: 700 }}
+                >
+                  {value}
+                </p>
+                <p
+                  className="text-slate-400 text-xs mt-1"
+                  style={{ fontSize: "11px" }}
+                >
+                  {sub}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Admin Quick Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="p-6 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 mb-6"
+          >
+            <h3
+              className="text-slate-900 dark:text-white mb-4"
+              style={{ fontSize: "16px", fontWeight: 700 }}
+            >
+              Admin Actions
+            </h3>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[
+                {
+                  label: "View Analytics",
+                  action: () => navigate("/analytics"),
+                  icon: BarChart3,
+                },
+                {
+                  label: "Realtime Monitor",
+                  action: () => navigate("/realtime"),
+                  icon: Activity,
+                },
+                {
+                  label: "User Management",
+                  action: () => toast.info("Coming soon"),
+                  icon: Shield,
+                },
+              ].map(({ label, action, icon: Icon }) => (
+                <button
+                  key={label}
+                  onClick={action}
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  style={{ fontSize: "13px", fontWeight: 600 }}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Admin Info */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="p-6 rounded-2xl bg-purple-500/10 border border-purple-500/20"
+          >
+            <h3
+              className="text-slate-900 dark:text-white mb-2"
+              style={{ fontSize: "16px", fontWeight: 700 }}
+            >
+              👋 Welcome, Administrator
+            </h3>
+            <p
+              className="text-slate-600 dark:text-slate-300"
+              style={{ fontSize: "14px" }}
+            >
+              You have full access to system analytics, user management, and
+              monitoring tools. Visit the Analytics page for detailed reports.
+            </p>
+          </motion.div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show regular user dashboard for non-admin users
   return (
     <DashboardLayout>
       <div className="p-8">
@@ -137,7 +332,8 @@ export function DashboardHome() {
               className="text-slate-500 dark:text-slate-400 ml-3"
               style={{ fontSize: "14px" }}
             >
-              Wednesday, March 4, 2026 — Welcome back, Admin
+              Wednesday, March 4, 2026 — Welcome back,{" "}
+              {profile?.firstName || "User"}
             </p>
           </div>
           <button
