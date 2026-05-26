@@ -71,7 +71,7 @@ const plans: PlanConfig[] = [
   },
   {
     id: "premium-3m",
-    pricingPlanId: "PREMIUM_3M",
+    pricingPlanId: "  ",
     name: "Pro",
     badge: "3 Months",
     price: "539.000",

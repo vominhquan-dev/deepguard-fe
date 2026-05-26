@@ -1,6 +1,10 @@
 import { useState, useCallback } from "react";
 import { uploadMediaFile } from "../api/mediaApi";
-import type { MediaUploadData, UploadProgress } from "../types/media";
+import type {
+  MediaUploadData,
+  UploadProgress,
+  AiDetectData,
+} from "../types/media";
 
 interface UseMediaUploadState {
   file: File | null;
@@ -8,6 +12,7 @@ interface UseMediaUploadState {
   progress: UploadProgress | null;
   error: string | null;
   data: MediaUploadData | null;
+  aiDetect: AiDetectData | null;
 }
 
 export function useMediaUpload() {
@@ -17,6 +22,7 @@ export function useMediaUpload() {
     progress: null,
     error: null,
     data: null,
+    aiDetect: null,
   });
 
   const upload = useCallback(async (file: File, token: string) => {
@@ -26,6 +32,7 @@ export function useMediaUpload() {
       uploading: true,
       error: null,
       data: null,
+      aiDetect: null,
     }));
 
     try {
@@ -41,6 +48,7 @@ export function useMediaUpload() {
           ...prev,
           uploading: false,
           data: response.data,
+          aiDetect: response.data.aiDetect ?? null,
           progress: { loaded: 100, total: 100, percentage: 100 },
         }));
         return response.data;
@@ -65,6 +73,7 @@ export function useMediaUpload() {
       progress: null,
       error: null,
       data: null,
+      aiDetect: null,
     });
   }, []);
 
