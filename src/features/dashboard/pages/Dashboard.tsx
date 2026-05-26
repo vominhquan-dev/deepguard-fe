@@ -20,6 +20,10 @@ import {
   FileX,
   RefreshCw,
   HardDrive,
+  Download,
+  Eye,
+  Clock,
+  Layers,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useMediaUpload } from "../../detection/hooks/useMediaUpload";
@@ -103,45 +107,16 @@ const errorConfigs: Record<
   },
 };
 
-const recentScans = [
-  {
-    name: "interview_clip.mp4",
-    type: "Video",
-    verdict: "Deepfake",
-    risk: 87,
-    color: "text-red-400",
-  },
-  {
-    name: "profile_photo.jpg",
-    type: "Image",
-    verdict: "Authentic",
-    risk: 12,
-    color: "text-emerald-400",
-  },
-  {
-    name: "voice_msg.mp3",
-    type: "Audio",
-    verdict: "Suspicious",
-    risk: 65,
-    color: "text-amber-400",
-  },
-];
-
-const demoErrors: { label: string; type: ErrorType; color: string }[] = [
-  { label: "File Too Large", type: "file_too_large", color: "text-amber-500" },
-  { label: "Bad Format", type: "unsupported_format", color: "text-red-500" },
-  { label: "AI Failed", type: "analysis_failed", color: "text-red-400" },
-  { label: "Network Error", type: "network_error", color: "text-slate-400" },
-  {
-    label: "Server Down",
-    type: "server_unavailable",
-    color: "text-purple-400",
-  },
-];
-
 export function Dashboard() {
   const navigate = useNavigate();
-  const { upload, uploading, progress, error: uploadError } = useMediaUpload();
+  const {
+    upload,
+    uploading,
+    progress,
+    error: uploadError,
+    aiDetect,
+    data,
+  } = useMediaUpload();
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -210,18 +185,19 @@ export function Dashboard() {
           return;
         }
 
-        // Upload file to server
-        await upload(file, token);
+        // Upload file to server and receive AI detection results
+        const uploadData = await upload(file, token);
 
-        // Simulate analysis after successful upload
-        const scanPhases = [
-          "Initializing AI models...",
-          "Extracting media features...",
-          "Analyzing with neural network...",
-          "Running deepfake classifiers...",
-          "Generating risk report...",
-        ];
+        // Store AI detection result for Results page
+        if (uploadData?.aiDetect) {
+          localStorage.setItem(
+            "lastDetection",
+            JSON.stringify(uploadData.aiDetect),
+          );
+          localStorage.setItem("lastUploadData", JSON.stringify(uploadData));
+        }
 
+        // Show scanning animation briefly with real detection status
         let currentPhase = 0;
         setScanPhase(scanPhases[0]);
 
@@ -236,10 +212,7 @@ export function Dashboard() {
             if (next >= 100) {
               clearInterval(interval);
               setUploadState("done");
-              setTimeout(() => {
-                toast.success("Analysis complete! Redirecting to results...");
-                setTimeout(() => navigate("/results"), 800);
-              }, 300);
+              toast.success("Analysis complete!");
             }
             return Math.min(next, 100);
           });
@@ -282,6 +255,31 @@ export function Dashboard() {
     if (file) handleFile(file);
   };
 
+  const handleDownloadReport = () => {
+    if (!data || !aiDetect) return;
+    const report = {
+      fileName: selectedFile?.name || data.fileName,
+      fileType: data.fileType,
+      fileSize: data.fileSize,
+      uploadedAt: data.uploadedAt,
+      analysis: {
+        label: aiDetect.label,
+        confidence: aiDetect.score,
+        message: aiDetect.message,
+      },
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `deepguard-report-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Report downloaded!");
+  };
+
   const typeButtons = [
     {
       label: "Upload Image",
@@ -303,613 +301,730 @@ export function Dashboard() {
     },
   ];
 
-  const currentError = errorType ? errorConfigs[errorType] : null;
+  const isFakeLabel = (label: string) =>
+    label === "fake" || label === "deepfake" || label === "suspicious";
+
+  const getVerdictColor = (label: string) => {
+    if (isFakeLabel(label)) {
+      return {
+        bg: "bg-red-500/10",
+        text: "text-red-400",
+        border: "border-red-500/30",
+        bar: "bg-red-500",
+        barBg: "bg-red-500/20",
+      };
+    }
+    return {
+      bg: "bg-emerald-500/10",
+      text: "text-emerald-400",
+      border: "border-emerald-500/30",
+      bar: "bg-emerald-500",
+      barBg: "bg-emerald-500/20",
+    };
+  };
+
+  const getVerdictLabel = (label: string) => {
+    if (isFakeLabel(label)) return "Deepfake";
+    return "Real";
+  };
+
+  const getVerdictIcon = (label: string) => {
+    if (isFakeLabel(label)) return AlertTriangle;
+    return CheckCircle2;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    if (bytes < 1024 * 1024 * 1024)
+      return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+  };
+
+  const getFileTypeLabel = (type: string) => {
+    switch (type) {
+      case "IMAGE":
+        return "Image";
+      case "VIDEO":
+        return "Video";
+      case "AUDIO":
+        return "Audio";
+      default:
+        return type;
+    }
+  };
 
   return (
     <DashboardLayout>
-      <div className="p-6 md:p-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-6 rounded-full bg-[#22D3EE]" />
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Header */}
+          <div className="mb-6">
             <h1
               className="text-slate-900 dark:text-white"
-              style={{
-                fontSize: "24px",
-                fontWeight: 800,
-                letterSpacing: "-0.5px",
-              }}
+              style={{ fontSize: "24px", fontWeight: 800 }}
             >
-              Deepfake Detection
+              Detection Dashboard
             </h1>
+            <p
+              className="text-slate-500 dark:text-slate-400 mt-1"
+              style={{ fontSize: "14px" }}
+            >
+              Upload media to detect AI-generated or manipulated content
+            </p>
           </div>
-          <p
-            className="text-slate-500 dark:text-slate-400 ml-3"
-            style={{ fontSize: "14px" }}
-          >
-            Upload media to analyze it with our AI detection engine
-          </p>
-        </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Upload Card */}
-          <div className="lg:col-span-2">
-            <AnimatePresence mode="wait">
-              {/* ── Error State ── */}
-              {uploadState === "error" && currentError && (
-                <motion.div
-                  key="error"
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -16 }}
-                  className={`rounded-2xl bg-white dark:bg-[#1E293B] border ${currentError.border} p-8`}
-                  style={{ boxShadow: "0 0 32px rgba(239,68,68,0.05)" }}
-                >
-                  {/* Error badge */}
-                  <div
-                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${currentError.badgeBg} mb-6`}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+            {/* Left Column */}
+            <div>
+              <AnimatePresence mode="wait">
+                {/* ── Error State ── */}
+                {uploadState === "error" && errorType && (
+                  <motion.div
+                    key="error"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -16 }}
+                    className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 overflow-hidden"
                   >
-                    <div
-                      className={`w-1.5 h-1.5 rounded-full ${currentError.iconColor.replace("text-", "bg-")}`}
-                    />
-                    <span
-                      className={`${currentError.badgeText}`}
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Error Detected
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-start gap-6">
-                    {/* Icon */}
-                    <div
-                      className={`w-16 h-16 rounded-2xl ${currentError.bg} flex items-center justify-center flex-shrink-0`}
-                    >
-                      <currentError.icon
-                        className={`w-8 h-8 ${currentError.iconColor}`}
-                      />
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1">
-                      <h3
-                        className="text-slate-900 dark:text-white mb-2"
-                        style={{ fontSize: "18px", fontWeight: 700 }}
-                      >
-                        {currentError.title}
-                      </h3>
-                      <p
-                        className="text-slate-500 dark:text-slate-400 mb-4"
-                        style={{ fontSize: "14px", lineHeight: 1.6 }}
-                      >
-                        {currentError.desc}
-                      </p>
-
-                      {/* Hint box */}
-                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 mb-6">
-                        <AlertCircle className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                        <p
-                          className="text-slate-500 dark:text-slate-400"
-                          style={{ fontSize: "12px", lineHeight: 1.5 }}
-                        >
-                          {currentError.hint}
-                        </p>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex flex-wrap gap-3">
-                        <button
-                          onClick={resetUpload}
-                          className="btn-glow-blue flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
-                          style={{ fontSize: "14px", fontWeight: 700 }}
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          Try Again
-                        </button>
-                        <button
-                          onClick={() => {
-                            resetUpload();
-                            fileInputRef.current?.click();
-                          }}
-                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                          style={{ fontSize: "14px", fontWeight: 600 }}
-                        >
-                          <Upload className="w-4 h-4" />
-                          Upload Different File
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,video/*,audio/*"
-                    className="hidden"
-                    onChange={handleFileInput}
-                  />
-                </motion.div>
-              )}
-
-              {/* ── Idle / Selected State ── */}
-              {(uploadState === "idle" || uploadState === "selected") && (
-                <motion.div
-                  key="upload"
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -16 }}
-                  className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 overflow-hidden"
-                >
-                  {/* Drop zone */}
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsDragging(true);
-                    }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={handleDrop}
-                    onClick={() =>
-                      uploadState === "idle" && fileInputRef.current?.click()
-                    }
-                    className={`relative m-5 rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer ${
-                      isDragging
-                        ? "border-[#22D3EE] bg-[#22D3EE]/5 scale-[1.01]"
-                        : uploadState === "selected"
-                          ? "border-[#2563EB]/60 bg-[#2563EB]/5 cursor-default"
-                          : "border-slate-300 dark:border-slate-600 hover:border-[#2563EB]/50 hover:bg-slate-50 dark:hover:bg-slate-700/30"
-                    }`}
-                    style={{ minHeight: "260px" }}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,video/*,audio/*"
-                      className="hidden"
-                      onChange={handleFileInput}
-                    />
-
-                    {/* Drag-and-drop pulse ring */}
-                    {isDragging && (
-                      <motion.div
-                        className="absolute inset-0 rounded-xl border-2 border-[#22D3EE]"
-                        animate={{ scale: [1, 1.02, 1], opacity: [1, 0.5, 1] }}
-                        transition={{ duration: 1.2, repeat: Infinity }}
-                      />
-                    )}
-
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
-                      {uploadState === "selected" && selectedFile ? (
-                        <motion.div
-                          initial={{ scale: 0.9, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          className="text-center"
-                        >
-                          <div className="w-16 h-16 rounded-2xl bg-[#2563EB]/15 flex items-center justify-center mx-auto mb-4">
-                            <FileCheck className="w-8 h-8 text-[#2563EB]" />
-                          </div>
-                          <p
-                            className="text-slate-900 dark:text-white mb-1"
-                            style={{ fontSize: "16px", fontWeight: 600 }}
+                    {(() => {
+                      const cfg = errorConfigs[errorType];
+                      return (
+                        <div className="p-6">
+                          <div
+                            className={`flex items-center gap-3 mb-5 ${cfg.border} border rounded-xl p-4 ${cfg.bg}`}
                           >
-                            {selectedFile.name}
-                          </p>
-                          <p
-                            className="text-slate-500 dark:text-slate-400 mb-6"
-                            style={{ fontSize: "13px" }}
-                          >
-                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB ·
-                            Ready to analyze
-                          </p>
-                          <div className="flex gap-3 justify-center">
-                            <button
-                              onClick={() => startScan(selectedFile)}
-                              className="btn-glow-blue px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
-                              style={{ fontSize: "14px", fontWeight: 700 }}
+                            <div
+                              className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center`}
                             >
-                              Analyze Now →
+                              <cfg.icon
+                                className={`w-5 h-5 ${cfg.iconColor}`}
+                              />
+                            </div>
+                            <div>
+                              <p
+                                className="text-slate-900 dark:text-white"
+                                style={{ fontSize: "15px", fontWeight: 700 }}
+                              >
+                                {cfg.title}
+                              </p>
+                              <p
+                                className="text-slate-500 dark:text-slate-400"
+                                style={{ fontSize: "12px" }}
+                              >
+                                {cfg.desc}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-2 mb-5">
+                            <RefreshCw className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#22D3EE] mt-0.5 flex-shrink-0" />
+                            <p
+                              className="text-slate-500 dark:text-slate-400"
+                              style={{ fontSize: "12px" }}
+                            >
+                              {cfg.hint}
+                            </p>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <button
+                              onClick={resetUpload}
+                              className="px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
+                              style={{ fontSize: "13px", fontWeight: 700 }}
+                            >
+                              Try Again
                             </button>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setUploadState("idle");
-                                setSelectedFile(null);
-                              }}
-                              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                              style={{ fontSize: "14px" }}
+                              onClick={() => navigate("/support")}
+                              className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                              style={{ fontSize: "13px", fontWeight: 600 }}
                             >
-                              <X className="w-4 h-4" />
+                              Contact Support
                             </button>
-                          </div>
-                        </motion.div>
-                      ) : (
-                        <div className="text-center">
-                          <motion.div
-                            animate={
-                              isDragging
-                                ? { scale: 1.15, rotate: 5 }
-                                : { scale: 1, rotate: 0 }
-                            }
-                            transition={{
-                              type: "spring",
-                              stiffness: 300,
-                              damping: 20,
-                            }}
-                            className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-5"
-                          >
-                            <Upload
-                              className={`w-7 h-7 ${isDragging ? "text-[#22D3EE]" : "text-slate-400 dark:text-slate-500"}`}
-                            />
-                          </motion.div>
-                          <p
-                            className="text-slate-900 dark:text-white mb-1.5"
-                            style={{ fontSize: "17px", fontWeight: 700 }}
-                          >
-                            {isDragging
-                              ? "Drop your file here"
-                              : "Drag & drop your media"}
-                          </p>
-                          <p
-                            className="text-slate-400 dark:text-slate-500 mb-5"
-                            style={{ fontSize: "13px" }}
-                          >
-                            or click to browse files from your device
-                          </p>
-                          <div className="flex flex-wrap justify-center gap-2">
-                            {["JPG", "PNG", "MP4", "MOV", "MP3", "WAV"].map(
-                              (fmt) => (
-                                <span
-                                  key={fmt}
-                                  className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
-                                  style={{ fontSize: "11px", fontWeight: 600 }}
-                                >
-                                  {fmt}
-                                </span>
-                              ),
-                            )}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
+                      );
+                    })()}
+                  </motion.div>
+                )}
 
-                  {/* Type buttons */}
-                  {uploadState === "idle" && (
-                    <div className="px-5 pb-5 grid grid-cols-3 gap-3">
-                      {typeButtons.map(({ label, icon: Icon, accept, ext }) => (
-                        <button
-                          key={label}
-                          onClick={() => {
-                            if (fileInputRef.current) {
-                              fileInputRef.current.accept = accept;
-                              fileInputRef.current.click();
-                            }
-                          }}
-                          className="group flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-[#2563EB]/40 hover:bg-[#2563EB]/5 transition-all duration-200 hover:shadow-md hover:shadow-blue-500/5"
-                        >
-                          <Icon className="w-5 h-5 text-slate-400 dark:text-slate-500 group-hover:text-[#2563EB] dark:group-hover:text-[#22D3EE] transition-colors" />
-                          <span
-                            className="text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
-                            style={{ fontSize: "12px", fontWeight: 600 }}
-                          >
-                            {label}
-                          </span>
-                          <span
-                            className="text-slate-400 dark:text-slate-600"
-                            style={{ fontSize: "10px" }}
-                          >
-                            {ext}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {/* ── Scanning / Done State ── */}
-              {(uploadState === "scanning" || uploadState === "done") && (
-                <motion.div
-                  key="scanning"
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -16 }}
-                  className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-8"
-                >
-                  {/* AI animation */}
-                  <div
-                    className="relative mx-auto mb-8 rounded-xl overflow-hidden bg-slate-900 dark:bg-[#0F172A]"
-                    style={{
-                      height: "180px",
-                      width: "100%",
-                      maxWidth: "400px",
-                    }}
+                {/* ── Idle / Selected State ── */}
+                {(uploadState === "idle" || uploadState === "selected") && (
+                  <motion.div
+                    key="upload"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -16 }}
+                    className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 overflow-hidden"
                   >
+                    {/* Drop zone */}
                     <div
-                      className="absolute inset-0"
-                      style={{
-                        backgroundImage:
-                          "linear-gradient(rgba(34,211,238,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.05) 1px, transparent 1px)",
-                        backgroundSize: "20px 20px",
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
                       }}
-                    />
-                    <motion.div
-                      className="absolute left-0 right-0 h-0.5 bg-[#22D3EE]"
-                      style={{
-                        boxShadow: "0 0 16px #22D3EE, 0 0 32px #22D3EE60",
-                      }}
-                      animate={{ top: ["5%", "95%", "5%"] }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "linear",
-                      }}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {[1, 2, 3].map((i) => (
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={handleDrop}
+                      onClick={() =>
+                        uploadState === "idle" && fileInputRef.current?.click()
+                      }
+                      className={`relative m-5 rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer ${
+                        isDragging
+                          ? "border-[#22D3EE] bg-[#22D3EE]/5 scale-[1.01]"
+                          : uploadState === "selected"
+                            ? "border-[#2563EB]/60 bg-[#2563EB]/5 cursor-default"
+                            : "border-slate-300 dark:border-slate-600 hover:border-[#2563EB]/50 hover:bg-slate-50 dark:hover:bg-slate-700/30"
+                      }`}
+                      style={{ minHeight: "260px" }}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,video/*,audio/*"
+                        className="hidden"
+                        onChange={handleFileInput}
+                      />
+
+                      {/* Drag-and-drop pulse ring */}
+                      {isDragging && (
                         <motion.div
-                          key={i}
-                          className="absolute rounded-full border border-[#22D3EE]/30"
+                          className="absolute inset-0 rounded-xl border-2 border-[#22D3EE]"
                           animate={{
-                            scale: [1, 1.5 + i * 0.3],
-                            opacity: [0.5, 0],
+                            scale: [1, 1.02, 1],
+                            opacity: [1, 0.5, 1],
                           }}
-                          transition={{
-                            duration: 2,
-                            delay: i * 0.4,
-                            repeat: Infinity,
-                          }}
-                          style={{ width: 60, height: 60 }}
+                          transition={{ duration: 1.2, repeat: Infinity }}
                         />
-                      ))}
-                      <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 border border-[#22D3EE]/40 flex items-center justify-center">
-                        <Cpu className="w-5 h-5 text-[#22D3EE]" />
+                      )}
+
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
+                        {uploadState === "selected" && selectedFile ? (
+                          <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-center"
+                          >
+                            <div className="w-16 h-16 rounded-2xl bg-[#2563EB]/15 flex items-center justify-center mx-auto mb-4">
+                              <FileCheck className="w-8 h-8 text-[#2563EB]" />
+                            </div>
+                            <p
+                              className="text-slate-900 dark:text-white mb-1"
+                              style={{ fontSize: "16px", fontWeight: 600 }}
+                            >
+                              {selectedFile.name}
+                            </p>
+                            <p
+                              className="text-slate-500 dark:text-slate-400 mb-6"
+                              style={{ fontSize: "13px" }}
+                            >
+                              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                              · Ready to analyze
+                            </p>
+                            <div className="flex gap-3 justify-center">
+                              <button
+                                onClick={() => startScan(selectedFile)}
+                                className="btn-glow-blue px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
+                                style={{ fontSize: "14px", fontWeight: 700 }}
+                              >
+                                Analyze Now →
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setUploadState("idle");
+                                  setSelectedFile(null);
+                                }}
+                                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                                style={{ fontSize: "14px" }}
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <div className="text-center">
+                            <motion.div
+                              animate={
+                                isDragging
+                                  ? { scale: 1.15, rotate: 5 }
+                                  : { scale: 1, rotate: 0 }
+                              }
+                              transition={{
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 20,
+                              }}
+                              className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-5"
+                            >
+                              <Upload
+                                className={`w-7 h-7 ${isDragging ? "text-[#22D3EE]" : "text-slate-400 dark:text-slate-500"}`}
+                              />
+                            </motion.div>
+                            <p
+                              className="text-slate-900 dark:text-white mb-1.5"
+                              style={{ fontSize: "17px", fontWeight: 700 }}
+                            >
+                              {isDragging
+                                ? "Drop your file here"
+                                : "Drag & drop your media"}
+                            </p>
+                            <p
+                              className="text-slate-400 dark:text-slate-500 mb-5"
+                              style={{ fontSize: "13px" }}
+                            >
+                              or click to browse files from your device
+                            </p>
+                            <div className="flex flex-wrap justify-center gap-2">
+                              {["JPG", "PNG", "MP4", "MOV", "MP3", "WAV"].map(
+                                (fmt) => (
+                                  <span
+                                    key={fmt}
+                                    className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                                    style={{
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {fmt}
+                                  </span>
+                                ),
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    {[
-                      "top-2 left-2",
-                      "top-2 right-2",
-                      "bottom-2 left-2",
-                      "bottom-2 right-2",
-                    ].map((pos) => (
-                      <div
-                        key={pos}
-                        className={`absolute ${pos} w-4 h-4 border-[#22D3EE]/60`}
-                        style={{ borderWidth: "2px 0 0 2px" }}
-                      />
-                    ))}
-                  </div>
 
-                  <div className="text-center mb-6">
-                    <p
-                      className="text-slate-900 dark:text-white mb-1"
-                      style={{ fontSize: "16px", fontWeight: 700 }}
-                    >
-                      Analyzing with AI...
-                    </p>
-                    <motion.p
-                      key={scanPhase}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-[#22D3EE]"
-                      style={{ fontSize: "13px", fontWeight: 500 }}
-                    >
-                      {scanPhase}
-                    </motion.p>
-                  </div>
+                    {/* Type buttons */}
+                    {uploadState === "idle" && (
+                      <div className="px-5 pb-5 grid grid-cols-3 gap-3">
+                        {typeButtons.map(
+                          ({ label, icon: Icon, accept, ext }) => (
+                            <button
+                              key={label}
+                              onClick={() => {
+                                if (fileInputRef.current) {
+                                  fileInputRef.current.accept = accept;
+                                  fileInputRef.current.click();
+                                }
+                              }}
+                              className="group flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-[#2563EB]/40 hover:bg-[#2563EB]/5 transition-all duration-200 hover:shadow-md hover:shadow-blue-500/5"
+                            >
+                              <Icon className="w-5 h-5 text-slate-400 dark:text-slate-500 group-hover:text-[#2563EB] dark:group-hover:text-[#22D3EE] transition-colors" />
+                              <span
+                                className="text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
+                                style={{ fontSize: "12px", fontWeight: 600 }}
+                              >
+                                {label}
+                              </span>
+                              <span
+                                className="text-slate-400 dark:text-slate-600"
+                                style={{ fontSize: "10px" }}
+                              >
+                                {ext}
+                              </span>
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
 
-                  <div className="mb-3">
-                    <div className="flex justify-between mb-2">
-                      <span
-                        className="text-slate-500 dark:text-slate-400"
-                        style={{ fontSize: "12px", fontWeight: 500 }}
-                      >
-                        {selectedFile?.name}
-                      </span>
-                      <span
-                        className="text-[#22D3EE]"
-                        style={{ fontSize: "12px", fontWeight: 700 }}
-                      >
-                        {Math.round(progress_display)}%
-                      </span>
-                    </div>
-                    <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE]"
-                        style={{
-                          width: `${progress_display}%`,
-                          boxShadow: "0 0 8px rgba(34,211,238,0.5)",
-                        }}
-                      />
-                    </div>
-                  </div>
+                {/* ── Scanning / Done State ── */}
+                {(uploadState === "scanning" || uploadState === "done") && (
+                  <motion.div
+                    key={uploadState === "done" ? "result" : "scanning"}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -16 }}
+                    className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 overflow-hidden"
+                  >
+                    {uploadState === "scanning" && (
+                      <div className="p-8">
+                        {/* AI animation */}
+                        <div
+                          className="relative mx-auto mb-8 rounded-xl overflow-hidden bg-slate-900 dark:bg-[#0F172A]"
+                          style={{
+                            height: "180px",
+                            width: "100%",
+                            maxWidth: "400px",
+                          }}
+                        >
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              backgroundImage:
+                                "linear-gradient(rgba(34,211,238,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.05) 1px, transparent 1px)",
+                              backgroundSize: "20px 20px",
+                            }}
+                          />
+                          <motion.div
+                            className="absolute left-0 right-0 h-0.5 bg-[#22D3EE]"
+                            style={{
+                              boxShadow: "0 0 16px #22D3EE, 0 0 32px #22D3EE60",
+                            }}
+                            animate={{ top: ["5%", "95%", "5%"] }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "linear",
+                            }}
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            {[1, 2, 3].map((i) => (
+                              <motion.div
+                                key={i}
+                                className="absolute rounded-full border border-[#22D3EE]/30"
+                                animate={{
+                                  scale: [1, 1.5 + i * 0.3],
+                                  opacity: [0.5, 0],
+                                }}
+                                transition={{
+                                  duration: 2,
+                                  delay: i * 0.4,
+                                  repeat: Infinity,
+                                }}
+                                style={{ width: 60, height: 60 }}
+                              />
+                            ))}
+                            <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 border border-[#22D3EE]/40 flex items-center justify-center">
+                              <Cpu className="w-5 h-5 text-[#22D3EE]" />
+                            </div>
+                          </div>
+                          {[
+                            "top-2 left-2",
+                            "top-2 right-2",
+                            "bottom-2 left-2",
+                            "bottom-2 right-2",
+                          ].map((pos) => (
+                            <div
+                              key={pos}
+                              className={`absolute ${pos} w-4 h-4 border-[#22D3EE]/60`}
+                              style={{ borderWidth: "2px 0 0 2px" }}
+                            />
+                          ))}
+                        </div>
 
-                  {uploadState === "done" && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="flex items-center justify-center gap-2 text-emerald-400"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span style={{ fontSize: "13px", fontWeight: 600 }}>
-                        Analysis complete! Redirecting...
-                      </span>
-                    </motion.div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                        <div className="text-center mb-6">
+                          <p
+                            className="text-slate-900 dark:text-white mb-1"
+                            style={{ fontSize: "16px", fontWeight: 700 }}
+                          >
+                            Analyzing with AI...
+                          </p>
+                          <motion.p
+                            key={scanPhase}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="text-[#22D3EE]"
+                            style={{ fontSize: "13px", fontWeight: 500 }}
+                          >
+                            {scanPhase}
+                          </motion.p>
+                        </div>
 
-          {/* Right Panel */}
-          <div className="space-y-5">
-            {/* Tips */}
-            <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-5">
-              <h3
-                className="text-slate-900 dark:text-white mb-4"
-                style={{ fontSize: "14px", fontWeight: 700 }}
-              >
-                Detection Tips
-              </h3>
-              <div className="space-y-3">
-                {[
-                  {
-                    icon: Shield,
-                    text: "Files up to 500MB supported",
-                    color: "text-[#2563EB]",
-                  },
-                  {
-                    icon: AlertCircle,
-                    text: "Higher resolution = better accuracy",
-                    color: "text-amber-500",
-                  },
-                  {
-                    icon: CheckCircle2,
-                    text: "Results ready in under 30 seconds",
-                    color: "text-emerald-500",
-                  },
-                ].map(({ icon: Icon, text, color }) => (
-                  <div key={text} className="flex items-start gap-3">
-                    <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${color}`} />
-                    <span
-                      className="text-slate-500 dark:text-slate-400"
-                      style={{ fontSize: "13px" }}
-                    >
-                      {text}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                        <div className="mb-3">
+                          <div className="flex justify-between mb-2">
+                            <span
+                              className="text-slate-500 dark:text-slate-400"
+                              style={{ fontSize: "12px", fontWeight: 500 }}
+                            >
+                              {selectedFile?.name}
+                            </span>
+                            <span
+                              className="text-[#22D3EE]"
+                              style={{ fontSize: "12px", fontWeight: 700 }}
+                            >
+                              {Math.round(progress_display)}%
+                            </span>
+                          </div>
+                          <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <motion.div
+                              className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE]"
+                              style={{
+                                width: `${progress_display}%`,
+                                boxShadow: "0 0 8px rgba(34,211,238,0.5)",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Results Card ── */}
+                    {uploadState === "done" &&
+                      aiDetect &&
+                      data &&
+                      selectedFile && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="p-6"
+                        >
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-5">
+                            <div>
+                              <h2
+                                className="text-slate-900 dark:text-white"
+                                style={{ fontSize: "20px", fontWeight: 800 }}
+                              >
+                                Detection Results
+                              </h2>
+                              <p
+                                className="text-slate-500 dark:text-slate-400 mt-0.5"
+                                style={{ fontSize: "13px" }}
+                              >
+                                Analysis complete for{" "}
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  {selectedFile.name}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex gap-3 mb-6">
+                            <button
+                              onClick={resetUpload}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
+                              style={{ fontSize: "13px", fontWeight: 700 }}
+                            >
+                              <Upload className="w-4 h-4" />
+                              Scan Another
+                            </button>
+                            <button
+                              onClick={handleDownloadReport}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                              style={{ fontSize: "13px", fontWeight: 600 }}
+                            >
+                              <Download className="w-4 h-4" />
+                              Download Report
+                            </button>
+                            <button
+                              onClick={() => navigate("/results")}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ml-auto"
+                              style={{ fontSize: "13px", fontWeight: 600 }}
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Full Report
+                            </button>
+                          </div>
+
+                          {/* AI Message */}
+                          {aiDetect.message &&
+                            aiDetect.message !== "Prediction successful" && (
+                              <div
+                                className={`flex items-start gap-3 p-4 rounded-xl mb-5 ${
+                                  aiDetect.label === "fake"
+                                    ? "bg-red-500/5 border border-red-500/20"
+                                    : "bg-emerald-500/5 border border-emerald-500/20"
+                                }`}
+                              >
+                                {aiDetect.label === "fake" ? (
+                                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                                ) : (
+                                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                                )}
+                                <p
+                                  className={`text-sm ${
+                                    aiDetect.label === "fake"
+                                      ? "text-red-600 dark:text-red-300"
+                                      : "text-emerald-600 dark:text-emerald-300"
+                                  }`}
+                                >
+                                  {aiDetect.message}
+                                </p>
+                              </div>
+                            )}
+
+                          {/* File info line */}
+                          <div className="flex items-center gap-2 text-slate-400 mb-6 text-xs">
+                            <span className="font-medium text-slate-500 dark:text-slate-400">
+                              {selectedFile.name}
+                            </span>
+                            <span>·</span>
+                            <span>{formatFileSize(data.fileSize)}</span>
+                            <span>·</span>
+                            <span>{getFileTypeLabel(data.fileType)}</span>
+                          </div>
+
+                          {/* Main verdict card */}
+                          {(() => {
+                            const verdict = getVerdictColor(aiDetect.label);
+                            const VerdictIcon = getVerdictIcon(aiDetect.label);
+                            const riskScore =
+                              aiDetect.label === "fake"
+                                ? Math.round(aiDetect.score * 100)
+                                : Math.round((1 - aiDetect.score) * 100);
+
+                            return (
+                              <div
+                                className={`rounded-xl border ${verdict.border} ${verdict.bg} p-6 mb-6`}
+                              >
+                                <div className="flex items-center gap-3 mb-4">
+                                  <div className="w-10 h-10 rounded-xl bg-white/10 dark:bg-white/5 flex items-center justify-center">
+                                    <VerdictIcon
+                                      className={`w-5 h-5 ${verdict.text}`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <p
+                                      className={`font-bold text-lg ${verdict.text}`}
+                                    >
+                                      {isFakeLabel(aiDetect.label)
+                                        ? "⚠ DEEPFAKE DETECTED"
+                                        : "✓ AUTHENTIC CONTENT"}
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 text-xs">
+                                      AI Verdict
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Risk Level Bar */}
+                                <div className="mb-4">
+                                  <div className="flex justify-between items-center mb-1.5">
+                                    <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                                      Risk Level
+                                    </span>
+                                    <span
+                                      className={`font-bold text-lg ${riskScore >= 70 ? "text-red-400" : riskScore >= 40 ? "text-amber-400" : "text-emerald-400"}`}
+                                    >
+                                      {riskScore}%
+                                    </span>
+                                  </div>
+                                  <div className="h-2.5 bg-slate-200/50 dark:bg-slate-700/50 rounded-full overflow-hidden">
+                                    <motion.div
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${riskScore}%` }}
+                                      transition={{
+                                        duration: 0.8,
+                                        ease: "easeOut",
+                                      }}
+                                      className={`h-full rounded-full ${
+                                        riskScore >= 70
+                                          ? "bg-red-500"
+                                          : riskScore >= 40
+                                            ? "bg-amber-500"
+                                            : "bg-emerald-500"
+                                      }`}
+                                      style={{
+                                        boxShadow:
+                                          riskScore >= 70
+                                            ? "0 0 8px rgba(239,68,68,0.5)"
+                                            : "none",
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Stats grid */}
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
+                                    <p className="text-slate-400 text-xs mb-0.5">
+                                      AI Verdict
+                                    </p>
+                                    <p
+                                      className={`font-bold text-sm ${verdict.text}`}
+                                    >
+                                      {getVerdictLabel(
+                                        aiDetect.label,
+                                      ).toUpperCase()}
+                                    </p>
+                                  </div>
+                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
+                                    <p className="text-slate-400 text-xs mb-0.5">
+                                      Model Confidence
+                                    </p>
+                                    <p className="font-bold text-sm text-slate-900 dark:text-white">
+                                      {Math.round(aiDetect.score * 100)}%
+                                    </p>
+                                  </div>
+                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
+                                    <p className="text-slate-400 text-xs mb-0.5">
+                                      File Type
+                                    </p>
+                                    <p className="font-bold text-sm text-slate-900 dark:text-white">
+                                      {getFileTypeLabel(data.fileType)}
+                                    </p>
+                                  </div>
+                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
+                                    <p className="text-slate-400 text-xs mb-0.5">
+                                      File Size
+                                    </p>
+                                    <p className="font-bold text-sm text-slate-900 dark:text-white">
+                                      {formatFileSize(data.fileSize)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </motion.div>
+                      )}
+
+                    {uploadState === "done" && !aiDetect && (
+                      <div className="p-8 flex flex-col items-center justify-center gap-3">
+                        <CheckCircle2 className="w-12 h-12 text-emerald-400" />
+                        <p className="text-slate-900 dark:text-white font-semibold text-sm">
+                          Analysis complete!
+                        </p>
+                        <button
+                          onClick={resetUpload}
+                          className="px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
+                          style={{ fontSize: "13px", fontWeight: 700 }}
+                        >
+                          Scan Another File
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Recent scans */}
-            <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-5">
-              <div className="flex items-center justify-between mb-4">
+            {/* Right Panel */}
+            <div className="space-y-5">
+              {/* Tips */}
+              <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-5">
                 <h3
-                  className="text-slate-900 dark:text-white"
+                  className="text-slate-900 dark:text-white mb-4"
                   style={{ fontSize: "14px", fontWeight: 700 }}
                 >
-                  Recent Scans
+                  Detection Tips
                 </h3>
-                <button
-                  onClick={() => navigate("/history")}
-                  className="text-[#2563EB] dark:text-[#22D3EE] hover:underline"
-                  style={{ fontSize: "12px", fontWeight: 600 }}
-                >
-                  View all
-                </button>
-              </div>
-              <div className="space-y-3">
-                {recentScans.map((scan) => (
-                  <div
-                    key={scan.name}
-                    className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
-                      {scan.type === "Video" ? (
-                        <Video className="w-3.5 h-3.5 text-slate-400" />
-                      ) : scan.type === "Image" ? (
-                        <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
-                      ) : (
-                        <Mic className="w-3.5 h-3.5 text-slate-400" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className="text-slate-900 dark:text-slate-200 truncate"
-                        style={{ fontSize: "12px", fontWeight: 600 }}
+                <div className="space-y-3">
+                  {[
+                    {
+                      icon: Shield,
+                      text: "Files up to 500MB supported",
+                      color: "text-[#2563EB]",
+                    },
+                    {
+                      icon: AlertCircle,
+                      text: "Higher resolution = better accuracy",
+                      color: "text-amber-500",
+                    },
+                    {
+                      icon: CheckCircle2,
+                      text: "Results ready in under 30 seconds",
+                      color: "text-emerald-500",
+                    },
+                  ].map(({ icon: Icon, text, color }) => (
+                    <div key={text} className="flex items-start gap-3">
+                      <Icon
+                        className={`w-4 h-4 mt-0.5 flex-shrink-0 ${color}`}
+                      />
+                      <span
+                        className="text-slate-500 dark:text-slate-400"
+                        style={{ fontSize: "13px" }}
                       >
-                        {scan.name}
-                      </p>
-                      <p
-                        className={`${scan.color}`}
-                        style={{ fontSize: "11px", fontWeight: 600 }}
-                      >
-                        {scan.verdict}
-                      </p>
+                        {text}
+                      </span>
                     </div>
-                    <span
-                      className="text-slate-500 dark:text-slate-400"
-                      style={{ fontSize: "12px", fontWeight: 700 }}
-                    >
-                      {scan.risk}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Stats mini */}
-            <div className="rounded-2xl bg-gradient-to-br from-[#2563EB] to-blue-800 p-5 text-white">
-              <div className="flex items-center gap-2 mb-3">
-                <BarChart2 className="w-4 h-4 text-blue-200" />
-                <span style={{ fontSize: "13px", fontWeight: 600 }}>
-                  Your Stats
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { value: "24", label: "Total Scans" },
-                  { value: "8", label: "Deepfakes" },
-                  { value: "33%", label: "Fake Rate" },
-                  { value: "97%", label: "Confidence" },
-                ].map((s) => (
-                  <div key={s.label}>
-                    <div style={{ fontSize: "22px", fontWeight: 800 }}>
-                      {s.value}
-                    </div>
-                    <div className="text-blue-200" style={{ fontSize: "11px" }}>
-                      {s.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Error State Demo Panel */}
-            <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
-                <h3
-                  className="text-slate-700 dark:text-slate-400"
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  Test Error States
-                </h3>
-              </div>
-              <p
-                className="text-slate-400 mb-3"
-                style={{ fontSize: "11px", lineHeight: 1.5 }}
-              >
-                Preview each error design:
-              </p>
-              <div className="space-y-1.5">
-                {demoErrors.map(({ label, type, color }) => (
-                  <button
-                    key={type}
-                    onClick={() => triggerError(type)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left"
-                  >
-                    <div
-                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${color.replace("text-", "bg-")}`}
-                    />
-                    <span
-                      className="text-slate-600 dark:text-slate-400"
-                      style={{ fontSize: "12px", fontWeight: 500 }}
-                    >
-                      {label}
-                    </span>
-                  </button>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>

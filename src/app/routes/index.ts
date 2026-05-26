@@ -20,6 +20,7 @@ import { CreateProfile } from "../../features/auth/pages/CreateProfile";
 import { Pricing } from "../../features/marketing/pages/Pricing";
 import { RealtimeMonitor } from "../../features/monitoring/pages/RealtimeMonitor";
 import { Plan } from "../../features/billing/pages/Plan";
+import { SePayPayment } from "../../features/billing/pages/SePayPayment";
 
 /**
  * ROLE AUTHORIZATION GUIDE:
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
       // Authenticated routes (any role)
       { path: "settings", Component: withAuth(Settings) },
       { path: "plan", Component: withAuth(Plan) },
+      { path: "payment/sepay/:planId", Component: withAuth(SePayPayment) },
 
       { path: "*", Component: NotFound },
     ],

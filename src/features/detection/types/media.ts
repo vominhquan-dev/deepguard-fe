@@ -2,6 +2,13 @@
  * Media API Types
  */
 
+export interface AiDetectData {
+  label: string;
+  score: number;
+  imageUrl: string | null;
+  message: string;
+}
+
 export interface MediaUploadData {
   id: string;
   userId: string;
@@ -10,6 +17,7 @@ export interface MediaUploadData {
   fileType: string;
   fileSize: number;
   uploadedAt: string;
+  aiDetect?: AiDetectData;
 }
 
 export interface MediaUploadResponse {
