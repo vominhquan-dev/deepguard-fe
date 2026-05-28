@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -342,6 +342,25 @@ export function Dashboard() {
     if (bytes < 1024 * 1024 * 1024)
       return (bytes / (1024 * 1024)).toFixed(2) + " MB";
     return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+  };
+
+  const formatRelativeTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+    });
   };
 
   const getFileTypeLabel = (type: string) => {
@@ -1085,9 +1104,19 @@ export function Dashboard() {
                             localStorage.setItem(
                               "lastDetection",
                               JSON.stringify({
+                                detectionResultId: result.detectionResultId,
+                                scanJobId: result.scanJobId,
                                 label: result.resultLabel,
-                                score: result.fakeScore / 100,
+                                score: result.fakeScore ?? 0,
+                                confidence: result.confidence ?? 0,
                                 imageUrl: result.originalUrl,
+                                fileName: result.fileName,
+                                modelVersion: result.modelVersion,
+                                processedAt: result.processedAt,
+                                resultLabel: result.resultLabel,
+                                fakeScore: result.fakeScore,
+                                email: result.email,
+                                mediaId: result.mediaId,
                                 message: `AI analysis complete — ${result.resultLabel}`,
                               }),
                             );
@@ -1109,12 +1138,19 @@ export function Dashboard() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p
-                              className="text-slate-900 dark:text-white truncate font-medium"
-                              style={{ fontSize: "12px" }}
-                            >
-                              {result.fileName}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p
+                                className="text-slate-900 dark:text-white truncate font-medium"
+                                style={{ fontSize: "12px" }}
+                              >
+                                {result.fileName}
+                              </p>
+                              {result.processedAt && (
+                                <span className="text-slate-400 text-[10px] flex-shrink-0">
+                                  {formatRelativeTime(result.processedAt)}
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span
                                 className={`text-xs font-semibold ${
@@ -1125,7 +1161,7 @@ export function Dashboard() {
                               </span>
                               <span className="text-slate-400">·</span>
                               <span className="text-slate-400 text-xs">
-                                {result.fakeScore?.toFixed(0)}%
+                                Score: {(result.fakeScore * 100)?.toFixed(0)}
                               </span>
                             </div>
                           </div>
