@@ -68,7 +68,8 @@ export function VerifyEmail() {
       const payload: VerifyEmailRequest = { email, otp };
       const response = await verifyEmail(payload);
 
-      if (response.success) {
+      // API may return success=false with code "200" and a success message
+      if (response.success || response.code === "200") {
         toast.success("Email verified successfully! Redirecting to login...");
         setTimeout(() => navigate("/login"), 600);
       }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import {
@@ -24,6 +25,7 @@ import { useTheme } from "../../../app/providers/ThemeProvider";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import { updateUserProfile } from "../../../features/auth/api/userProfilesApi";
+import { createUserProfile } from "../../../features/auth/api/userProfilesApi";
 
 type Tab = "profile" | "notifications" | "security" | "appearance";
 
@@ -84,6 +86,7 @@ export function Settings() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fakeApiKey = "dg_sk_live_7fK3mP9qZ2nA8rXv1cE6yB4wT5uN0jQ";
 
@@ -112,6 +115,41 @@ export function Settings() {
     const reader = new FileReader();
     reader.onload = () => setAvatarPreview(reader.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const handleCreateProfile = async () => {
+    if (!accessToken) {
+      toast.error("You must be logged in to create a profile.");
+      return;
+    }
+
+    if (!profile.name.trim()) {
+      toast.error("Please enter your full name.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await createUserProfile(accessToken, {
+        fullName: profile.name.trim(),
+        bio: profile.bio.trim() || undefined,
+        avatar: avatarFile || undefined,
+      });
+
+      if (response.success) {
+        setAuthProfile(response.data);
+        toast.success("Profile created successfully!");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to create profile. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -219,7 +257,80 @@ export function Settings() {
               transition={{ duration: 0.2 }}
             >
               {/* Profile */}
-              {activeTab === "profile" && (
+              {activeTab === "profile" && !authProfile && (
+                <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-8">
+                  <div className="flex flex-col items-center text-center py-6">
+                    {/* Decorative gradient ring */}
+                    <div className="relative mb-6">
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#2563EB]/20 to-[#22D3EE]/20 blur-xl" />
+                      <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <User className="w-9 h-9 text-white" />
+                      </div>
+                    </div>
+                    <h2
+                      className="text-slate-900 dark:text-white mb-2"
+                      style={{
+                        fontSize: "22px",
+                        fontWeight: 800,
+                        letterSpacing: "-0.3px",
+                      }}
+                    >
+                      Complete Your Profile
+                    </h2>
+                    <p
+                      className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm leading-relaxed"
+                      style={{ fontSize: "14px" }}
+                    >
+                      Set up your profile to unlock the full DeepGuard
+                      experience — add your name, bio, and a profile photo so
+                      your team can recognize you.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={() => navigate("/create-profile")}
+                        className="flex items-center justify-center gap-2 px-7 py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
+                        style={{ fontSize: "14px", fontWeight: 700 }}
+                      >
+                        <User className="w-4 h-4" />
+                        Create Profile
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("appearance")}
+                        className="flex items-center justify-center gap-2 px-7 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                        style={{ fontSize: "14px", fontWeight: 600 }}
+                      >
+                        <Palette className="w-4 h-4" />
+                        Customize Theme
+                      </button>
+                    </div>
+                    {/* Feature hints */}
+                    <div className="grid grid-cols-3 gap-4 mt-10 pt-8 border-t border-slate-100 dark:border-slate-800 w-full max-w-sm">
+                      {[
+                        { icon: Camera, label: "Avatar" },
+                        { icon: Globe, label: "Public Bio" },
+                        { icon: Shield, label: "Verified" },
+                      ].map(({ icon: Icon, label }) => (
+                        <div
+                          key={label}
+                          className="flex flex-col items-center gap-1.5"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                            <Icon className="w-4 h-4 text-slate-400" />
+                          </div>
+                          <span
+                            className="text-slate-400 dark:text-slate-500"
+                            style={{ fontSize: "11px", fontWeight: 600 }}
+                          >
+                            {label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "profile" && authProfile && (
                 <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6">
                   <h2
                     className="text-slate-900 dark:text-white mb-6"

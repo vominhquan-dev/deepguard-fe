@@ -19,8 +19,10 @@ import {
   HelpCircle,
   Sun,
   Moon,
+  Coins,
 } from "lucide-react";
 import { useTheme } from "../providers/ThemeProvider";
+import { useCredits } from "../../features/billing/hooks/useCredits";
 import { Toaster } from "sonner";
 
 interface DashboardLayoutProps {
@@ -87,9 +89,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [notifList, setNotifList] = useState(notifications);
   const { theme, toggleTheme } = useTheme();
   const { profile } = useAuth();
+  const { credits, loading: creditsLoading } = useCredits();
   const navigate = useNavigate();
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const mobileProfileRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifList.filter((n) => !n.read).length;
 
@@ -105,6 +109,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       ) {
         setProfileOpen(false);
       }
+      if (
+        mobileProfileRef.current &&
+        !mobileProfileRef.current.contains(e.target as Node)
+      ) {
+        setProfileOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -116,6 +126,170 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     setNotifList((ns) =>
       ns.map((n) => (n.id === id ? { ...n, read: true } : n)),
     );
+
+  // ----- Shared credit badge snippet -----
+  const CreditBadge = () => {
+    if (creditsLoading) {
+      return (
+        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 w-fit">
+          <div className="w-2 h-2 rounded-full border border-slate-400 border-t-transparent animate-spin" />
+          <span
+            className="text-slate-400 dark:text-slate-500"
+            style={{ fontSize: "10px", fontWeight: 700 }}
+          >
+            ...
+          </span>
+        </div>
+      );
+    }
+    if (credits) {
+      return (
+        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 w-fit">
+          <Coins className="w-2.5 h-2.5 text-emerald-500" />
+          <span
+            className="text-emerald-500"
+            style={{ fontSize: "10px", fontWeight: 700 }}
+          >
+            {credits.remainingCredits}
+          </span>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 w-fit">
+        <span
+          className="text-slate-400 dark:text-slate-500"
+          style={{ fontSize: "10px", fontWeight: 700 }}
+        >
+          ---
+        </span>
+      </div>
+    );
+  };
+
+  // ----- Avatar button (shared by mobile & desktop) -----
+  const AvatarButton = () => {
+    return profile?.avatarUrl ? (
+      <ImageWithFallback
+        src={profile.avatarUrl}
+        alt={profile.fullName}
+        className="w-8 h-8 object-cover"
+      />
+    ) : (
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center">
+        <span
+          className="text-white"
+          style={{ fontSize: "11px", fontWeight: 700 }}
+        >
+          {profile?.fullName?.charAt(0).toUpperCase() || "A"}
+        </span>
+      </div>
+    );
+  };
+
+  // ----- Profile Dropdown (shared) -----
+  const ProfileDropdown = () => (
+    <div className="absolute right-0 top-10 w-56 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-900/20 overflow-hidden z-50">
+      {/* User info */}
+      <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-3">
+          {profile?.avatarUrl ? (
+            <ImageWithFallback
+              src={profile.avatarUrl}
+              alt={profile.fullName}
+              className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
+              <span
+                className="text-white"
+                style={{ fontSize: "13px", fontWeight: 800 }}
+              >
+                {profile?.fullName?.charAt(0).toUpperCase() || "A"}
+              </span>
+            </div>
+          )}
+          <div className="min-w-0">
+            <p
+              className="text-slate-900 dark:text-white truncate"
+              style={{ fontSize: "13px", fontWeight: 700 }}
+            >
+              {profile?.fullName || "User"}
+            </p>
+            <p className="text-slate-400 truncate" style={{ fontSize: "11px" }}>
+              {profile?.bio || "Loading..."}
+            </p>
+          </div>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <div className="px-1 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 w-fit">
+            <span
+              className="text-slate-500 dark:text-slate-400"
+              style={{ fontSize: "10px", fontWeight: 700 }}
+            >
+              Basic
+            </span>
+          </div>
+          <CreditBadge />
+        </div>
+      </div>
+
+      {/* Menu items */}
+      <div className="py-1.5">
+        {[
+          {
+            icon: User,
+            label: "Profile",
+            action: () => {
+              navigate("/settings");
+              setProfileOpen(false);
+            },
+          },
+          {
+            icon: Settings,
+            label: "Settings",
+            action: () => {
+              navigate("/settings");
+              setProfileOpen(false);
+            },
+          },
+          {
+            icon: HelpCircle,
+            label: "Help & Support",
+            action: () => {
+              navigate("/contact");
+              setProfileOpen(false);
+            },
+          },
+        ].map(({ icon: Icon, label, action }) => (
+          <button
+            key={label}
+            onClick={action}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white transition-colors"
+            style={{ fontSize: "13px", fontWeight: 500 }}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Divider + Logout */}
+      <div className="border-t border-slate-200 dark:border-slate-700 py-1.5">
+        <button
+          onClick={() => {
+            navigate("/");
+            setProfileOpen(false);
+          }}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+          style={{ fontSize: "13px", fontWeight: 600 }}
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-[#0F172A]">
@@ -195,6 +369,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
               )}
             </button>
+
+            {/* Mobile User Avatar + Credit Badge */}
+            <div ref={mobileProfileRef} className="relative">
+              <button
+                onClick={() => {
+                  setProfileOpen((v) => !v);
+                  setNotifOpen(false);
+                }}
+                className="flex items-center gap-1.5 rounded-full hover:ring-2 hover:ring-[#2563EB]/40 transition-all"
+              >
+                <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center">
+                  <AvatarButton />
+                </div>
+                <CreditBadge />
+              </button>
+
+              {profileOpen && <ProfileDropdown />}
+            </div>
           </div>
         </header>
 
@@ -336,136 +528,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               )}
             </div>
 
-            {/* User Avatar + Dropdown */}
+            {/* Desktop User Avatar + Credit Badge */}
             <div ref={profileRef} className="relative">
               <button
                 onClick={() => {
                   setProfileOpen((v) => !v);
                   setNotifOpen(false);
                 }}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:ring-2 hover:ring-[#2563EB]/40 transition-all overflow-hidden"
+                className="flex items-center gap-1.5 rounded-full hover:ring-2 hover:ring-[#2563EB]/40 transition-all"
               >
-                {profile?.avatarUrl ? (
-                  <ImageWithFallback
-                    src={profile.avatarUrl}
-                    alt={profile.fullName}
-                    className="w-8 h-8 object-cover"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center">
-                    <span
-                      className="text-white"
-                      style={{ fontSize: "11px", fontWeight: 700 }}
-                    >
-                      {profile?.fullName?.charAt(0).toUpperCase() || "A"}
-                    </span>
-                  </div>
-                )}
+                <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center">
+                  <AvatarButton />
+                </div>
+                <CreditBadge />
               </button>
 
-              {/* Profile Dropdown */}
-              {profileOpen && (
-                <div className="absolute right-0 top-10 w-56 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-900/20 overflow-hidden z-50">
-                  {/* User info */}
-                  <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center gap-3">
-                      {profile?.avatarUrl ? (
-                        <ImageWithFallback
-                          src={profile.avatarUrl}
-                          alt={profile.fullName}
-                          className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
-                          <span
-                            className="text-white"
-                            style={{ fontSize: "13px", fontWeight: 800 }}
-                          >
-                            {profile?.fullName?.charAt(0).toUpperCase() || "A"}
-                          </span>
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p
-                          className="text-slate-900 dark:text-white truncate"
-                          style={{ fontSize: "13px", fontWeight: 700 }}
-                        >
-                          {profile?.fullName || "User"}
-                        </p>
-                        <p
-                          className="text-slate-400 truncate"
-                          style={{ fontSize: "11px" }}
-                        >
-                          {profile?.bio || "Loading..."}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-2 px-1 py-0.5 rounded-md bg-[#2563EB]/10 w-fit">
-                      <span
-                        className="text-[#2563EB] dark:text-[#22D3EE]"
-                        style={{ fontSize: "10px", fontWeight: 700 }}
-                      >
-                        PRO PLAN
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Menu items */}
-                  <div className="py-1.5">
-                    {[
-                      {
-                        icon: User,
-                        label: "Profile",
-                        action: () => {
-                          navigate("/settings");
-                          setProfileOpen(false);
-                        },
-                      },
-                      {
-                        icon: Settings,
-                        label: "Settings",
-                        action: () => {
-                          navigate("/settings");
-                          setProfileOpen(false);
-                        },
-                      },
-                      {
-                        icon: HelpCircle,
-                        label: "Help & Support",
-                        action: () => {
-                          navigate("/contact");
-                          setProfileOpen(false);
-                        },
-                      },
-                    ].map(({ icon: Icon, label, action }) => (
-                      <button
-                        key={label}
-                        onClick={action}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white transition-colors"
-                        style={{ fontSize: "13px", fontWeight: 500 }}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Divider + Logout */}
-                  <div className="border-t border-slate-200 dark:border-slate-700 py-1.5">
-                    <button
-                      onClick={() => {
-                        navigate("/");
-                        setProfileOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                      style={{ fontSize: "13px", fontWeight: 600 }}
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
-              )}
+              {profileOpen && <ProfileDropdown />}
             </div>
           </div>
         </header>

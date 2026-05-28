@@ -25,6 +25,12 @@ const allNavItems = [
     requiredRole: "ADMIN" as const,
   },
   {
+    to: "/admin",
+    label: "Admin Panel",
+    icon: Shield,
+    requiredRole: "ADMIN" as const,
+  },
+  {
     to: "/analytics",
     label: "Analytics",
     icon: BarChart3,
