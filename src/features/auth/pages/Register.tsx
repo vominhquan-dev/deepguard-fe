@@ -46,10 +46,9 @@ export function Register() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const [form, setForm] = useState({
-    name: "",
     email: "",
+    username: "",
     password: "",
-    confirm: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [plan, setPlan] = useState<Plan>("free");
@@ -61,12 +60,8 @@ export function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.password || !form.confirm) {
+    if (!form.email || !form.username || !form.password) {
       toast.error("Please fill in all required fields.");
-      return;
-    }
-    if (form.password !== form.confirm) {
-      toast.error("Passwords do not match.");
       return;
     }
     if (form.password.length < 8) {
@@ -81,7 +76,7 @@ export function Register() {
     try {
       const payload: RegisterRequest = {
         email: form.email,
-        username: form.email,
+        username: form.username,
         password: form.password,
       };
       const response = await register(payload);
@@ -342,21 +337,21 @@ export function Register() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Full name */}
+              {/* Username */}
               <div>
                 <label
                   className="block mb-1.5 text-slate-700 dark:text-slate-300"
                   style={{ fontSize: "13px", fontWeight: 600 }}
                 >
-                  Full Name
+                  Username
                 </label>
                 <div className="relative">
                   <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
-                    value={form.name}
-                    onChange={(e) => update("name", e.target.value)}
-                    placeholder="John Doe"
+                    value={form.username}
+                    onChange={(e) => update("username", e.target.value)}
+                    placeholder="johndoe"
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all"
                     style={{ fontSize: "14px" }}
                   />
@@ -414,36 +409,6 @@ export function Register() {
                     )}
                   </button>
                 </div>
-              </div>
-
-              {/* Confirm password */}
-              <div>
-                <label
-                  className="block mb-1.5 text-slate-700 dark:text-slate-300"
-                  style={{ fontSize: "13px", fontWeight: 600 }}
-                >
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="password"
-                    value={form.confirm}
-                    onChange={(e) => update("confirm", e.target.value)}
-                    placeholder="Re-enter password"
-                    className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 transition-all ${
-                      form.confirm && form.confirm !== form.password
-                        ? "border-red-400 focus:ring-red-400/30"
-                        : "border-slate-200 dark:border-slate-700 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
-                    }`}
-                    style={{ fontSize: "14px" }}
-                  />
-                </div>
-                {form.confirm && form.confirm !== form.password && (
-                  <p className="text-red-400 mt-1" style={{ fontSize: "11px" }}>
-                    Passwords do not match
-                  </p>
-                )}
               </div>
 
               {/* Terms */}

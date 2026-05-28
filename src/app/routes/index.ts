@@ -4,6 +4,7 @@ import { withAuth } from "../components/withAuth";
 import { Landing } from "../../features/marketing/pages/Landing";
 import { DashboardHome } from "../../features/dashboard/pages/DashboardHome";
 import { Dashboard } from "../../features/dashboard/pages/Dashboard";
+import { AdminDashboard } from "../../features/admin/pages/AdminDashboard";
 import { Results } from "../../features/detection/pages/Results";
 import { History } from "../../features/history/pages/History";
 import { Analytics } from "../../features/analytics/pages/Analytics";
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
 
       // ADMIN-only routes
       { path: "dashboard", Component: withAuth(DashboardHome, "ADMIN") },
+      { path: "admin", Component: withAuth(AdminDashboard, "ADMIN") },
       { path: "analytics", Component: withAuth(Analytics, "ADMIN") },
 
       // Authenticated routes (any role)

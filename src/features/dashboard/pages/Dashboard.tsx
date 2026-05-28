@@ -24,9 +24,11 @@ import {
   Eye,
   Clock,
   Layers,
+  ChevronDown,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useMediaUpload } from "../../detection/hooks/useMediaUpload";
+import { useDetectionResults } from "../../detection/hooks/useDetectionResults";
 
 type UploadState = "idle" | "selected" | "scanning" | "done" | "error";
 type ErrorType =
@@ -117,6 +119,8 @@ export function Dashboard() {
     aiDetect,
     data,
   } = useMediaUpload();
+  const { results: recentResults, loading: resultsLoading } =
+    useDetectionResults();
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -1025,6 +1029,112 @@ export function Dashboard() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Recent Scans */}
+              <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3
+                    className="text-slate-900 dark:text-white"
+                    style={{ fontSize: "14px", fontWeight: 700 }}
+                  >
+                    Recent Scans
+                  </h3>
+                  {resultsLoading && (
+                    <RefreshCw className="w-3.5 h-3.5 text-slate-400 animate-spin" />
+                  )}
+                </div>
+                {resultsLoading && recentResults.length === 0 ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className="h-14 rounded-xl bg-slate-100 dark:bg-slate-700/50 animate-pulse"
+                      />
+                    ))}
+                  </div>
+                ) : recentResults.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-4 text-center">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center">
+                      <Eye className="w-5 h-5 text-slate-400" />
+                    </div>
+                    <p
+                      className="text-slate-500 dark:text-slate-400"
+                      style={{ fontSize: "13px" }}
+                    >
+                      No scans yet
+                    </p>
+                    <p
+                      className="text-slate-400 dark:text-slate-500"
+                      style={{ fontSize: "11px" }}
+                    >
+                      Upload your first media file to see results here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {recentResults.slice(0, 5).map((result) => {
+                      const isFake =
+                        result.resultLabel?.toLowerCase() === "fake" ||
+                        result.resultLabel?.toLowerCase() === "deepfake" ||
+                        result.resultLabel?.toLowerCase() === "suspicious";
+                      return (
+                        <button
+                          key={result.detectionResultId}
+                          onClick={() => {
+                            localStorage.setItem(
+                              "lastDetection",
+                              JSON.stringify({
+                                label: result.resultLabel,
+                                score: result.fakeScore / 100,
+                                imageUrl: result.originalUrl,
+                                message: `AI analysis complete — ${result.resultLabel}`,
+                              }),
+                            );
+                            navigate("/results");
+                          }}
+                          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all text-left group"
+                        >
+                          <div
+                            className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                              isFake
+                                ? "bg-red-500/10 group-hover:bg-red-500/15"
+                                : "bg-emerald-500/10 group-hover:bg-emerald-500/15"
+                            }`}
+                          >
+                            {isFake ? (
+                              <AlertTriangle className="w-4 h-4 text-red-400" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className="text-slate-900 dark:text-white truncate font-medium"
+                              style={{ fontSize: "12px" }}
+                            >
+                              {result.fileName}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span
+                                className={`text-xs font-semibold ${
+                                  isFake ? "text-red-400" : "text-emerald-400"
+                                }`}
+                              >
+                                {result.resultLabel}
+                              </span>
+                              <span className="text-slate-400">·</span>
+                              <span className="text-slate-400 text-xs">
+                                {result.fakeScore?.toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 -rotate-90 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
