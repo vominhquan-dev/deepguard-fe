@@ -43,9 +43,7 @@ import {
   Mail,
   ChevronDown,
   Eye,
-  BarChart3,
 } from "lucide-react";
-import { AnalyticsTab } from "../components/AnalyticsTab";
 
 /* ────── Helpers ────── */
 
@@ -1201,7 +1199,6 @@ const TABS = [
   { key: "scan-jobs", label: "Scan Jobs", icon: FileText },
   { key: "media", label: "Media", icon: ImageIcon },
   { key: "detection-results", label: "Detection Results", icon: AlertTriangle },
-  { key: "analytics", label: "Analytics", icon: BarChart3 },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -1228,8 +1225,6 @@ export function AdminDashboard() {
         return <MediaTable />;
       case "detection-results":
         return <DetectionResultsTable />;
-      case "analytics":
-        return <AnalyticsTab />;
       default:
         return null;
     }

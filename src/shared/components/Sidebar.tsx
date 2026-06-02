@@ -38,8 +38,8 @@ const allNavItems = [
     requiredRole: "ADMIN" as const,
   },
   {
-    to: "/analytics",
-    label: "View Analytics",
+    to: "/admin/analytics",
+    label: "Analytics",
     icon: BarChart3,
     requiredRole: "ADMIN" as const,
   },
@@ -91,11 +91,13 @@ export function Sidebar() {
     const [pathname, search] = to.split("?");
     if (location.pathname !== pathname) return false;
     if (!search) return true;
-    const params = new URLSearchParams(search);
-    for (const [key, value] of params) {
-      if (location.search.includes(`${key}=${value}`)) return true;
+    const itemParams = new URLSearchParams(search);
+    const currentParams = new URLSearchParams(location.search);
+    // All params of the nav item must match the current URL's params
+    for (const [key, value] of itemParams) {
+      if (currentParams.get(key) !== value) return false;
     }
-    return false;
+    return true;
   };
 
   return (

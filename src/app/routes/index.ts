@@ -5,9 +5,9 @@ import { Landing } from "../../features/marketing/pages/Landing";
 import { DashboardHome } from "../../features/dashboard/pages/DashboardHome";
 import { Dashboard } from "../../features/dashboard/pages/Dashboard";
 import { AdminDashboard } from "../../features/admin/pages/AdminDashboard";
+import { AnalyticsPage } from "../../features/admin/pages/AnalyticsPage";
 import { Results } from "../../features/detection/pages/Results";
 import { History } from "../../features/history/pages/History";
-import { Analytics } from "../../features/analytics/pages/Analytics";
 import { Settings } from "../../features/settings/pages/Settings";
 import { NotFound } from "../../features/marketing/pages/NotFound";
 import { About } from "../../features/marketing/pages/About";
@@ -27,7 +27,7 @@ import { SePayPayment } from "../../features/billing/pages/SePayPayment";
  * ROLE AUTHORIZATION GUIDE:
  * - Public routes: Landing, Login, Register, Privacy, etc. (no auth required)
  * - USER routes: Detect, Realtime Monitor, History (requires USER role)
- * - ADMIN routes: Dashboard, Analytics (requires ADMIN role)
+ * - ADMIN routes: Dashboard, Admin (requires ADMIN role)
  * - Authenticated routes: Settings (any logged-in user)
  */
 export const router = createBrowserRouter([
@@ -56,7 +56,7 @@ export const router = createBrowserRouter([
       // ADMIN-only routes
       { path: "dashboard", Component: withAuth(DashboardHome, "ADMIN") },
       { path: "admin", Component: withAuth(AdminDashboard, "ADMIN") },
-      { path: "analytics", Component: withAuth(Analytics, "ADMIN") },
+      { path: "admin/analytics", Component: withAuth(AnalyticsPage, "ADMIN") },
 
       // Authenticated routes (any role)
       { path: "settings", Component: withAuth(Settings) },
