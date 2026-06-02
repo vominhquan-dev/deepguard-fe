@@ -20,8 +20,6 @@ import {
   ChevronRight,
   Zap,
   CheckCircle2,
-  Star,
-  Quote,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
 import { SecurityTransparency } from "../../../shared/components/SecurityTransparency";
@@ -108,90 +106,73 @@ const stats = [
   { value: "150+", label: "Countries" },
 ];
 
-const testimonials = [
-  {
-    name: "Sarah Chen",
-    role: "Senior Investigative Journalist",
-    org: "Reuters",
-    avatar:
-      "https://images.unsplash.com/photo-1769764615012-c0dc97167695?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBqb3VybmFsaXN0JTIwd29tYW4lMjBwb3J0cmFpdHxlbnwxfHx8fDE3NzI2MzYzNTl8MA&ixlib=rb-4.1.0&q=80&w=400",
-    quote:
-      "DeepGuard AI caught a synthetic interview video before we published it. The detailed breakdown — especially the facial boundary analysis — saved us from a major credibility disaster.",
-    rating: 5,
-  },
-  {
-    name: "Marcus Webb",
-    role: "Head of Threat Intelligence",
-    org: "CrowdStrike",
-    avatar:
-      "https://images.unsplash.com/photo-1660644807804-ffacfd7a4137?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjeWJlcnNlY3VyaXR5JTIwcHJvZmVzc2lvbmFsJTIwbWFuJTIwaGVhZHNob3R8ZW58MXx8fHwxNzcyNjM2MzYwfDA&ixlib=rb-4.1.0&q=80&w=400",
-    quote:
-      "We integrated DeepGuard into our SOC workflow via API. The accuracy is impressive — 98%+ on our internal test dataset. The voice cloning detection is particularly best-in-class.",
-    rating: 5,
-  },
-  {
-    name: "Priya Kapoor",
-    role: "VP of Legal & Compliance",
-    org: "Goldman Sachs",
-    avatar:
-      "https://images.unsplash.com/photo-1762341116897-921e2a52f7ff?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMGV4ZWN1dGl2ZSUyMHdvbWFuJTIwcHJvZmVzc2lvbmFsfGVufDF8fHx8MTc3MjYzNjM2MXww&ixlib=rb-4.1.0&q=80&w=400",
-    quote:
-      "The PDF reports are litigation-ready. We use DeepGuard to verify executive communications and media assets before any major announcement. The privacy-first approach was non-negotiable for us.",
-    rating: 5,
-  },
-];
-
 const plans = [
   {
-    name: "Starter",
-    price: "Free",
-    period: "",
-    desc: "Perfect for individuals and students",
+    name: "Premium",
+    price: "₫99.000",
+    period: "/tháng",
+    desc: "Thanh toán theo tháng",
+    originalPrice: "₫199.000",
     features: [
-      "50 scans / month",
+      "500 Credits",
       "Image & Audio detection",
-      "Basic risk score",
-      "5MB max file size",
-      "Community support",
+      "Priority processing",
+      "Email support",
     ],
-    cta: "Get Started Free",
-    highlight: false,
-    color: "border-slate-200 dark:border-slate-700",
-  },
-  {
-    name: "Pro",
-    price: "₫199.000",
-    period: "/ tháng",
-    desc: "For journalists and security researchers",
-    features: [
-      "1,000 scans / month",
-      "Image, Video & Audio",
-      "Advanced AI breakdown",
-      "500MB max file size",
-      "PDF report export",
-      "API access (10K req/mo)",
-      "Priority email support",
-    ],
-    cta: "Start Pro Trial",
+    cta: "Upgrade",
     highlight: true,
     color: "border-[#2563EB]",
+    badge: "MOST POPULAR",
+  },
+  {
+    name: "3 Tháng",
+    price: "₫539.000",
+    period: "",
+    desc: "Tiết kiệm 10% so với gói tháng",
+    originalPrice: "₫597.000",
+    features: [
+      "500 Credits / tháng",
+      "Image, Video & Audio detection",
+      "PDF reports",
+      "Priority support",
+    ],
+    cta: "Upgrade",
+    highlight: false,
+    color: "border-slate-200 dark:border-slate-700",
+    badge: "SAVE 10%",
+  },
+  {
+    name: "6 Tháng",
+    price: "₫1.019.000",
+    period: "",
+    desc: "Tiết kiệm 15% so với gói tháng",
+    originalPrice: "₫1.194.000",
+    features: [
+      "833 Credits / tháng",
+      "All media types",
+      "PDF reports + API access",
+      "Priority support",
+      "Advanced analytics",
+    ],
+    cta: "Upgrade",
+    highlight: false,
+    color: "border-slate-200 dark:border-slate-700",
+    badge: "SAVE 15%",
   },
   {
     name: "Enterprise",
-    price: "Custom",
-    period: "",
-    desc: "For teams and organizations",
+    price: "₫1.920.000",
+    period: "/năm",
+    desc: "Giá tốt nhất cho nhu cầu dài hạn",
+    originalPrice: "₫2.388.000",
     features: [
-      "Unlimited scans",
+      "Custom credits",
       "All media types",
-      "Custom AI model tuning",
-      "Unlimited file size",
-      "SSO & SAML",
-      "Dedicated API cluster",
+      "Dedicated support",
+      "Custom integration",
       "SLA guarantee",
-      "24/7 priority support",
     ],
-    cta: "Contact Sales",
+    cta: "Liên hệ",
     highlight: false,
     color: "border-slate-200 dark:border-slate-700",
   },
@@ -736,102 +717,6 @@ export function Landing() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-24 bg-white dark:bg-[#0C1220]">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <span
-              className="inline-block px-3 py-1 rounded-full bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE] mb-4"
-              style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-              }}
-            >
-              Social Proof
-            </span>
-            <h2
-              className="text-slate-900 dark:text-white mb-4"
-              style={{
-                fontSize: "36px",
-                fontWeight: 800,
-                letterSpacing: "-0.8px",
-              }}
-            >
-              Trusted by 50,000+ Professionals
-            </h2>
-            <p
-              className="text-slate-500 dark:text-slate-400 max-w-xl mx-auto"
-              style={{ fontSize: "16px", lineHeight: 1.7 }}
-            >
-              From newsrooms to SOC teams, DeepGuard AI is the standard for
-              deepfake detection.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map(
-              ({ name, role, org, avatar, quote, rating }, i) => (
-                <motion.div
-                  key={name}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.12 }}
-                  viewport={{ once: true }}
-                  className="relative p-6 rounded-2xl bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 hover:border-[#2563EB]/30 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/5"
-                >
-                  <Quote className="w-8 h-8 text-[#2563EB]/20 dark:text-[#22D3EE]/20 mb-4" />
-                  <p
-                    className="text-slate-600 dark:text-slate-300 mb-5"
-                    style={{ fontSize: "14px", lineHeight: 1.75 }}
-                  >
-                    "{quote}"
-                  </p>
-                  <div className="flex items-center gap-1 mb-4">
-                    {Array.from({ length: rating }).map((_, j) => (
-                      <Star
-                        key={j}
-                        className="w-3.5 h-3.5 text-amber-400 fill-amber-400"
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={avatar}
-                      alt={name}
-                      className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-slate-200 dark:border-slate-700"
-                    />
-                    <div>
-                      <p
-                        className="text-slate-900 dark:text-white"
-                        style={{ fontSize: "13px", fontWeight: 700 }}
-                      >
-                        {name}
-                      </p>
-                      <p
-                        className="text-slate-500 dark:text-slate-400"
-                        style={{ fontSize: "12px" }}
-                      >
-                        {role} ·{" "}
-                        <span className="text-[#2563EB] dark:text-[#22D3EE]">
-                          {org}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ),
-            )}
-          </div>
-        </div>
-      </section>
-
       {/* Pricing */}
       <section id="pricing" className="py-24 bg-slate-50 dark:bg-[#0F172A]">
         <div className="max-w-7xl mx-auto px-6">
@@ -866,15 +751,26 @@ export function Landing() {
               className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto"
               style={{ fontSize: "16px", lineHeight: 1.7 }}
             >
-              Start free, scale when you need. No hidden fees, no surprise
+              Start free. Upgrade when you need it. No hidden fees, no surprise
               charges.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6 items-start">
+          <div className="grid md:grid-cols-4 gap-5 items-start">
             {plans.map(
               (
-                { name, price, period, desc, features, cta, highlight, color },
+                {
+                  name,
+                  price,
+                  period,
+                  desc,
+                  features,
+                  cta,
+                  highlight,
+                  color,
+                  badge,
+                  originalPrice,
+                },
                 i,
               ) => (
                 <motion.div
@@ -885,16 +781,16 @@ export function Landing() {
                   viewport={{ once: true }}
                   className={`relative rounded-2xl border-2 ${color} ${highlight ? "bg-[#2563EB]" : "bg-white dark:bg-[#1E293B]"} p-6 ${highlight ? "shadow-2xl shadow-blue-500/25 scale-105" : ""} transition-all duration-300`}
                 >
-                  {highlight && (
+                  {badge && (
                     <div
-                      className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#22D3EE] text-slate-900"
+                      className={`absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-slate-900 ${badge === "MOST POPULAR" ? "bg-[#22D3EE]" : "bg-pink-500"}`}
                       style={{
                         fontSize: "11px",
                         fontWeight: 800,
                         whiteSpace: "nowrap",
                       }}
                     >
-                      ✦ MOST POPULAR
+                      {badge === "MOST POPULAR" ? "✦ MOST POPULAR" : badge}
                     </div>
                   )}
 
@@ -911,7 +807,18 @@ export function Landing() {
                     >
                       {desc}
                     </p>
-                    <div className="flex items-end gap-1">
+                    <div className="flex flex-wrap items-end gap-1">
+                      {originalPrice && (
+                        <span
+                          className="text-slate-400 dark:text-slate-500 line-through mr-1"
+                          style={{
+                            fontSize: "20px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {originalPrice}
+                        </span>
+                      )}
                       <span
                         className={`${highlight ? "text-white" : "text-slate-900 dark:text-white"}`}
                         style={{
@@ -961,17 +868,6 @@ export function Landing() {
               ),
             )}
           </div>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center text-slate-400 dark:text-slate-600 mt-8"
-            style={{ fontSize: "13px" }}
-          >
-            All plans include a 14-day free trial. No credit card required to
-            start.
-          </motion.p>
         </div>
       </section>
 

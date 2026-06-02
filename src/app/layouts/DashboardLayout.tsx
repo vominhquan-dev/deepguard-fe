@@ -103,16 +103,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setNotifOpen(false);
       }
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(e.target as Node)
-      ) {
-        setProfileOpen(false);
-      }
-      if (
+
+      // Only close profile dropdown if click is outside BOTH profile refs
+      // (desktop and mobile — only one is visible at a time)
+      const isOutsideDesktop =
+        profileRef.current && !profileRef.current.contains(e.target as Node);
+      const isOutsideMobile =
         mobileProfileRef.current &&
-        !mobileProfileRef.current.contains(e.target as Node)
-      ) {
+        !mobileProfileRef.current.contains(e.target as Node);
+
+      if (isOutsideDesktop && isOutsideMobile) {
         setProfileOpen(false);
       }
     }
@@ -189,7 +189,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // ----- Profile Dropdown (shared) -----
   const ProfileDropdown = () => (
-    <div className="absolute right-0 top-10 w-56 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-900/20 overflow-hidden z-50">
+    <div className="absolute right-0 top-10 w-56 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-900/20 z-50">
       {/* User info */}
       <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3">
