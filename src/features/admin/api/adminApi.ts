@@ -207,3 +207,224 @@ export async function getDetectionResults(
 
   return data as DetectionResultsResponse;
 }
+
+/* ────── User Management Types ────── */
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  status: string;
+  isVerified: boolean;
+  fullName: string;
+  avatarUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  bio: string;
+  profileCreatedAt: string;
+  totalScanJobs: number;
+  totalMediaFiles: number;
+  lastScanAt: string;
+}
+
+export interface AdminUsersResponse {
+  success: boolean;
+  code: string;
+  message: string;
+  data: {
+    content: AdminUser[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+    last: boolean;
+  };
+  timestamp: string;
+}
+
+export interface AdminUserDetailResponse {
+  success: boolean;
+  code: string;
+  message: string;
+  data: AdminUserDetail;
+  timestamp: string;
+}
+
+export interface AdminUserStats {
+  totalUsers: number;
+  activeUsers: number;
+  suspendedUsers: number;
+  deletedUsers: number;
+  pendingVerificationUsers: number;
+  totalAdmins: number;
+}
+
+export interface AdminUserStatsResponse {
+  success: boolean;
+  code: string;
+  message: string;
+  data: AdminUserStats;
+  timestamp: string;
+}
+
+export interface AdminActionResponse {
+  success: boolean;
+  code: string;
+  message: string;
+  data: string;
+  timestamp: string;
+}
+
+/**
+ * Get all users with pagination and filtering
+ * GET /api/admin/users
+ */
+export async function getUsers(
+  accessToken: string,
+  params: {
+    keyword?: string;
+    status?: string;
+    roleName?: string;
+    page?: number;
+    size?: number;
+    sort?: string[];
+  },
+): Promise<AdminUsersResponse> {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page ?? 0));
+  query.set("size", String(params.size ?? 20));
+  if (params.keyword) query.set("keyword", params.keyword);
+  if (params.status) query.set("status", params.status);
+  if (params.roleName) query.set("roleName", params.roleName);
+  if (params.sort && params.sort.length > 0) {
+    params.sort.forEach((s) => query.append("sort", s));
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/admin/users?${query.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new Error(error.message || "Failed to fetch users");
+  }
+
+  return data as AdminUsersResponse;
+}
+
+/**
+ * Get detailed information about a specific user
+ * GET /api/admin/users/{userId}
+ */
+export async function getUserDetail(
+  accessToken: string,
+  userId: string,
+): Promise<AdminUserDetailResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new Error(error.message || "Failed to fetch user details");
+  }
+
+  return data as AdminUserDetailResponse;
+}
+
+/**
+ * Get high-level user statistics
+ * GET /api/admin/users/stats
+ */
+export async function getUserStats(
+  accessToken: string,
+): Promise<AdminUserStatsResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/users/stats`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new Error(error.message || "Failed to fetch user stats");
+  }
+
+  return data as AdminUserStatsResponse;
+}
+
+/**
+ * Update a user's account status
+ * PUT /api/admin/users/{userId}/status
+ */
+export async function updateUserStatus(
+  accessToken: string,
+  userId: string,
+  status: string,
+): Promise<AdminActionResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/status`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new Error(error.message || "Failed to update user status");
+  }
+
+  return data as AdminActionResponse;
+}
+
+/**
+ * Update a user's role
+ * PUT /api/admin/users/{userId}/role
+ */
+export async function updateUserRole(
+  accessToken: string,
+  userId: string,
+  roleName: string,
+): Promise<AdminActionResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/role`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ roleName }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new Error(error.message || "Failed to update user role");
+  }
+
+  return data as AdminActionResponse;
+}

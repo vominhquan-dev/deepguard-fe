@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
@@ -48,10 +48,15 @@ const leftStats = [
 
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { setAccessToken, fetchProfile } = useAuth();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(
+    (location.state as any)?.email || "",
+  );
+  const [password, setPassword] = useState(
+    (location.state as any)?.password || "",
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -440,31 +445,6 @@ export function Login() {
                 )}
               </button>
             </form>
-
-            {/* Divider */}
-            <div className="relative my-5">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-slate-700" />
-              </div>
-              <div className="relative flex justify-center">
-                <span
-                  className="px-3 bg-slate-50 dark:bg-[#0F172A] text-slate-400"
-                  style={{ fontSize: "12px" }}
-                >
-                  or
-                </span>
-              </div>
-            </div>
-
-            {/* Guest access */}
-            <button
-              onClick={handleGuest}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all"
-              style={{ fontSize: "14px", fontWeight: 600 }}
-            >
-              <User className="w-4 h-4" />
-              Continue as Guest
-            </button>
 
             {/* Security note */}
             <div className="mt-6 flex items-center justify-center gap-2">

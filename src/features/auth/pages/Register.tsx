@@ -40,8 +40,6 @@ const benefits = [
   },
 ];
 
-type Plan = "free" | "pro";
-
 export function Register() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -49,9 +47,10 @@ export function Register() {
     email: "",
     username: "",
     password: "",
+    confirmPassword: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [plan, setPlan] = useState<Plan>("free");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -66,6 +65,10 @@ export function Register() {
     }
     if (form.password.length < 8) {
       toast.error("Password must be at least 8 characters.");
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      toast.error("Passwords do not match.");
       return;
     }
     if (!agreed) {
@@ -84,7 +87,9 @@ export function Register() {
       if (response.success) {
         toast.success("Account created! Check your email to verify.");
         setTimeout(() => {
-          navigate("/verify-email", { state: { email: form.email } });
+          navigate("/verify-email", {
+            state: { email: form.email, password: form.password },
+          });
         }, 700);
       }
     } catch (error) {
@@ -282,57 +287,20 @@ export function Register() {
               </p>
             </div>
 
-            {/* Plan picker */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              {(
-                [
-                  {
-                    id: "free",
-                    label: "Free Plan",
-                    sub: "3 scans/day",
-                    accent: "#10B981",
-                  },
-                  {
-                    id: "pro",
-                    label: "Pro Plan",
-                    sub: "$29/month",
-                    accent: "#2563EB",
-                  },
-                ] as const
-              ).map(({ id, label, sub, accent }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setPlan(id)}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${
-                    plan === id
-                      ? "bg-white dark:bg-[#1E293B]"
-                      : "border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] opacity-60 hover:opacity-80"
-                  }`}
-                  style={{ borderColor: plan === id ? accent : undefined }}
-                >
-                  <p
-                    className="text-slate-900 dark:text-white"
-                    style={{ fontSize: "13px", fontWeight: 700 }}
-                  >
-                    {label}
-                  </p>
-                  <p
-                    className="text-slate-400"
-                    style={{ fontSize: "11px", marginTop: "2px" }}
-                  >
-                    {sub}
-                  </p>
-                  {plan === id && (
-                    <div
-                      className="mt-1.5 w-4 h-4 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: accent }}
-                    >
-                      <CheckCircle2 className="w-2.5 h-2.5 text-white" />
-                    </div>
-                  )}
-                </button>
-              ))}
+            {/* Free Plan Info */}
+            <div className="p-4 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/5 mb-6">
+              <p
+                className="text-slate-900 dark:text-white"
+                style={{ fontSize: "13px", fontWeight: 700 }}
+              >
+                Free Plan
+              </p>
+              <p
+                className="text-slate-400"
+                style={{ fontSize: "11px", marginTop: "2px" }}
+              >
+                25 credits
+              </p>
             </div>
 
             {/* Form */}
@@ -411,6 +379,38 @@ export function Register() {
                 </div>
               </div>
 
+              {/* Confirm Password */}
+              <div>
+                <label
+                  className="block mb-1.5 text-slate-700 dark:text-slate-300"
+                  style={{ fontSize: "13px", fontWeight: 600 }}
+                >
+                  Confirm password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={form.confirmPassword}
+                    onChange={(e) => update("confirmPassword", e.target.value)}
+                    placeholder="Repeat your password"
+                    className="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all"
+                    style={{ fontSize: "14px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
               {/* Terms */}
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input
@@ -461,31 +461,6 @@ export function Register() {
                 )}
               </button>
             </form>
-
-            {/* Guest option */}
-            <div className="relative my-5">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-slate-700" />
-              </div>
-              <div className="relative flex justify-center">
-                <span
-                  className="px-3 bg-slate-50 dark:bg-[#0F172A] text-slate-400"
-                  style={{ fontSize: "12px" }}
-                >
-                  or
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                toast.info("Continuing as guest — 3 free scans available.");
-                navigate("/dashboard");
-              }}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all"
-              style={{ fontSize: "14px", fontWeight: 600 }}
-            >
-              Continue as Guest
-            </button>
           </motion.div>
         </div>
       </div>

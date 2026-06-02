@@ -22,6 +22,7 @@ export function VerifyEmail() {
   const { theme, toggleTheme } = useTheme();
 
   const email = (location.state as any)?.email || "";
+  const password = (location.state as any)?.password || "";
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -71,7 +72,10 @@ export function VerifyEmail() {
       // API may return success=false with code "200" and a success message
       if (response.success || response.code === "200") {
         toast.success("Email verified successfully! Redirecting to login...");
-        setTimeout(() => navigate("/login"), 600);
+        setTimeout(
+          () => navigate("/login", { state: { email, password } }),
+          600,
+        );
       }
     } catch (error) {
       let errorMessage = "Email verification failed.";
@@ -219,6 +223,15 @@ export function VerifyEmail() {
 
               {/* Resend Code */}
               <div className="text-center mt-6">
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-3">
+                  <p
+                    className="text-amber-600 dark:text-amber-400"
+                    style={{ fontSize: "12px", lineHeight: 1.5 }}
+                  >
+                    ⚠️ Didn't receive it? Check your spam/junk folder or try
+                    resending below.
+                  </p>
+                </div>
                 <p
                   className="text-slate-600 dark:text-slate-400 mb-2"
                   style={{ fontSize: "13px" }}

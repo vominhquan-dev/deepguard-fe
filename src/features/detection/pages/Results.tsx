@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   AlertTriangle,
@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { toast } from "sonner";
+import { useAuth } from "../../auth/context/AuthContext";
+import { downloadScanReportPdf } from "../api/reportApi";
 
 interface DetectionData {
   detectionResultId?: string;
@@ -43,6 +45,7 @@ interface DetectionData {
   email?: string;
   mediaId?: string;
   message?: string;
+  type?: string; // for mock data
 }
 
 const verdictConfig: Record<
@@ -56,18 +59,18 @@ const verdictConfig: Record<
   }
 > = {
   DEEPFAKE: {
-    color: "#EF4444",
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
-    text: "text-red-500",
-    glow: "rgba(239,68,68,0.4)",
+    color: "#10B981",
+    bg: "bg-emerald-500/10",
+    border: "border-emerald-500/30",
+    text: "text-emerald-500",
+    glow: "rgba(16,185,129,0.4)",
   },
   SUSPICIOUS: {
-    color: "#F59E0B",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/30",
-    text: "text-amber-500",
-    glow: "rgba(245,158,11,0.4)",
+    color: "#10B981",
+    bg: "bg-emerald-500/10",
+    border: "border-emerald-500/30",
+    text: "text-emerald-500",
+    glow: "rgba(16,185,129,0.4)",
   },
   REAL: {
     color: "#10B981",
@@ -94,108 +97,58 @@ const verdictConfig: Record<
 
 function getVerdictKey(label: string, score: number): string {
   const normalizedLabel = (label || "").toUpperCase();
-  // If label explicitly says REAL/AUTHENTIC, respect that
-  if (normalizedLabel === "REAL" || normalizedLabel === "AUTHENTIC") {
-    if (score >= 70) return "AUTHENTIC_HIGH";
+  // If label explicitly says REAL/AUTHENTIC/HUMAN, respect that
+  if (
+    normalizedLabel === "REAL" ||
+    normalizedLabel === "AUTHENTIC" ||
+    normalizedLabel === "HUMAN"
+  ) {
     return "REAL";
   }
-  // If label explicitly says FAKE/DEEPFAKE, respect that
-  if (normalizedLabel === "FAKE" || normalizedLabel === "DEEPFAKE") {
+  // If label is SUSPICIOUS, return it
+  if (normalizedLabel === "SUSPICIOUS") {
+    return "SUSPICIOUS";
+  }
+  // If label explicitly says DEEPFAKE, return DEEPFAKE
+  if (
+    normalizedLabel === "DEEPFAKE" ||
+    normalizedLabel === "FAKE" ||
+    normalizedLabel === "DEEPFAKE_DETECTED"
+  ) {
     return "DEEPFAKE";
   }
-  // Fallback to score-based logic when label is ambiguous
+  // Otherwise, fallback to score-based
   if (score >= 70) return "DEEPFAKE";
   if (score > 30) return "SUSPICIOUS";
   return "REAL";
 }
 
-function getVerdictDisplay(label: string, score: number): string {
-  const normalizedLabel = (label || "").toUpperCase();
-  if (normalizedLabel === "REAL" || normalizedLabel === "AUTHENTIC") {
-    if (score >= 70) return "AUTHENTIC CONTENT";
-    return "REAL CONTENT";
-  }
-  if (score >= 70) return "DEEPFAKE DETECTED";
-  if (score > 30) return "SUSPICIOUS CONTENT";
-  return "AUTHENTIC CONTENT";
-}
-
-function getRiskLevel(score: number): { label: string; color: string } {
-  if (score >= 70) return { label: "High Risk", color: "#EF4444" };
-  if (score >= 40) return { label: "Medium Risk", color: "#F59E0B" };
-  return { label: "Low Risk", color: "#10B981" };
-}
-
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return "Just now";
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-  });
-}
-
-// ── Circular risk meter ──
-function CircularRisk({
-  score,
-  color,
-  glow,
-}: {
-  score: number;
-  color: string;
-  glow: string;
-}) {
-  const [animated, setAnimated] = useState(0);
-  const radius = 76;
+// ── Circular Score Component ──
+function CircularScore({ score }: { score: number }) {
+  const radius = 72;
   const circumference = 2 * Math.PI * radius;
+  const [animated, setAnimated] = useState(0);
+
+  const key = getVerdictKey("", score);
+  const config = verdictConfig[key] || verdictConfig.SUSPICIOUS;
+  const color = config.color;
+  const glow = config.glow;
   const strokeDash = (animated / 100) * circumference;
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      let start = 0;
-      const step = score / 80;
-      const interval = setInterval(() => {
-        start += step;
-        if (start >= score) {
-          setAnimated(score);
-          clearInterval(interval);
-        } else {
-          setAnimated(Math.round(start));
-        }
-      }, 16);
-      return () => clearInterval(interval);
-    }, 400);
-    return () => clearTimeout(timeout);
+    const timer = setTimeout(() => setAnimated(score), 200);
+    return () => clearTimeout(timer);
   }, [score]);
 
   return (
-    <div
-      className="relative inline-flex items-center justify-center"
-      style={{ width: 200, height: 200 }}
-    >
-      <svg
-        width="200"
-        height="200"
-        viewBox="0 0 200 200"
-        style={{ transform: "rotate(-90deg)" }}
-      >
+    <div className="relative w-56 h-56 mx-auto">
+      <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
         <circle
           cx="100"
           cy="100"
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="rgba(255,255,255,0.08)"
           strokeWidth="14"
         />
         <circle
@@ -250,7 +203,7 @@ function CircularRisk({
             letterSpacing: "0.08em",
           }}
         >
-          Risk Level
+          Real Score
         </span>
       </div>
     </div>
@@ -366,11 +319,6 @@ function VideoTimeline() {
           </span>
         ))}
       </div>
-
-      <p className="text-slate-400 mt-3" style={{ fontSize: "11px" }}>
-        ⚠ 4 high-risk anomaly clusters detected · 46% of frames flagged ·
-        StyleGAN2 signature confirmed
-      </p>
     </div>
   );
 }
@@ -548,9 +496,60 @@ function AudioSpectrogram() {
         <div className="absolute bottom-2 right-3 text-[10px] text-slate-500">
           8 kHz
         </div>
-        <div className="absolute top-3 left-3 px-2 py-0.5 rounded bg-red-500/20 border border-red-500/40 text-[9px] text-red-400 font-semibold">
-          ⚠ Anomaly cluster
+        <div className="absolute top-4 left-3 text-[10px] text-slate-500">
+          Anomaly detected at 1.3s–2.1s
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Distribution Chart ──
+function DistributionChart({
+  real,
+  fake,
+  suspicious,
+  total,
+}: {
+  real: number;
+  fake: number;
+  suspicious: number;
+  total: number;
+}) {
+  return (
+    <div>
+      <h3
+        className="text-slate-900 dark:text-white mb-3"
+        style={{ fontSize: "14px", fontWeight: 700 }}
+      >
+        Dataset Distribution
+      </h3>
+      <div className="flex h-3 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-700">
+        <div
+          className="bg-emerald-500 transition-all"
+          style={{ width: `${total > 0 ? (real / total) * 100 : 0}%` }}
+        />
+        <div
+          className="bg-amber-500 transition-all"
+          style={{
+            width: `${total > 0 ? (suspicious / total) * 100 : 0}%`,
+          }}
+        />
+        <div
+          className="bg-red-500 transition-all"
+          style={{ width: `${total > 0 ? (fake / total) * 100 : 0}%` }}
+        />
+      </div>
+      <div className="flex justify-between mt-2">
+        <span className="text-emerald-500" style={{ fontSize: "11px" }}>
+          Real: {real}
+        </span>
+        <span className="text-amber-500" style={{ fontSize: "11px" }}>
+          Suspicious: {suspicious}
+        </span>
+        <span className="text-red-500" style={{ fontSize: "11px" }}>
+          Deepfake: {fake}
+        </span>
       </div>
     </div>
   );
@@ -560,128 +559,230 @@ function AudioSpectrogram() {
 function ReportModal({
   onClose,
   detection,
+  onDownloadPdf,
 }: {
   onClose: () => void;
   detection: DetectionData;
+  onDownloadPdf: () => void;
 }) {
-  const scorePct = (detection.score ?? 0) * 100;
-  const verdictKey = getVerdictKey(detection.label, scorePct);
-  const config = verdictConfig[verdictKey] || verdictConfig.DEEPFAKE;
-  const score = Math.round(scorePct);
-  const displayLabel = getVerdictDisplay(detection.label, scorePct);
+  const score = Math.round((detection.score ?? 0) * 100);
+  const color = "#10B981";
+  const key = getVerdictKey(detection.label, score);
+  const config = verdictConfig[key] || verdictConfig.SUSPICIOUS;
+  const findings = generateFindings(detection);
+  const technicalData = generateTechnicalData(detection);
+  const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleCopy = () => {
-    const reportText = `DEEPGUARD DETECTION REPORT
-Date: ${new Date().toLocaleString()}
-File: ${detection.fileName || "Unknown"}
-Verdict: ${displayLabel}
-Risk Score: ${score}%
-Confidence: ${Math.round((detection.confidence ?? detection.score ?? 0) * 100)}%
-Model Version: ${detection.modelVersion || "N/A"}
-Status: ${score >= 70 ? "⚠ HIGH RISK" : score >= 40 ? "⚠ MEDIUM RISK" : "✓ LOW RISK"}`;
-    navigator.clipboard.writeText(reportText).then(() => {
+  const handleCopy = async () => {
+    try {
+      const reportText = `DeepGuard Detection Report
+      File: ${detection.fileName || "Unknown"}
+      Real Score: ${score}%
+      Verdict: ${getVerdictKey(detection.label, score)}
+      Processed At: ${detection.processedAt ? new Date(detection.processedAt).toLocaleString() : "N/A"}
+      Model: ${detection.modelVersion || "N/A"}
+      Confidence: ${Math.round((detection.confidence ?? detection.score ?? 0) * 100)}%`;
+      await navigator.clipboard.writeText(reportText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
       toast.success("Report copied to clipboard");
-    });
+    } catch {
+      toast.error("Failed to copy report");
+    }
   };
 
-  const riskColor =
-    score >= 70 ? "#EF4444" : score >= 40 ? "#F59E0B" : "#10B981";
+  const handlePrint = () => window.print();
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6 sm:p-8 shadow-2xl"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 p-6 md:p-8 shadow-2xl border border-slate-200 dark:border-slate-700"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-[#22D3EE]" />
-            <h2 className="text-slate-900 dark:text-white font-bold text-lg">
-              DeepGuard Report
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-          >
-            <X className="w-4 h-4 text-slate-400" />
-          </button>
-        </div>
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+        >
+          <X className="w-4 h-4 text-slate-500" />
+        </button>
 
-        {/* Report Content */}
-        <div className="space-y-4" id="report-content">
-          <div
-            className={`rounded-xl border ${config.border} ${config.bg} p-4`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">
-                AI Verdict
-              </span>
-              <span
-                className={`text-xs font-bold px-2 py-0.5 rounded-full ${config.bg} ${config.text}`}
-              >
-                {verdictKey}
-              </span>
-            </div>
-            <p className="text-slate-900 dark:text-white font-bold text-lg">
-              {displayLabel}
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-[#2563EB]/10 flex items-center justify-center">
+            <Shield className="w-5 h-5 text-[#2563EB]" />
+          </div>
+          <div>
+            <h2
+              className="text-slate-900 dark:text-white"
+              style={{ fontSize: "18px", fontWeight: 800 }}
+            >
+              Detection Report
+            </h2>
+            <p
+              className="text-slate-500 dark:text-slate-400"
+              style={{ fontSize: "13px" }}
+            >
+              Generated on {new Date().toLocaleDateString()}
             </p>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3">
-              <p className="text-slate-400 text-xs mb-0.5">Risk Score</p>
-              <p
-                className="text-slate-900 dark:text-white font-bold"
-                style={{ color: riskColor }}
-              >
-                {score}%
-              </p>
-            </div>
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3">
-              <p className="text-slate-400 text-xs mb-0.5">Confidence</p>
-              <p className="text-slate-900 dark:text-white font-bold">
-                {Math.round(
-                  (detection.confidence ?? detection.score ?? 0) * 100,
-                )}
-                %
-              </p>
-            </div>
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3">
-              <p className="text-slate-400 text-xs mb-0.5">File Name</p>
-              <p className="text-slate-900 dark:text-white font-bold text-sm truncate">
-                {detection.fileName || "Unknown"}
-              </p>
-            </div>
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3">
-              <p className="text-slate-400 text-xs mb-0.5">Model</p>
-              <p className="text-slate-900 dark:text-white font-bold text-sm">
-                {detection.modelVersion || "N/A"}
-              </p>
-            </div>
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3 col-span-2">
-              <p className="text-slate-400 text-xs mb-0.5">Processed At</p>
-              <p className="text-slate-900 dark:text-white font-bold text-sm">
-                {detection.processedAt
-                  ? new Date(detection.processedAt).toLocaleString()
-                  : "N/A"}
-              </p>
-            </div>
+        {/* Summary */}
+        <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 mb-6">
+          <div
+            className={`w-14 h-14 rounded-xl flex items-center justify-center ${config.bg} border ${config.border}`}
+          >
+            <span
+              className={config.text}
+              style={{ fontSize: "24px", fontWeight: 900 }}
+            >
+              {score}%
+            </span>
           </div>
+          <div>
+            <p
+              className={`${config.text} font-bold`}
+              style={{ fontSize: "16px" }}
+            >
+              {getVerdictKey(detection.label, score)}
+            </p>
+            <p
+              className="text-slate-500 dark:text-slate-400"
+              style={{ fontSize: "13px" }}
+            >
+              {detection.fileName || "Unknown file"}
+            </p>
+          </div>
+        </div>
+
+        {/* Findings */}
+        <div className="mb-6">
+          <h3
+            className="text-slate-900 dark:text-white mb-3"
+            style={{ fontSize: "14px", fontWeight: 700 }}
+          >
+            Detection Findings
+          </h3>
+          <div className="space-y-2">
+            {findings.map((f, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
+              >
+                <f.icon className="w-4 h-4 text-slate-500 mt-0.5" />
+                <div>
+                  <p
+                    className="text-slate-900 dark:text-slate-200"
+                    style={{ fontSize: "13px", fontWeight: 500 }}
+                  >
+                    {f.text}
+                  </p>
+                  <p
+                    className="text-emerald-500"
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {f.severity}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Technical Data */}
+        <div className="mb-6">
+          <h3
+            className="text-slate-900 dark:text-white mb-3"
+            style={{ fontSize: "14px", fontWeight: 700 }}
+          >
+            Technical Data
+          </h3>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {technicalData.map((d, i) => (
+              <div
+                key={i}
+                className={`flex items-center justify-between px-4 py-2.5 ${i % 2 === 0 ? "bg-slate-50 dark:bg-slate-800/50" : "bg-white dark:bg-transparent"}`}
+              >
+                <span
+                  className="text-slate-500 dark:text-slate-400"
+                  style={{ fontSize: "13px" }}
+                >
+                  {d.label}
+                </span>
+                <span
+                  className="text-slate-900 dark:text-white font-medium"
+                  style={{ fontSize: "13px" }}
+                >
+                  {d.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Verdict Scale */}
+        <div className="mb-6">
+          {(key === "DEEPFAKE"
+            ? [
+                { label: "Deepfake", range: "70–100%", dot: "bg-red-500" },
+                { label: "Suspicious", range: "31–69%", dot: "bg-amber-500" },
+                { label: "Authentic", range: "0–30%", dot: "bg-emerald-500" },
+              ]
+            : [
+                { label: "Authentic", range: "70–100%", dot: "bg-emerald-500" },
+                { label: "Suspicious", range: "31–69%", dot: "bg-amber-500" },
+                {
+                  label: "Low Authenticity",
+                  range: "0–30%",
+                  dot: "bg-emerald-500",
+                },
+              ]
+          ).map((item, i) => {
+            const isActive = i === 0;
+            return (
+              <div
+                key={item.label}
+                className={`flex items-center justify-between p-2.5 rounded-lg mb-2 ${isActive ? `${config.bg} border ${config.border}` : "bg-slate-50 dark:bg-slate-700/40"}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`w-3 h-3 rounded-full ${isActive ? item.dot : "bg-slate-300 dark:bg-slate-600"}`}
+                  />
+                  <span
+                    className={
+                      isActive
+                        ? config.text
+                        : "text-slate-500 dark:text-slate-400"
+                    }
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: isActive ? 700 : 500,
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+                <span className="text-slate-400" style={{ fontSize: "12px" }}>
+                  {item.range}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* Actions */}
@@ -701,11 +802,11 @@ Status: ${score >= 70 ? "⚠ HIGH RISK" : score >= 40 ? "⚠ MEDIUM RISK" : "✓
             Print
           </button>
           <button
-            onClick={onClose}
+            onClick={onDownloadPdf}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all text-sm font-semibold"
           >
             <Download className="w-4 h-4" />
-            Close
+            Download PDF
           </button>
         </div>
       </motion.div>
@@ -715,14 +816,53 @@ Status: ${score >= 70 ? "⚠ HIGH RISK" : score >= 40 ? "⚠ MEDIUM RISK" : "✓
 
 export function Results() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { accessToken } = useAuth();
   const [detection, setDetection] = useState<DetectionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [vizTab, setVizTab] = useState<"video" | "image" | "audio">("video");
   const [openAccordion, setOpenAccordion] = useState(false);
   const [showReport, setShowReport] = useState(false);
 
+  const handleDownloadPdf = async () => {
+    if (!detection?.scanJobId) {
+      toast.error("No scan job ID available for this detection.");
+      return;
+    }
+    if (!accessToken) {
+      toast.error("Please log in again to download reports.");
+      return;
+    }
+    try {
+      await downloadScanReportPdf(
+        detection.scanJobId,
+        accessToken,
+        `deepguard-report-${detection.scanJobId}.pdf`,
+      );
+      toast.success("PDF report downloaded successfully");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to download PDF report",
+      );
+    }
+  };
+
   useEffect(() => {
-    // Read detection data from localStorage
+    // Priority 1: check location state (navigated from History, etc.)
+    const locationState = location.state as DetectionData | null;
+    if (
+      locationState &&
+      locationState.label &&
+      locationState.score !== undefined
+    ) {
+      setDetection(locationState);
+      setLoading(false);
+      return;
+    }
+
+    // Priority 2: read from localStorage (saved after scan)
     const stored = localStorage.getItem("lastDetection");
     if (stored) {
       try {
@@ -733,7 +873,7 @@ export function Results() {
       }
     }
     setLoading(false);
-  }, []);
+  }, [location.state]);
 
   if (loading) {
     return (
@@ -774,170 +914,129 @@ export function Results() {
     );
   }
 
-  const score = (detection.score ?? 0) * 100;
-  const verdictKey = getVerdictKey(detection.label, score);
-  const config = verdictConfig[verdictKey] || verdictConfig.DEEPFAKE;
-  const displayLabel = getVerdictDisplay(detection.label, score);
-  const labelIsReal =
-    detection.label?.toUpperCase() === "REAL" ||
-    detection.label?.toUpperCase() === "AUTHENTIC";
-  const isHighRisk = !labelIsReal && score >= 70;
-  const isSuspicious = !labelIsReal && score > 30 && score < 70;
-  const message =
-    detection.message || `AI analysis complete — ${detection.label}`;
+  // ── Derived values ──
+  const score = Math.round((detection.score ?? 0) * 100);
+  const riskColor = "#10B981";
+  const key = getVerdictKey(detection.label, score);
+  const config = verdictConfig[key] || verdictConfig.SUSPICIOUS;
+  const labelIsReal = key === "REAL";
+  const findings = generateFindings(detection);
+  const technicalData = generateTechnicalData(detection);
 
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
           {/* Header */}
-          <div className="flex items-start justify-between mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-wrap items-start justify-between gap-4 mb-6"
+          >
             <div>
-              <h1
-                className="text-slate-900 dark:text-white"
-                style={{ fontSize: "24px", fontWeight: 800 }}
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-1 h-6 rounded-full bg-[#22D3EE]" />
+                <h1
+                  className="text-slate-900 dark:text-white"
+                  style={{
+                    fontSize: "22px",
+                    fontWeight: 800,
+                    letterSpacing: "-0.5px",
+                  }}
+                >
+                  Detection Results
+                </h1>
+              </div>
+              <p
+                className="text-slate-500 dark:text-slate-400 ml-3"
+                style={{ fontSize: "14px" }}
               >
-                Detection Results
-              </h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-                Analysis complete for{" "}
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  {detection.fileName || "Unknown file"}
-                </span>
-                {detection.processedAt && (
-                  <span className="text-slate-400 ml-2">
-                    · {formatDate(detection.processedAt)}
-                  </span>
-                )}
+                {detection.fileName
+                  ? `Analysis complete for ${detection.fileName}`
+                  : "Analysis complete"}
               </p>
             </div>
-          </div>
-
-          {/* Top action bar */}
-          <div className="flex gap-3 mb-6">
-            <button
-              onClick={() => navigate("/detect")}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all text-sm font-bold"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Scan Another
-            </button>
-            <button
-              onClick={() => setShowReport(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-sm font-semibold"
-            >
-              <Download className="w-4 h-4" />
-              Download Report
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
-            {/* Left Panel */}
-            <div className="space-y-5">
-              {/* AI Message Banner */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`rounded-2xl border p-5 ${
-                  isHighRisk
-                    ? "bg-red-500/5 border-red-500/20"
-                    : isSuspicious
-                      ? "bg-amber-500/5 border-amber-500/20"
-                      : "bg-emerald-500/5 border-emerald-500/20"
-                }`}
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigate("/history")}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-sm font-semibold"
               >
-                <div className="flex items-start gap-3">
-                  {isHighRisk ? (
-                    <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  ) : isSuspicious ? (
-                    <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                  ) : (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-                  )}
-                  <p
-                    className={`text-sm ${
-                      isHighRisk
-                        ? "text-red-600 dark:text-red-300"
-                        : isSuspicious
-                          ? "text-amber-600 dark:text-amber-300"
-                          : "text-emerald-600 dark:text-emerald-300"
-                    }`}
-                  >
-                    {message}
-                  </p>
-                </div>
-              </motion.div>
-
-              {/* Main Verdict Card */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
-                className={`rounded-2xl border ${config.border} ${config.bg} p-6`}
+                Scan History
+              </button>
+              <button
+                onClick={() => navigate("/detect")}
+                className="px-4 py-2 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25 text-sm font-bold"
               >
-                <div className="flex flex-col items-center">
-                  <CircularRisk
-                    score={Math.round(score)}
-                    color={config.color}
-                    glow={config.glow}
-                  />
+                Scan Another
+              </button>
+            </div>
+          </motion.div>
 
-                  <div className="text-center mt-4 mb-6">
-                    <h2 className={`text-xl font-extrabold ${config.text}`}>
-                      {isSuspicious ? "⚠ " : ""}
-                      {isHighRisk ? "🚨 " : ""}
-                      {displayLabel}
-                    </h2>
-                    <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* ── LEFT: Score + Visualization ── */}
+            <div className="xl:col-span-2 space-y-6">
+              {/* Score + Quick Stats */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-6 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700"
+              >
+                <CircularScore score={score} />
+
+                {/* Quick stats grid */}
+                <div className="grid grid-cols-2 gap-3 mt-6">
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3">
+                    <p
+                      className="text-slate-400 text-xs mb-0.5"
+                      style={{ fontSize: "11px" }}
+                    >
                       AI Verdict
                     </p>
+                    <p
+                      className={`${config.text} font-bold`}
+                      style={{ fontSize: "18px" }}
+                    >
+                      {key}
+                    </p>
                   </div>
-
-                  {/* Stats grid */}
-                  <div className="w-full grid grid-cols-2 gap-4">
-                    <div className="bg-white/50 dark:bg-white/5 rounded-xl p-4 text-center">
-                      <p className="text-slate-400 text-xs mb-1">AI Verdict</p>
-                      <p className={`font-bold text-lg ${config.text}`}>
-                        {verdictKey}
-                      </p>
-                    </div>
-                    <div className="bg-white/50 dark:bg-white/5 rounded-xl p-4 text-center">
-                      <p className="text-slate-400 text-xs mb-1">
-                        Model Confidence
-                      </p>
-                      <p className="font-bold text-lg text-slate-900 dark:text-white">
-                        {Math.round(
-                          (detection.confidence ?? detection.score ?? 0) * 100,
-                        )}
-                        %
-                      </p>
-                    </div>
-                    <div className="bg-white/50 dark:bg-white/5 rounded-xl p-4 text-center">
-                      <p className="text-slate-400 text-xs mb-1">File Type</p>
-                      <p className="font-bold text-sm text-slate-900 dark:text-white">
-                        {detection.imageUrl?.includes("video")
-                          ? "MP4 Video"
-                          : detection.imageUrl?.includes("audio")
-                            ? "Audio"
-                            : detection.fileName?.match(/\.(mp4|mov|avi)$/i)
-                              ? "Video"
-                              : detection.fileName?.match(/\.(mp3|wav|m4a)$/i)
-                                ? "Audio"
-                                : detection.fileName?.match(
-                                      /\.(jpg|jpeg|png|webp)$/i,
-                                    )
-                                  ? "Image"
-                                  : "Media File"}
-                      </p>
-                    </div>
-                    <div className="bg-white/50 dark:bg-white/5 rounded-xl p-4 text-center">
-                      <p className="text-slate-400 text-xs mb-1">
-                        Model Version
-                      </p>
-                      <p className="font-bold text-sm text-slate-900 dark:text-white">
-                        {detection.modelVersion || "N/A"}
-                      </p>
-                    </div>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3">
+                    <p
+                      className="text-slate-400 text-xs mb-0.5"
+                      style={{ fontSize: "11px" }}
+                    >
+                      Model Confidence
+                    </p>
+                    <p
+                      className="text-slate-900 dark:text-white font-bold"
+                      style={{ fontSize: "18px" }}
+                    >
+                      {Math.round(
+                        (detection.confidence ?? detection.score ?? 0) * 100,
+                      )}
+                      %
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3">
+                    <p
+                      className="text-slate-400 text-xs mb-0.5"
+                      style={{ fontSize: "11px" }}
+                    >
+                      File Type
+                    </p>
+                    <p className="text-slate-900 dark:text-white font-bold text-sm">
+                      {detection.type || "Media File"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3">
+                    <p
+                      className="text-slate-400 text-xs mb-0.5"
+                      style={{ fontSize: "11px" }}
+                    >
+                      Model Version
+                    </p>
+                    <p className="text-slate-900 dark:text-white font-bold text-sm">
+                      {detection.modelVersion || "N/A"}
+                    </p>
                   </div>
                 </div>
               </motion.div>
@@ -947,314 +1046,160 @@ export function Results() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6"
+                className="p-6 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700"
               >
-                <div className="flex items-center gap-2 mb-5">
-                  <Info className="w-4 h-4 text-[#22D3EE]" />
-                  <h2
+                <div className="flex items-center justify-between mb-4">
+                  <h3
                     className="text-slate-900 dark:text-white"
                     style={{ fontSize: "16px", fontWeight: 700 }}
                   >
                     Detection Findings
-                  </h2>
-                </div>
-                <div className="space-y-3">
-                  {generateFindings(detection).map(
-                    ({ icon: Icon, text, severity }, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -16 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.2 + i * 0.1 }}
-                        className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-                      >
-                        <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${severity === "high" ? "bg-red-500/10" : "bg-amber-500/10"}`}
-                        >
-                          <Icon
-                            className={`w-4 h-4 ${severity === "high" ? "text-red-500" : "text-amber-500"}`}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <p
-                            className="text-slate-700 dark:text-slate-300"
-                            style={{ fontSize: "14px" }}
-                          >
-                            {text}
-                          </p>
-                        </div>
-                        <span
-                          className={`px-2 py-0.5 rounded-md flex-shrink-0 ${severity === "high" ? "bg-red-500/10 text-red-500" : "bg-amber-500/10 text-amber-500"}`}
-                          style={{ fontSize: "11px", fontWeight: 700 }}
-                        >
-                          {severity}
-                        </span>
-                      </motion.div>
-                    ),
+                  </h3>
+                  {key === "DEEPFAKE" && (
+                    <span
+                      className={`px-2.5 py-1 rounded-lg ${config.bg} border ${config.border} ${config.text}`}
+                      style={{ fontSize: "11px", fontWeight: 700 }}
+                    >
+                      🚨 DEEPFAKE DETECTED
+                    </span>
                   )}
+                </div>
+                <div className="space-y-2.5">
+                  {findings.map((f, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-700/50"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <f.icon className="w-4 h-4 text-emerald-500" />
+                        <span
+                          className="text-emerald-700 dark:text-emerald-300"
+                          style={{ fontSize: "13px", fontWeight: 500 }}
+                        >
+                          {f.text}
+                        </span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          f.severity === "high"
+                            ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                            : "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                        }`}
+                      >
+                        {f.severity}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </motion.div>
 
-              {/* Explainable AI Visualization */}
+              {/* Visualizations */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 overflow-hidden"
+                transition={{ delay: 0.2 }}
+                className="p-6 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700"
               >
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-[#22D3EE]" />
-                    <h2
-                      className="text-slate-900 dark:text-white"
-                      style={{ fontSize: "15px", fontWeight: 700 }}
-                    >
-                      Explainable AI Visualization
-                    </h2>
-                    <span
-                      className="px-2 py-0.5 rounded-full bg-[#22D3EE]/10 text-[#22D3EE]"
-                      style={{ fontSize: "10px", fontWeight: 700 }}
-                    >
-                      XAI
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex gap-1 p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
+                {/* Tabs */}
+                <div className="flex gap-1 mb-5 p-1 rounded-xl bg-slate-100 dark:bg-slate-700/50 w-fit">
                   {(
                     [
-                      { id: "video", icon: Video, label: "Video Timeline" },
-                      { id: "image", icon: ImageIcon, label: "Image Heatmap" },
-                      { id: "audio", icon: Mic, label: "Audio Spectrogram" },
+                      { key: "video" as const, icon: Video, label: "Video" },
+                      {
+                        key: "image" as const,
+                        icon: ImageIcon,
+                        label: "Image",
+                      },
+                      { key: "audio" as const, icon: Mic, label: "Audio" },
                     ] as const
-                  ).map(({ id, icon: Icon, label }) => (
+                  ).map(({ key: tabKey, icon: TabIcon, label }) => (
                     <button
-                      key={id}
-                      onClick={() => setVizTab(id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                        vizTab === id
-                          ? "bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white shadow-sm border border-slate-200 dark:border-slate-700"
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/30"
+                      key={tabKey}
+                      onClick={() => setVizTab(tabKey)}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                        vizTab === tabKey
+                          ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                       }`}
-                      style={{ fontSize: "12px", fontWeight: 600 }}
                     >
-                      <Icon className="w-3.5 h-3.5" />
+                      <TabIcon className="w-4 h-4" />
                       {label}
                     </button>
                   ))}
                 </div>
 
-                <div className="p-6">
-                  <AnimatePresence mode="wait">
+                <AnimatePresence mode="wait">
+                  {vizTab === "video" && (
                     <motion.div
-                      key={vizTab}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.2 }}
+                      key="video"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
                     >
-                      {vizTab === "video" && <VideoTimeline />}
-                      {vizTab === "image" && <ImageHeatmap />}
-                      {vizTab === "audio" && <AudioSpectrogram />}
+                      <VideoTimeline />
                     </motion.div>
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-
-              {/* Technical Breakdown Accordion */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 overflow-hidden"
-              >
-                <button
-                  onClick={() => setOpenAccordion(!openAccordion)}
-                  className="w-full flex items-center justify-between p-6 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Database className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                    <span
-                      className="text-slate-900 dark:text-white"
-                      style={{ fontSize: "15px", fontWeight: 700 }}
-                    >
-                      Technical Breakdown
-                    </span>
-                    <span
-                      className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
-                      style={{ fontSize: "11px", fontWeight: 600 }}
-                    >
-                      {generateTechnicalData(detection).length} metrics
-                    </span>
-                  </div>
-                  {openAccordion ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
                   )}
-                </button>
-
-                {openAccordion && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    className="border-t border-slate-200 dark:border-slate-700"
-                  >
-                    <div className="p-6 grid sm:grid-cols-2 gap-3">
-                      {generateTechnicalData(detection).map(
-                        ({ label, value, status }) => (
-                          <div
-                            key={label}
-                            className="flex items-start justify-between gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-700/40"
-                          >
-                            <div>
-                              <p
-                                className="text-slate-500 dark:text-slate-400"
-                                style={{
-                                  fontSize: "11px",
-                                  fontWeight: 600,
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.06em",
-                                }}
-                              >
-                                {label}
-                              </p>
-                              <p
-                                className="text-slate-900 dark:text-slate-200 mt-0.5"
-                                style={{ fontSize: "13px", fontWeight: 600 }}
-                              >
-                                {value}
-                              </p>
-                            </div>
-                            <div
-                              className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${status === "critical" ? "bg-red-500" : "bg-amber-500"}`}
-                            />
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  </motion.div>
-                )}
+                  {vizTab === "image" && (
+                    <motion.div
+                      key="image"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <ImageHeatmap />
+                    </motion.div>
+                  )}
+                  {vizTab === "audio" && (
+                    <motion.div
+                      key="audio"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <AudioSpectrogram />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             </div>
 
-            {/* Right Panel */}
-            <div className="space-y-5">
-              {/* Risk Summary */}
+            {/* ── RIGHT: Sidebar Panel ── */}
+            <div className="space-y-6">
+              {/* Technical Info */}
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
-                className={`rounded-2xl bg-white dark:bg-[#1E293B] border ${config.border} p-5`}
-                style={{ boxShadow: `0 0 32px ${config.glow}` }}
-              >
-                <h3
-                  className="text-slate-900 dark:text-white mb-3"
-                  style={{ fontSize: "14px", fontWeight: 700 }}
-                >
-                  Risk Summary
-                </h3>
-                <div className="space-y-3">
-                  {[
-                    {
-                      label: "Visual AI Score",
-                      score: Math.round(score),
-                    },
-                    {
-                      label: "Audio AI Score",
-                      score: Math.min(100, Math.round(score * 0.98 + 2)),
-                    },
-                    {
-                      label: "Metadata Score",
-                      score: Math.max(
-                        0,
-                        Math.min(100, Math.round(score * 0.91 + 2)),
-                      ),
-                    },
-                  ].map(({ label, score: s }) => (
-                    <div key={label}>
-                      <div className="flex justify-between mb-1">
-                        <span
-                          className="text-slate-500 dark:text-slate-400"
-                          style={{ fontSize: "12px", fontWeight: 500 }}
-                        >
-                          {label}
-                        </span>
-                        <span
-                          className={config.text}
-                          style={{ fontSize: "12px", fontWeight: 700 }}
-                        >
-                          {Math.min(s, 100)}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${Math.min(s, 100)}%` }}
-                          transition={{ duration: 1, delay: 0.3 }}
-                          className="h-full rounded-full"
-                          style={{
-                            backgroundColor: config.color,
-                            boxShadow: `0 0 6px ${config.glow}`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-
-              {/* Recommended Actions */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-5"
+                className="p-6 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700"
               >
                 <h3
                   className="text-slate-900 dark:text-white mb-4"
                   style={{ fontSize: "14px", fontWeight: 700 }}
                 >
-                  Recommended Actions
+                  Technical Details
                 </h3>
                 <div className="space-y-3">
-                  {(score <= 30
-                    ? [
-                        "Content appears to be authentic",
-                        "Continue to verify through additional sources",
-                        "Download report for future reference",
-                        "Monitor for any future modifications",
-                      ]
-                    : score >= 70
-                      ? [
-                          "Do not share or distribute this content",
-                          "Report to platform where found",
-                          "Consult legal advice if used maliciously",
-                          "Download report for documentation",
-                        ]
-                      : [
-                          "Exercise caution when sharing this content",
-                          "Cross-verify with additional trusted sources",
-                          "Download report for documentation",
-                          "Monitor for any modifications or re-uploads",
-                        ]
-                  ).map((action, i) => (
-                    <div key={i} className="flex items-start gap-2.5">
-                      <div
-                        className={`w-5 h-5 rounded-full ${config.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}
-                      >
-                        <span
-                          className={config.text}
-                          style={{ fontSize: "10px", fontWeight: 800 }}
-                        >
-                          {i + 1}
-                        </span>
-                      </div>
+                  {technicalData.map((d, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700/50 last:border-0 last:pb-0"
+                    >
                       <span
-                        className="text-slate-600 dark:text-slate-400"
-                        style={{ fontSize: "13px", lineHeight: 1.5 }}
+                        className="text-slate-500 dark:text-slate-400"
+                        style={{ fontSize: "12px" }}
                       >
-                        {action}
+                        {d.label}
+                      </span>
+                      <span
+                        className={`font-semibold ${
+                          d.status === "critical"
+                            ? "text-emerald-500"
+                            : d.status === "warning"
+                              ? "text-emerald-500"
+                              : "text-slate-900 dark:text-white"
+                        }`}
+                        style={{ fontSize: "12px" }}
+                      >
+                        {d.value}
                       </span>
                     </div>
                   ))}
@@ -1265,8 +1210,8 @@ export function Results() {
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-5"
+                transition={{ delay: 0.1 }}
+                className="p-6 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700"
               >
                 <h3
                   className="text-slate-900 dark:text-white mb-3"
@@ -1280,49 +1225,51 @@ export function Results() {
                         {
                           label: "Authentic",
                           range: "70–100%",
-                          color: "bg-emerald-500",
                           active: score >= 70,
+                          dot: "bg-emerald-500",
                         },
                         {
                           label: "Suspicious",
                           range: "31–69%",
-                          color: "bg-amber-500",
                           active: score > 30 && score < 70,
+                          dot: "bg-amber-500",
                         },
                         {
                           label: "Low Authenticity",
                           range: "0–30%",
-                          color: "bg-red-500",
                           active: score <= 30,
+                          dot: "bg-emerald-500",
                         },
                       ]
                     : [
                         {
                           label: "Authentic",
                           range: "0–30%",
-                          color: "bg-emerald-500",
                           active: score <= 30,
+                          dot: "bg-emerald-500",
                         },
                         {
                           label: "Suspicious",
                           range: "31–69%",
-                          color: "bg-amber-500",
                           active: score > 30 && score < 70,
+                          dot: "bg-amber-500",
                         },
                         {
                           label: "Deepfake",
                           range: "70–100%",
-                          color: "bg-red-500",
                           active: score >= 70,
+                          dot: "bg-red-500",
                         },
                       ]
-                  ).map(({ label, range, color, active }) => (
+                  ).map(({ label, range, active, dot }) => (
                     <div
                       key={label}
                       className={`flex items-center justify-between p-2.5 rounded-lg ${active ? `${config.bg} border ${config.border}` : "bg-slate-50 dark:bg-slate-700/40"}`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className={`w-3 h-3 rounded-full ${color}`} />
+                        <div
+                          className={`w-3 h-3 rounded-full ${active ? dot : "bg-slate-300 dark:bg-slate-600"}`}
+                        />
                         <span
                           className={
                             active
@@ -1351,7 +1298,7 @@ export function Results() {
               {/* Actions */}
               <div className="flex flex-col gap-2.5">
                 <button
-                  onClick={() => setShowReport(true)}
+                  onClick={handleDownloadPdf}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
                   style={{ fontSize: "14px", fontWeight: 700 }}
                 >
@@ -1369,15 +1316,16 @@ export function Results() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Report Export Modal */}
-        {showReport && (
-          <ReportModal
-            onClose={() => setShowReport(false)}
-            detection={detection}
-          />
-        )}
+          {/* Report Export Modal */}
+          {showReport && (
+            <ReportModal
+              onClose={() => setShowReport(false)}
+              detection={detection}
+              onDownloadPdf={handleDownloadPdf}
+            />
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );
@@ -1453,7 +1401,7 @@ function generateTechnicalData(detection: DetectionData) {
 
   return [
     {
-      label: "Deepfake Score",
+      label: "Real Score",
       value: `${fakeScoreNorm.toFixed(3)} / 1.0`,
       status: isCritical(score),
     },
