@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
@@ -18,6 +18,9 @@ import {
   Zap,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
+import { login } from "../api/authApi";
+import { useAuth } from "../context/AuthContext";
+import type { LoginRequest } from "../types/auth";
 
 const leftFeatures = [
   {
@@ -45,30 +48,94 @@ const leftStats = [
 
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { setAccessToken, fetchProfile } = useAuth();
+  const [username, setUsername] = useState(
+    (location.state as any)?.email || "",
+  );
+  const [password, setPassword] = useState(
+    (location.state as any)?.password || "",
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!username || !password) {
       toast.error("Please fill in all fields.");
       return;
     }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Welcome back, Admin!");
-      setTimeout(() => navigate("/dashboard"), 600);
-    }, 1400);
+    setIsLoggingIn(true);
+
+    try {
+      const credentials: LoginRequest = {
+        identifier: username,
+        password,
+      };
+
+      const response = await login(credentials);
+
+      if (response.success) {
+        // Store tokens
+        const token = response.data.accessToken;
+        localStorage.setItem("accessToken", token);
+        localStorage.setItem("refreshToken", response.data.refreshToken);
+
+        // Set token
+        setAccessToken(token);
+
+        // Get role from login response (TokenData extends Partial<UserInfo>)
+        const loginRole = response.data.role;
+
+        // Fetch user info from auth/me API to get correct role
+        try {
+          const userInfoData = await fetchProfile(token);
+
+          // Redirect based on role
+          const redirectPath =
+            userInfoData.role === "ADMIN" ? "/dashboard" : "/detect";
+          toast.success("Welcome back! Redirecting...");
+
+          setTimeout(() => {
+            navigate(redirectPath, { replace: true });
+          }, 500);
+        } catch {
+          // Fallback: use role from login response if available
+          const redirectPath = loginRole === "ADMIN" ? "/dashboard" : "/detect";
+          toast.success("Welcome back! Redirecting...");
+          setTimeout(() => {
+            navigate(redirectPath, { replace: true });
+          }, 500);
+        }
+      }
+    } catch (error) {
+      let errorMessage = "Login failed. Please try again.";
+
+      if (error instanceof Error) {
+        // Check if it's an AuthError with specific error codes
+        const authError = error as any;
+        if (authError.code === "INVALID_CREDENTIALS") {
+          errorMessage = "Invalid username or password. Please try again.";
+        } else if (authError.code === "USER_NOT_FOUND") {
+          errorMessage = "User account not found.";
+        } else if (authError.code === "ACCOUNT_DISABLED") {
+          errorMessage = "This account has been disabled.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      toast.error(errorMessage);
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleGuest = () => {
     toast.info("Continuing as guest — 3 free scans available today.");
-    navigate("/dashboard");
+    navigate("/detect");
   };
 
   return (
@@ -274,21 +341,21 @@ export function Login() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email */}
+              {/* Username */}
               <div>
                 <label
                   className="block mb-1.5 text-slate-700 dark:text-slate-300"
                   style={{ fontSize: "13px", fontWeight: 600 }}
                 >
-                  Email address
+                  Username
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@company.com"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="admin"
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all"
                     style={{ fontSize: "14px" }}
                   />
@@ -356,11 +423,11 @@ export function Login() {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={isLoggingIn}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25 disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ fontSize: "15px", fontWeight: 700 }}
               >
-                {loading ? (
+                {isLoggingIn ? (
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{
@@ -378,31 +445,6 @@ export function Login() {
                 )}
               </button>
             </form>
-
-            {/* Divider */}
-            <div className="relative my-5">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-slate-700" />
-              </div>
-              <div className="relative flex justify-center">
-                <span
-                  className="px-3 bg-slate-50 dark:bg-[#0F172A] text-slate-400"
-                  style={{ fontSize: "12px" }}
-                >
-                  or
-                </span>
-              </div>
-            </div>
-
-            {/* Guest access */}
-            <button
-              onClick={handleGuest}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all"
-              style={{ fontSize: "14px", fontWeight: 600 }}
-            >
-              <User className="w-4 h-4" />
-              Continue as Guest
-            </button>
 
             {/* Security note */}
             <div className="mt-6 flex items-center justify-center gap-2">
