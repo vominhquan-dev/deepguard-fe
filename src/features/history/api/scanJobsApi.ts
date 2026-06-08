@@ -20,11 +20,15 @@ export interface DetectionResultData {
   mediaId: string;
   fileName: string;
   originalUrl: string;
-  fakeScore: number;
-  confidence: number;
-  resultLabel: string;
   modelVersion: string;
   processedAt: string;
+  aiDetect?: {
+    prediction: string;
+    fakeProbability: number;
+    realProbability: number;
+    imageUrl: string | null;
+    message: string | null;
+  };
 }
 
 export interface ScanJobsResponse {

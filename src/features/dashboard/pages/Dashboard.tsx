@@ -128,6 +128,18 @@ export function Dashboard() {
   const [scanPhase, setScanPhase] = useState("");
   const [errorType, setErrorType] = useState<ErrorType | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Create/revoke object URL for image preview
+  useEffect(() => {
+    if (selectedFile && selectedFile.type.startsWith("image/")) {
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [selectedFile]);
 
   const scanPhases = [
     "Initializing AI models...",
@@ -136,6 +148,16 @@ export function Dashboard() {
     "Running deepfake classifiers...",
     "Generating risk report...",
   ];
+
+  // Safely extract detection info from aiDetect nested format
+  const getDetectionPrediction = (r: { aiDetect?: { prediction?: string } }) =>
+    r.aiDetect?.prediction || "REAL";
+  const getDetectionFakeProb = (r: {
+    aiDetect?: { fakeProbability?: number };
+  }): number => r.aiDetect?.fakeProbability ?? 0;
+  const getDetectionRealProb = (r: {
+    aiDetect?: { realProbability?: number };
+  }): number => r.aiDetect?.realProbability ?? 1;
 
   const triggerError = (type: ErrorType) => {
     setErrorType(type);
@@ -173,6 +195,8 @@ export function Dashboard() {
     setProgressDisplay(0);
     setErrorType(null);
   };
+
+  const isImageFile = selectedFile?.type.startsWith("image/");
 
   const startScan = useCallback(
     async (file: File) => {
@@ -267,9 +291,9 @@ export function Dashboard() {
       fileSize: data.fileSize,
       uploadedAt: data.uploadedAt,
       analysis: {
-        label: aiDetect.label,
-        confidence: aiDetect.score,
-        message: aiDetect.message,
+        prediction: aiDetect.prediction,
+        fakeProbability: aiDetect.fakeProbability,
+        realProbability: aiDetect.realProbability,
       },
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -305,11 +329,10 @@ export function Dashboard() {
     },
   ];
 
-  const isFakeLabel = (label: string) =>
-    label === "fake" || label === "deepfake" || label === "suspicious";
+  const isFakePrediction = (prediction: string) => prediction === "FAKE";
 
-  const getVerdictColor = (label: string) => {
-    if (isFakeLabel(label)) {
+  const getVerdictColor = (prediction: string) => {
+    if (isFakePrediction(prediction)) {
       return {
         bg: "bg-red-500/10",
         text: "text-red-400",
@@ -327,13 +350,13 @@ export function Dashboard() {
     };
   };
 
-  const getVerdictLabel = (label: string) => {
-    if (isFakeLabel(label)) return "Deepfake";
+  const getVerdictLabel = (prediction: string) => {
+    if (isFakePrediction(prediction)) return "Deepfake";
     return "Real";
   };
 
-  const getVerdictIcon = (label: string) => {
-    if (isFakeLabel(label)) return AlertTriangle;
+  const getVerdictIcon = (prediction: string) => {
+    if (isFakePrediction(prediction)) return AlertTriangle;
     return CheckCircle2;
   };
 
@@ -665,68 +688,146 @@ export function Dashboard() {
                   >
                     {uploadState === "scanning" && (
                       <div className="p-8">
-                        {/* AI animation */}
+                        {/* Image with Scan Overlay */}
                         <div
                           className="relative mx-auto mb-8 rounded-xl overflow-hidden bg-slate-900 dark:bg-[#0F172A]"
                           style={{
-                            height: "180px",
+                            height:
+                              isImageFile && previewUrl ? "auto" : "180px",
                             width: "100%",
                             maxWidth: "400px",
+                            aspectRatio: isImageFile ? "auto" : undefined,
                           }}
                         >
-                          <div
-                            className="absolute inset-0"
-                            style={{
-                              backgroundImage:
-                                "linear-gradient(rgba(34,211,238,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.05) 1px, transparent 1px)",
-                              backgroundSize: "20px 20px",
-                            }}
-                          />
-                          <motion.div
-                            className="absolute left-0 right-0 h-0.5 bg-[#22D3EE]"
-                            style={{
-                              boxShadow: "0 0 16px #22D3EE, 0 0 32px #22D3EE60",
-                            }}
-                            animate={{ top: ["5%", "95%", "5%"] }}
-                            transition={{
-                              duration: 2,
-                              repeat: Infinity,
-                              ease: "linear",
-                            }}
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            {[1, 2, 3].map((i) => (
-                              <motion.div
-                                key={i}
-                                className="absolute rounded-full border border-[#22D3EE]/30"
-                                animate={{
-                                  scale: [1, 1.5 + i * 0.3],
-                                  opacity: [0.5, 0],
+                          {isImageFile && previewUrl ? (
+                            <>
+                              <img
+                                src={previewUrl}
+                                alt={selectedFile?.name || "Upload preview"}
+                                className="w-full h-full object-contain rounded-xl"
+                                style={{ maxHeight: "300px" }}
+                              />
+                              {/* Scanning overlay */}
+                              <div className="absolute inset-0 pointer-events-none">
+                                {/* Grid overlay */}
+                                <div
+                                  className="absolute inset-0"
+                                  style={{
+                                    backgroundImage:
+                                      "linear-gradient(rgba(34,211,238,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.08) 1px, transparent 1px)",
+                                    backgroundSize: "20px 20px",
+                                  }}
+                                />
+                                {/* Scan line */}
+                                <motion.div
+                                  className="absolute left-0 right-0 h-0.5 bg-[#22D3EE]"
+                                  style={{
+                                    boxShadow:
+                                      "0 0 16px #22D3EE, 0 0 32px #22D3EE60",
+                                  }}
+                                  animate={{ top: ["5%", "95%", "5%"] }}
+                                  transition={{
+                                    duration: 2,
+                                    repeat: Infinity,
+                                    ease: "linear",
+                                  }}
+                                />
+                                {/* Corner brackets */}
+                                {[
+                                  "top-2 left-2",
+                                  "top-2 right-2",
+                                  "bottom-2 left-2",
+                                  "bottom-2 right-2",
+                                ].map((pos) => (
+                                  <div
+                                    key={pos}
+                                    className={`absolute ${pos} w-4 h-4 border-[#22D3EE]/60`}
+                                    style={{ borderWidth: "2px 0 0 2px" }}
+                                  />
+                                ))}
+                                {/* Pulse ring center */}
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  {[1, 2, 3].map((i) => (
+                                    <motion.div
+                                      key={i}
+                                      className="absolute rounded-full border border-[#22D3EE]/40"
+                                      animate={{
+                                        scale: [1, 1.5 + i * 0.3],
+                                        opacity: [0.5, 0],
+                                      }}
+                                      transition={{
+                                        duration: 2,
+                                        delay: i * 0.4,
+                                        repeat: Infinity,
+                                      }}
+                                      style={{ width: 60, height: 60 }}
+                                    />
+                                  ))}
+                                  <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 border border-[#22D3EE]/40 flex items-center justify-center backdrop-blur-sm">
+                                    <Cpu className="w-5 h-5 text-[#22D3EE]" />
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            /* Fallback: abstract animation for non-image files */
+                            <>
+                              <div
+                                className="absolute inset-0"
+                                style={{
+                                  backgroundImage:
+                                    "linear-gradient(rgba(34,211,238,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.05) 1px, transparent 1px)",
+                                  backgroundSize: "20px 20px",
                                 }}
+                              />
+                              <motion.div
+                                className="absolute left-0 right-0 h-0.5 bg-[#22D3EE]"
+                                style={{
+                                  boxShadow:
+                                    "0 0 16px #22D3EE, 0 0 32px #22D3EE60",
+                                }}
+                                animate={{ top: ["5%", "95%", "5%"] }}
                                 transition={{
                                   duration: 2,
-                                  delay: i * 0.4,
                                   repeat: Infinity,
+                                  ease: "linear",
                                 }}
-                                style={{ width: 60, height: 60 }}
                               />
-                            ))}
-                            <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 border border-[#22D3EE]/40 flex items-center justify-center">
-                              <Cpu className="w-5 h-5 text-[#22D3EE]" />
-                            </div>
-                          </div>
-                          {[
-                            "top-2 left-2",
-                            "top-2 right-2",
-                            "bottom-2 left-2",
-                            "bottom-2 right-2",
-                          ].map((pos) => (
-                            <div
-                              key={pos}
-                              className={`absolute ${pos} w-4 h-4 border-[#22D3EE]/60`}
-                              style={{ borderWidth: "2px 0 0 2px" }}
-                            />
-                          ))}
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                {[1, 2, 3].map((i) => (
+                                  <motion.div
+                                    key={i}
+                                    className="absolute rounded-full border border-[#22D3EE]/30"
+                                    animate={{
+                                      scale: [1, 1.5 + i * 0.3],
+                                      opacity: [0.5, 0],
+                                    }}
+                                    transition={{
+                                      duration: 2,
+                                      delay: i * 0.4,
+                                      repeat: Infinity,
+                                    }}
+                                    style={{ width: 60, height: 60 }}
+                                  />
+                                ))}
+                                <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 border border-[#22D3EE]/40 flex items-center justify-center">
+                                  <Cpu className="w-5 h-5 text-[#22D3EE]" />
+                                </div>
+                              </div>
+                              {[
+                                "top-2 left-2",
+                                "top-2 right-2",
+                                "bottom-2 left-2",
+                                "bottom-2 right-2",
+                              ].map((pos) => (
+                                <div
+                                  key={pos}
+                                  className={`absolute ${pos} w-4 h-4 border-[#22D3EE]/60`}
+                                  style={{ borderWidth: "2px 0 0 2px" }}
+                                />
+                              ))}
+                            </>
+                          )}
                         </div>
 
                         <div className="text-center mb-6">
@@ -834,32 +935,42 @@ export function Dashboard() {
                             </button>
                           </div>
 
-                          {/* AI Message */}
-                          {aiDetect.message &&
-                            aiDetect.message !== "Prediction successful" && (
-                              <div
-                                className={`flex items-start gap-3 p-4 rounded-xl mb-5 ${
-                                  aiDetect.label === "fake"
-                                    ? "bg-red-500/5 border border-red-500/20"
-                                    : "bg-emerald-500/5 border border-emerald-500/20"
-                                }`}
-                              >
-                                {aiDetect.label === "fake" ? (
-                                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                                ) : (
-                                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-                                )}
-                                <p
-                                  className={`text-sm ${
-                                    aiDetect.label === "fake"
-                                      ? "text-red-600 dark:text-red-300"
-                                      : "text-emerald-600 dark:text-emerald-300"
-                                  }`}
-                                >
-                                  {aiDetect.message}
-                                </p>
-                              </div>
+                          {/* Image Preview */}
+                          {isImageFile && previewUrl && (
+                            <div className="mb-5 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                              <img
+                                src={previewUrl}
+                                alt={selectedFile.name}
+                                className="w-full h-full object-contain max-h-[300px]"
+                              />
+                            </div>
+                          )}
+
+                          {/* AI Verdict Message */}
+                          <div
+                            className={`flex items-start gap-3 p-4 rounded-xl mb-5 ${
+                              aiDetect.prediction === "FAKE"
+                                ? "bg-red-500/5 border border-red-500/20"
+                                : "bg-emerald-500/5 border border-emerald-500/20"
+                            }`}
+                          >
+                            {aiDetect.prediction === "FAKE" ? (
+                              <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                            ) : (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                             )}
+                            <p
+                              className={`text-sm ${
+                                aiDetect.prediction === "FAKE"
+                                  ? "text-red-600 dark:text-red-300"
+                                  : "text-emerald-600 dark:text-emerald-300"
+                              }`}
+                            >
+                              {aiDetect.prediction === "FAKE"
+                                ? "Deepfake or AI-generated content detected in this media."
+                                : "This media appears to be authentic."}
+                            </p>
+                          </div>
 
                           {/* File info line */}
                           <div className="flex items-center gap-2 text-slate-400 mb-6 text-xs">
@@ -874,12 +985,16 @@ export function Dashboard() {
 
                           {/* Main verdict card */}
                           {(() => {
-                            const verdict = getVerdictColor(aiDetect.label);
-                            const VerdictIcon = getVerdictIcon(aiDetect.label);
+                            const verdict = getVerdictColor(
+                              aiDetect.prediction,
+                            );
+                            const VerdictIcon = getVerdictIcon(
+                              aiDetect.prediction,
+                            );
                             const riskScore =
-                              aiDetect.label === "fake"
-                                ? Math.round(aiDetect.score * 100)
-                                : Math.round((1 - aiDetect.score) * 100);
+                              aiDetect.prediction === "FAKE"
+                                ? Math.round(aiDetect.fakeProbability * 100)
+                                : Math.round(aiDetect.realProbability * 100);
 
                             return (
                               <div
@@ -895,7 +1010,7 @@ export function Dashboard() {
                                     <p
                                       className={`font-bold text-lg ${verdict.text}`}
                                     >
-                                      {isFakeLabel(aiDetect.label)
+                                      {isFakePrediction(aiDetect.prediction)
                                         ? "⚠ DEEPFAKE DETECTED"
                                         : "✓ AUTHENTIC CONTENT"}
                                     </p>
@@ -905,81 +1020,47 @@ export function Dashboard() {
                                   </div>
                                 </div>
 
-                                {/* Risk Level Bar */}
-                                <div className="mb-4">
-                                  <div className="flex justify-between items-center mb-1.5">
-                                    <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                                      Risk Level
-                                    </span>
-                                    <span
-                                      className={`font-bold text-lg ${riskScore >= 70 ? "text-red-400" : riskScore >= 40 ? "text-amber-400" : "text-emerald-400"}`}
-                                    >
-                                      {riskScore}%
-                                    </span>
-                                  </div>
-                                  <div className="h-2.5 bg-slate-200/50 dark:bg-slate-700/50 rounded-full overflow-hidden">
-                                    <motion.div
-                                      initial={{ width: 0 }}
-                                      animate={{ width: `${riskScore}%` }}
-                                      transition={{
-                                        duration: 0.8,
-                                        ease: "easeOut",
-                                      }}
-                                      className={`h-full rounded-full ${
-                                        riskScore >= 70
-                                          ? "bg-red-500"
-                                          : riskScore >= 40
-                                            ? "bg-amber-500"
-                                            : "bg-emerald-500"
-                                      }`}
-                                      style={{
-                                        boxShadow:
-                                          riskScore >= 70
-                                            ? "0 0 8px rgba(239,68,68,0.5)"
-                                            : "none",
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Stats grid */}
-                                <div className="grid grid-cols-2 gap-4">
+                                {/* Stats grid - Prediction / Fake Prob / Real Prob */}
+                                <div className="grid grid-cols-3 gap-3 mb-4">
                                   <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
                                     <p className="text-slate-400 text-xs mb-0.5">
-                                      AI Verdict
+                                      Prediction
                                     </p>
                                     <p
                                       className={`font-bold text-sm ${verdict.text}`}
                                     >
-                                      {getVerdictLabel(
-                                        aiDetect.label,
-                                      ).toUpperCase()}
+                                      {aiDetect.prediction}
                                     </p>
                                   </div>
                                   <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
                                     <p className="text-slate-400 text-xs mb-0.5">
-                                      Model Confidence
+                                      Fake Prob.
                                     </p>
-                                    <p className="font-bold text-sm text-slate-900 dark:text-white">
-                                      {Math.round(aiDetect.score * 100)}%
-                                    </p>
-                                  </div>
-                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
-                                    <p className="text-slate-400 text-xs mb-0.5">
-                                      File Type
-                                    </p>
-                                    <p className="font-bold text-sm text-slate-900 dark:text-white">
-                                      {getFileTypeLabel(data.fileType)}
+                                    <p className="font-bold text-sm text-red-500">
+                                      {(aiDetect.fakeProbability * 100).toFixed(
+                                        2,
+                                      )}
+                                      %
                                     </p>
                                   </div>
                                   <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
                                     <p className="text-slate-400 text-xs mb-0.5">
-                                      File Size
+                                      Real Prob.
                                     </p>
-                                    <p className="font-bold text-sm text-slate-900 dark:text-white">
-                                      {formatFileSize(data.fileSize)}
+                                    <p className="font-bold text-sm text-emerald-500">
+                                      {(aiDetect.realProbability * 100).toFixed(
+                                        2,
+                                      )}
+                                      %
                                     </p>
                                   </div>
+                                </div>
+
+                                {/* File info row */}
+                                <div className="flex items-center gap-2 text-slate-400 text-xs">
+                                  <span>{getFileTypeLabel(data.fileType)}</span>
+                                  <span>·</span>
+                                  <span>{formatFileSize(data.fileSize)}</span>
                                 </div>
                               </div>
                             );
@@ -1093,10 +1174,13 @@ export function Dashboard() {
                 ) : (
                   <div className="space-y-2">
                     {recentResults.slice(0, 5).map((result) => {
-                      const isFake =
-                        result.resultLabel?.toLowerCase() === "fake" ||
-                        result.resultLabel?.toLowerCase() === "deepfake" ||
-                        result.resultLabel?.toLowerCase() === "suspicious";
+                      const prediction = getDetectionPrediction(result);
+                      const isFake = prediction === "FAKE";
+                      const fakeProb = getDetectionFakeProb(result);
+                      const realProb = getDetectionRealProb(result);
+                      const isImage = /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(
+                        result.fileName,
+                      );
                       return (
                         <button
                           key={result.detectionResultId}
@@ -1106,37 +1190,48 @@ export function Dashboard() {
                               JSON.stringify({
                                 detectionResultId: result.detectionResultId,
                                 scanJobId: result.scanJobId,
-                                label: result.resultLabel,
-                                score: result.fakeScore ?? 0,
-                                confidence: result.confidence ?? 0,
+                                prediction,
+                                fakeProbability: fakeProb,
+                                realProbability: realProb,
                                 imageUrl: result.originalUrl,
                                 fileName: result.fileName,
                                 modelVersion: result.modelVersion,
                                 processedAt: result.processedAt,
-                                resultLabel: result.resultLabel,
-                                fakeScore: result.fakeScore,
                                 email: result.email,
                                 mediaId: result.mediaId,
-                                message: `AI analysis complete — ${result.resultLabel}`,
                               }),
                             );
                             navigate("/results");
                           }}
                           className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all text-left group"
                         >
-                          <div
-                            className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                              isFake
-                                ? "bg-red-500/10 group-hover:bg-red-500/15"
-                                : "bg-emerald-500/10 group-hover:bg-emerald-500/15"
-                            }`}
-                          >
-                            {isFake ? (
-                              <AlertTriangle className="w-4 h-4 text-red-400" />
-                            ) : (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                            )}
-                          </div>
+                          {isImage && result.originalUrl ? (
+                            <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-600">
+                              <img
+                                src={result.originalUrl}
+                                alt={result.fileName}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const img = e.target as HTMLImageElement;
+                                  img.style.display = "none";
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                isFake
+                                  ? "bg-red-500/10 group-hover:bg-red-500/15"
+                                  : "bg-emerald-500/10 group-hover:bg-emerald-500/15"
+                              }`}
+                            >
+                              {isFake ? (
+                                <AlertTriangle className="w-4 h-4 text-red-400" />
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                              )}
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p
@@ -1157,11 +1252,11 @@ export function Dashboard() {
                                   isFake ? "text-red-400" : "text-emerald-400"
                                 }`}
                               >
-                                {result.resultLabel}
+                                {prediction}
                               </span>
                               <span className="text-slate-400">·</span>
                               <span className="text-slate-400 text-xs">
-                                Score: {(result.fakeScore * 100)?.toFixed(0)}
+                                Fake: {(fakeProb * 100)?.toFixed(0)}%
                               </span>
                             </div>
                           </div>

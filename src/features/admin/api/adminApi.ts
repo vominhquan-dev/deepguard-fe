@@ -151,9 +151,13 @@ export interface DetectionResultItem {
   mediaId: string;
   fileName: string;
   originalUrl: string;
-  fakeScore: number;
-  confidence: number;
-  resultLabel: string;
+  aiDetect?: {
+    prediction: string;
+    fakeProbability: number;
+    realProbability: number;
+    imageUrl: string | null;
+    message: string | null;
+  };
   modelVersion: string;
   processedAt: string;
 }
@@ -181,12 +185,12 @@ export async function getDetectionResults(
   accessToken: string,
   page: number = 0,
   size: number = 10,
-  resultLabel?: string,
+  prediction?: string,
 ): Promise<DetectionResultsResponse> {
   const params = new URLSearchParams();
   params.set("page", String(page));
   params.set("size", String(size));
-  if (resultLabel) params.set("resultLabel", resultLabel);
+  if (prediction) params.set("prediction", prediction);
 
   const response = await fetch(
     `${API_BASE_URL}/admin/detection-results/all?${params.toString()}`,

@@ -109,20 +109,25 @@ export function useScanHistory(): UseScanHistoryReturn {
           );
           const fileSize = matchingJob ? 0 : 0; // Size not available from API yet
 
+          // Use only aiDetect nested format
+          const prediction = dr.aiDetect?.prediction || "REAL";
+          const fakeProb = dr.aiDetect?.fakeProbability ?? 0;
+          const realProb = dr.aiDetect?.realProbability ?? 1;
+
           return {
             id: dr.detectionResultId,
             scanJobId: dr.scanJobId,
             name: dr.fileName,
             type: inferMediaType(dr.fileName),
-            risk: Math.round(dr.fakeScore * 100),
-            verdict: mapVerdict(dr.resultLabel),
+            risk: Math.round(fakeProb * 100),
+            verdict: mapVerdict(prediction),
             date: dr.processedAt
               ? dr.processedAt.split("T")[0]
               : new Date().toISOString().split("T")[0],
             size: formatFileSize(fileSize),
             status: "Completed",
             originalUrl: dr.originalUrl,
-            confidence: dr.confidence,
+            confidence: Math.round(realProb * 100),
           };
         });
 

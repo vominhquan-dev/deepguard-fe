@@ -1081,15 +1081,18 @@ function DetectionResultsTable() {
             </thead>
             <tbody>
               {data.map((item) => {
-                const cfg = resultLabelConfig[item.resultLabel] || {
+                const prediction = item.aiDetect?.prediction ?? "UNKNOWN";
+                const fakeProbability = item.aiDetect?.fakeProbability ?? 0;
+                const realProbability = item.aiDetect?.realProbability ?? 0;
+                const cfg = resultLabelConfig[prediction] || {
                   icon: AlertTriangle,
-                  label: item.resultLabel,
+                  label: prediction,
                   color: "text-slate-500",
                   bg: "bg-slate-500/10",
                 };
                 const ResultIcon = cfg.icon;
-                const isHighFake = item.fakeScore >= 70;
-                const isMidFake = item.fakeScore >= 31;
+                const isHighFake = fakeProbability >= 0.7;
+                const isMidFake = fakeProbability >= 0.31;
                 const scoreColor = isHighFake
                   ? "text-red-500"
                   : isMidFake
@@ -1135,12 +1138,14 @@ function DetectionResultsTable() {
                           className={`font-extrabold ${scoreColor}`}
                           style={{ fontSize: "14px" }}
                         >
-                          {item.fakeScore}%
+                          {Math.round(fakeProbability * 100)}%
                         </span>
                         <div className="w-12 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${scoreBar}`}
-                            style={{ width: `${item.fakeScore}%` }}
+                            style={{
+                              width: `${Math.round(fakeProbability * 100)}%`,
+                            }}
                           />
                         </div>
                       </div>
@@ -1150,7 +1155,7 @@ function DetectionResultsTable() {
                         className="text-slate-500 font-semibold"
                         style={{ fontSize: "13px" }}
                       >
-                        {item.confidence}%
+                        {Math.round(realProbability * 100)}%
                       </span>
                     </td>
                     <td className="py-3 px-3">

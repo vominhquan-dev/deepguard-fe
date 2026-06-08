@@ -3,10 +3,11 @@
  */
 
 export interface AiDetectData {
-  label: string;
-  score: number;
+  fakeProbability: number;
+  prediction: string;
+  realProbability: number;
   imageUrl: string | null;
-  message: string;
+  message: string | null;
 }
 
 export interface MediaUploadData {
