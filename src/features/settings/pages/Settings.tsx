@@ -1,12 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import {
   User,
   Bell,
   Shield,
-  Key,
-  Globe,
   Palette,
   ChevronRight,
   Save,
@@ -17,17 +16,23 @@ import {
   Moon,
   Sun,
   Monitor,
+  Camera,
+  X,
+  Loader2,
+  Globe,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
+import { useAuth } from "../../../features/auth/context/AuthContext";
+import { updateUserProfile } from "../../../features/auth/api/userProfilesApi";
+import { createUserProfile } from "../../../features/auth/api/userProfilesApi";
 
-type Tab = "profile" | "notifications" | "security" | "api" | "appearance";
+type Tab = "profile" | "notifications" | "security" | "appearance";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "security", label: "Security", icon: Shield },
-  { id: "api", label: "API Keys", icon: Key },
   { id: "appearance", label: "Appearance", icon: Palette },
 ];
 
@@ -60,21 +65,126 @@ const notifOptions = [
 
 export function Settings() {
   const { theme, toggleTheme } = useTheme();
+  const {
+    profile: authProfile,
+    userInfo,
+    accessToken,
+    setProfile: setAuthProfile,
+  } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [showApiKey, setShowApiKey] = useState(false);
   const [notifs, setNotifs] = useState<Record<string, boolean>>(
     Object.fromEntries(notifOptions.map((n) => [n.key, n.defaultOn])),
   );
   const [profile, setProfile] = useState({
-    name: "Admin User",
-    email: "admin@deepguard.ai",
+    name: authProfile?.fullName || userInfo?.username || "User",
+    email: userInfo?.email || "",
+    bio: authProfile?.bio || "",
     org: "DeepGuard Inc.",
-    role: "Administrator",
+    role: userInfo?.role === "ADMIN" ? "Administrator" : "User",
   });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const fakeApiKey = "dg_sk_live_7fK3mP9qZ2nA8rXv1cE6yB4wT5uN0jQ";
 
-  const handleSaveProfile = () => {
-    toast.success("Profile saved successfully!");
+  // Sync profile form fields when auth context data loads
+  useEffect(() => {
+    if (authProfile?.fullName || userInfo?.email || userInfo?.role) {
+      setProfile((prev) => ({
+        ...prev,
+        name: authProfile?.fullName || userInfo?.username || prev.name,
+        email: userInfo?.email || prev.email,
+        role: userInfo?.role === "ADMIN" ? "Administrator" : "User",
+      }));
+    }
+  }, [authProfile, userInfo]);
+
+  const handleAvatarSelect = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB.");
+      return;
+    }
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setAvatarPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleCreateProfile = async () => {
+    if (!accessToken) {
+      toast.error("You must be logged in to create a profile.");
+      return;
+    }
+
+    if (!profile.name.trim()) {
+      toast.error("Please enter your full name.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await createUserProfile(accessToken, {
+        fullName: profile.name.trim(),
+        bio: profile.bio.trim() || undefined,
+        avatar: avatarFile || undefined,
+      });
+
+      if (response.success) {
+        setAuthProfile(response.data);
+        toast.success("Profile created successfully!");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to create profile. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!accessToken) {
+      toast.error("You must be logged in to save your profile.");
+      return;
+    }
+
+    if (!profile.name.trim()) {
+      toast.error("Please enter your full name.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await updateUserProfile(accessToken, {
+        fullName: profile.name.trim(),
+        bio: profile.bio.trim() || undefined,
+        avatar: avatarFile || undefined,
+      });
+
+      if (response.success) {
+        setAuthProfile(response.data);
+        toast.success("Profile saved successfully!");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to save profile. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCopyKey = () => {
@@ -108,7 +218,7 @@ export function Settings() {
             className="text-slate-500 dark:text-slate-400 ml-3"
             style={{ fontSize: "14px" }}
           >
-            Manage your account, preferences, and API access
+            Manage your account, preferences, and plan
           </p>
         </div>
 
@@ -147,7 +257,80 @@ export function Settings() {
               transition={{ duration: 0.2 }}
             >
               {/* Profile */}
-              {activeTab === "profile" && (
+              {activeTab === "profile" && !authProfile && (
+                <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-8">
+                  <div className="flex flex-col items-center text-center py-6">
+                    {/* Decorative gradient ring */}
+                    <div className="relative mb-6">
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#2563EB]/20 to-[#22D3EE]/20 blur-xl" />
+                      <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <User className="w-9 h-9 text-white" />
+                      </div>
+                    </div>
+                    <h2
+                      className="text-slate-900 dark:text-white mb-2"
+                      style={{
+                        fontSize: "22px",
+                        fontWeight: 800,
+                        letterSpacing: "-0.3px",
+                      }}
+                    >
+                      Complete Your Profile
+                    </h2>
+                    <p
+                      className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm leading-relaxed"
+                      style={{ fontSize: "14px" }}
+                    >
+                      Set up your profile to unlock the full DeepGuard
+                      experience — add your name, bio, and a profile photo so
+                      your team can recognize you.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={() => navigate("/create-profile")}
+                        className="flex items-center justify-center gap-2 px-7 py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
+                        style={{ fontSize: "14px", fontWeight: 700 }}
+                      >
+                        <User className="w-4 h-4" />
+                        Create Profile
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("appearance")}
+                        className="flex items-center justify-center gap-2 px-7 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                        style={{ fontSize: "14px", fontWeight: 600 }}
+                      >
+                        <Palette className="w-4 h-4" />
+                        Customize Theme
+                      </button>
+                    </div>
+                    {/* Feature hints */}
+                    <div className="grid grid-cols-3 gap-4 mt-10 pt-8 border-t border-slate-100 dark:border-slate-800 w-full max-w-sm">
+                      {[
+                        { icon: Camera, label: "Avatar" },
+                        { icon: Globe, label: "Public Bio" },
+                        { icon: Shield, label: "Verified" },
+                      ].map(({ icon: Icon, label }) => (
+                        <div
+                          key={label}
+                          className="flex flex-col items-center gap-1.5"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                            <Icon className="w-4 h-4 text-slate-400" />
+                          </div>
+                          <span
+                            className="text-slate-400 dark:text-slate-500"
+                            style={{ fontSize: "11px", fontWeight: 600 }}
+                          >
+                            {label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "profile" && authProfile && (
                 <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6">
                   <h2
                     className="text-slate-900 dark:text-white mb-6"
@@ -158,14 +341,38 @@ export function Settings() {
 
                   {/* Avatar */}
                   <div className="flex items-center gap-5 mb-8 pb-6 border-b border-slate-200 dark:border-slate-700">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
-                      <span
-                        className="text-white"
-                        style={{ fontSize: "24px", fontWeight: 800 }}
-                      >
-                        A
-                      </span>
-                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAvatarSelect(file);
+                      }}
+                      className="hidden"
+                    />
+                    {avatarPreview ? (
+                      <img
+                        src={avatarPreview}
+                        alt="Avatar preview"
+                        className="w-16 h-16 rounded-2xl object-cover flex-shrink-0 ring-2 ring-[#2563EB]/50"
+                      />
+                    ) : authProfile?.avatarUrl ? (
+                      <img
+                        src={authProfile.avatarUrl}
+                        alt={profile.name}
+                        className="w-16 h-16 rounded-2xl object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
+                        <span
+                          className="text-white"
+                          style={{ fontSize: "24px", fontWeight: 800 }}
+                        >
+                          {profile.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <p
                         className="text-slate-900 dark:text-white mb-1"
@@ -179,61 +386,144 @@ export function Settings() {
                       >
                         {profile.email}
                       </p>
-                      <button
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                        style={{ fontSize: "12px", fontWeight: 600 }}
-                      >
-                        Change Photo
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                          style={{ fontSize: "12px", fontWeight: 600 }}
+                        >
+                          <Camera className="w-3.5 h-3.5 inline mr-1.5" />
+                          {avatarPreview ? "Change Photo" : "Upload Photo"}
+                        </button>
+                        {avatarPreview && (
+                          <button
+                            onClick={() => {
+                              setAvatarFile(null);
+                              setAvatarPreview(null);
+                              if (fileInputRef.current)
+                                fileInputRef.current.value = "";
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            style={{ fontSize: "12px", fontWeight: 600 }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      {avatarPreview && (
+                        <p
+                          className="text-emerald-500 mt-2"
+                          style={{ fontSize: "11px", fontWeight: 600 }}
+                        >
+                          New photo ready to upload — save to apply
+                        </p>
+                      )}
                     </div>
                   </div>
 
+                  {/* Editable fields */}
                   <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                    {[
-                      {
-                        label: "Full Name",
-                        key: "name",
-                        type: "text",
-                        placeholder: "John Doe",
-                      },
-                      {
-                        label: "Email Address",
-                        key: "email",
-                        type: "email",
-                        placeholder: "john@example.com",
-                      },
-                      {
-                        label: "Organization",
-                        key: "org",
-                        type: "text",
-                        placeholder: "Your Company",
-                      },
-                      {
-                        label: "Role",
-                        key: "role",
-                        type: "text",
-                        placeholder: "Analyst",
-                      },
-                    ].map(({ label, key, type, placeholder }) => (
-                      <div key={key}>
-                        <label
-                          className="block mb-1.5 text-slate-700 dark:text-slate-300"
-                          style={{ fontSize: "13px", fontWeight: 600 }}
-                        >
-                          {label}
-                        </label>
-                        <input
-                          type={type}
-                          value={profile[key as keyof typeof profile]}
-                          onChange={(e) =>
-                            setProfile((p) => ({ ...p, [key]: e.target.value }))
-                          }
-                          placeholder={placeholder}
-                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all placeholder-slate-400"
-                          style={{ fontSize: "14px" }}
-                        />
-                      </div>
-                    ))}
+                    <div>
+                      <label
+                        className="block mb-1.5 text-slate-700 dark:text-slate-300"
+                        style={{ fontSize: "13px", fontWeight: 600 }}
+                      >
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={profile.name}
+                        onChange={(e) =>
+                          setProfile((p) => ({ ...p, name: e.target.value }))
+                        }
+                        placeholder="John Doe"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all placeholder-slate-400"
+                        style={{ fontSize: "14px" }}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        className="block mb-1.5 text-slate-700 dark:text-slate-300"
+                        style={{ fontSize: "13px", fontWeight: 600 }}
+                      >
+                        Bio
+                      </label>
+                      <textarea
+                        value={profile.bio}
+                        onChange={(e) =>
+                          setProfile((p) => ({ ...p, bio: e.target.value }))
+                        }
+                        placeholder="Tell us a little about yourself..."
+                        rows={3}
+                        maxLength={200}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all placeholder-slate-400 resize-none"
+                        style={{ fontSize: "14px" }}
+                      />
+                      <p
+                        className="text-slate-400 mt-1"
+                        style={{ fontSize: "11px" }}
+                      >
+                        {profile.bio.length}/200 characters
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Read-only info */}
+                  <div className="grid sm:grid-cols-3 gap-3 mb-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <div>
+                      <p
+                        className="text-slate-400 dark:text-slate-500"
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Email Address
+                      </p>
+                      <p
+                        className="text-slate-900 dark:text-white mt-0.5"
+                        style={{ fontSize: "14px", fontWeight: 500 }}
+                      >
+                        {profile.email}
+                      </p>
+                    </div>
+                    <div>
+                      <p
+                        className="text-slate-400 dark:text-slate-500"
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Organization
+                      </p>
+                      <p
+                        className="text-slate-900 dark:text-white mt-0.5"
+                        style={{ fontSize: "14px", fontWeight: 500 }}
+                      >
+                        {profile.org}
+                      </p>
+                    </div>
+                    <div>
+                      <p
+                        className="text-slate-400 dark:text-slate-500"
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Role
+                      </p>
+                      <p
+                        className="text-slate-900 dark:text-white mt-0.5"
+                        style={{ fontSize: "14px", fontWeight: 500 }}
+                      >
+                        {profile.role}
+                      </p>
+                    </div>
                   </div>
 
                   <button
@@ -430,158 +720,6 @@ export function Settings() {
                     >
                       Delete Account
                     </button>
-                  </div>
-                </div>
-              )}
-
-              {/* API Keys */}
-              {activeTab === "api" && (
-                <div className="space-y-5">
-                  <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6">
-                    <div className="flex items-start justify-between mb-5">
-                      <div>
-                        <h2
-                          className="text-slate-900 dark:text-white mb-1"
-                          style={{ fontSize: "16px", fontWeight: 700 }}
-                        >
-                          API Keys
-                        </h2>
-                        <p
-                          className="text-slate-500 dark:text-slate-400"
-                          style={{ fontSize: "13px" }}
-                        >
-                          Use these keys to authenticate API requests.
-                        </p>
-                      </div>
-                      <span
-                        className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500"
-                        style={{ fontSize: "11px", fontWeight: 700 }}
-                      >
-                        ACTIVE
-                      </span>
-                    </div>
-
-                    <div className="mb-4">
-                      <label
-                        className="block mb-2 text-slate-700 dark:text-slate-300"
-                        style={{ fontSize: "13px", fontWeight: 600 }}
-                      >
-                        Live Secret Key
-                      </label>
-                      <div className="flex gap-2">
-                        <div
-                          className="flex-1 flex items-center px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono"
-                          style={{ fontSize: "13px" }}
-                        >
-                          <span className="text-slate-900 dark:text-slate-300 truncate">
-                            {showApiKey
-                              ? fakeApiKey
-                              : fakeApiKey.replace(/./g, "•").slice(0, 32) +
-                                "..."}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => setShowApiKey((v) => !v)}
-                          className="w-10 h-10 flex-shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                        >
-                          {showApiKey ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={handleCopyKey}
-                          className="w-10 h-10 flex-shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={handleRegenerateKey}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
-                        style={{ fontSize: "13px", fontWeight: 600 }}
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        Regenerate
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6">
-                    <h2
-                      className="text-slate-900 dark:text-white mb-4"
-                      style={{ fontSize: "16px", fontWeight: 700 }}
-                    >
-                      API Usage
-                    </h2>
-                    <div className="grid sm:grid-cols-3 gap-4 mb-5">
-                      {[
-                        {
-                          label: "Requests Today",
-                          value: "1,240",
-                          limit: "10,000",
-                        },
-                        {
-                          label: "Requests This Month",
-                          value: "34,820",
-                          limit: "100,000",
-                        },
-                        { label: "Rate Limit", value: "60 / min", limit: "—" },
-                      ].map(({ label, value, limit }) => (
-                        <div
-                          key={label}
-                          className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                        >
-                          <p
-                            className="text-slate-500 dark:text-slate-400"
-                            style={{
-                              fontSize: "11px",
-                              fontWeight: 600,
-                              textTransform: "uppercase",
-                            }}
-                          >
-                            {label}
-                          </p>
-                          <p
-                            className="text-slate-900 dark:text-white mt-1"
-                            style={{ fontSize: "20px", fontWeight: 800 }}
-                          >
-                            {value}
-                          </p>
-                          {limit !== "—" && (
-                            <p
-                              className="text-slate-400 dark:text-slate-600"
-                              style={{ fontSize: "11px" }}
-                            >
-                              of {limit}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <div className="flex justify-between mb-1.5">
-                        <span
-                          className="text-slate-500 dark:text-slate-400"
-                          style={{ fontSize: "12px", fontWeight: 600 }}
-                        >
-                          Monthly Usage
-                        </span>
-                        <span
-                          className="text-slate-700 dark:text-slate-300"
-                          style={{ fontSize: "12px", fontWeight: 700 }}
-                        >
-                          34.8%
-                        </span>
-                      </div>
-                      <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <div className="h-full w-[34.8%] rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE]" />
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}

@@ -17,121 +17,13 @@ import {
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
+import { useScanHistory } from "../hooks/useScanHistory";
+import type { HistoryItem } from "../hooks/useScanHistory";
 
 const ITEMS_PER_PAGE = 6;
-
-const mockHistory = [
-  {
-    id: 1,
-    name: "interview_clip.mp4",
-    type: "Video",
-    risk: 87,
-    verdict: "Deepfake",
-    date: "2026-03-04",
-    size: "48.2 MB",
-  },
-  {
-    id: 2,
-    name: "profile_photo.jpg",
-    type: "Image",
-    risk: 12,
-    verdict: "Authentic",
-    date: "2026-03-04",
-    size: "2.1 MB",
-  },
-  {
-    id: 3,
-    name: "voice_message.mp3",
-    type: "Audio",
-    risk: 65,
-    verdict: "Suspicious",
-    date: "2026-03-03",
-    size: "8.7 MB",
-  },
-  {
-    id: 4,
-    name: "news_segment.mp4",
-    type: "Video",
-    risk: 91,
-    verdict: "Deepfake",
-    date: "2026-03-02",
-    size: "124.0 MB",
-  },
-  {
-    id: 5,
-    name: "headshot.png",
-    type: "Image",
-    risk: 8,
-    verdict: "Authentic",
-    date: "2026-03-02",
-    size: "1.3 MB",
-  },
-  {
-    id: 6,
-    name: "podcast_clip.wav",
-    type: "Audio",
-    risk: 78,
-    verdict: "Deepfake",
-    date: "2026-03-01",
-    size: "22.4 MB",
-  },
-  {
-    id: 7,
-    name: "presentation_video.mp4",
-    type: "Video",
-    risk: 45,
-    verdict: "Suspicious",
-    date: "2026-02-28",
-    size: "68.9 MB",
-  },
-  {
-    id: 8,
-    name: "id_photo.jpg",
-    type: "Image",
-    risk: 8,
-    verdict: "Authentic",
-    date: "2026-02-27",
-    size: "0.9 MB",
-  },
-  {
-    id: 9,
-    name: "ceo_speech.mp3",
-    type: "Audio",
-    risk: 82,
-    verdict: "Deepfake",
-    date: "2026-02-26",
-    size: "14.3 MB",
-  },
-  {
-    id: 10,
-    name: "product_demo.mp4",
-    type: "Video",
-    risk: 21,
-    verdict: "Authentic",
-    date: "2026-02-25",
-    size: "88.6 MB",
-  },
-  {
-    id: 11,
-    name: "social_clip.mp4",
-    type: "Video",
-    risk: 73,
-    verdict: "Deepfake",
-    date: "2026-02-24",
-    size: "36.1 MB",
-  },
-  {
-    id: 12,
-    name: "avatar_face.jpg",
-    type: "Image",
-    risk: 94,
-    verdict: "Deepfake",
-    date: "2026-02-23",
-    size: "4.2 MB",
-  },
-];
 
 const verdictStyle = {
   Deepfake: {
@@ -154,19 +46,24 @@ const verdictStyle = {
   },
 };
 
-const typeIcon = { Video, Image: ImageIcon, Audio: Mic };
+const typeIcon: Record<string, typeof Video | typeof ImageIcon | typeof Mic> = {
+  Video,
+  Image: ImageIcon,
+  Audio: Mic,
+};
 
 export function History() {
   const navigate = useNavigate();
+  const { items: historyItems, loading, error, refetch } = useScanHistory();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [riskFilter, setRiskFilter] = useState("All");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [selected, setSelected] = useState<number[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [page, setPage] = useState(1);
 
-  const filtered = mockHistory.filter((item) => {
+  const filtered = historyItems.filter((item) => {
     const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const matchType = typeFilter === "All" || item.type === typeFilter;
     const matchRisk =
@@ -188,7 +85,7 @@ export function History() {
     currentPage * ITEMS_PER_PAGE,
   );
 
-  const toggleSelect = (id: number) => {
+  const toggleSelect = (id: string) => {
     setSelected((s) =>
       s.includes(id) ? s.filter((i) => i !== id) : [...s, id],
     );
@@ -196,11 +93,66 @@ export function History() {
 
   const handleFilterChange = () => setPage(1);
 
-  const totalScans = mockHistory.length;
-  const fakeCount = mockHistory.filter((i) => i.verdict === "Deepfake").length;
-  const suspiciousCount = mockHistory.filter(
+  const totalScans = historyItems.length;
+  const fakeCount = historyItems.filter((i) => i.verdict === "Deepfake").length;
+  const suspiciousCount = historyItems.filter(
     (i) => i.verdict === "Suspicious",
   ).length;
+
+  // Loading skeleton
+  if (loading && historyItems.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 md:p-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 text-[#2563EB] animate-spin mx-auto mb-3" />
+              <p
+                className="text-slate-500 dark:text-slate-400"
+                style={{ fontSize: "14px" }}
+              >
+                Loading scan history...
+              </p>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Error state
+  if (error && historyItems.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 md:p-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center max-w-md">
+              <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+              <p
+                className="text-red-500 font-semibold mb-2"
+                style={{ fontSize: "16px" }}
+              >
+                Failed to load history
+              </p>
+              <p
+                className="text-slate-500 dark:text-slate-400 mb-4"
+                style={{ fontSize: "14px" }}
+              >
+                {error}
+              </p>
+              <button
+                onClick={refetch}
+                className="px-4 py-2 rounded-xl bg-[#2563EB] text-white hover:bg-blue-700 transition-all"
+                style={{ fontSize: "14px", fontWeight: 600 }}
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -220,6 +172,9 @@ export function History() {
               >
                 Scan History
               </h1>
+              {loading && (
+                <Loader2 className="w-4 h-4 text-[#2563EB] animate-spin ml-2" />
+              )}
             </div>
             <p
               className="text-slate-500 dark:text-slate-400 ml-3"
@@ -250,19 +205,28 @@ export function History() {
               label: "Deepfakes",
               value: fakeCount,
               color: "text-red-500",
-              sub: `${Math.round((fakeCount / totalScans) * 100)}% of scans`,
+              sub:
+                totalScans > 0
+                  ? `${Math.round((fakeCount / totalScans) * 100)}% of scans`
+                  : "0% of scans",
             },
             {
               label: "Suspicious",
               value: suspiciousCount,
               color: "text-amber-500",
-              sub: `${Math.round((suspiciousCount / totalScans) * 100)}% of scans`,
+              sub:
+                totalScans > 0
+                  ? `${Math.round((suspiciousCount / totalScans) * 100)}% of scans`
+                  : "0% of scans",
             },
             {
               label: "Authentic",
               value: totalScans - fakeCount - suspiciousCount,
               color: "text-emerald-500",
-              sub: `${Math.round(((totalScans - fakeCount - suspiciousCount) / totalScans) * 100)}% of scans`,
+              sub:
+                totalScans > 0
+                  ? `${Math.round(((totalScans - fakeCount - suspiciousCount) / totalScans) * 100)}% of scans`
+                  : "0% of scans",
             },
           ].map(({ label, value, color, sub }) => (
             <div
@@ -351,7 +315,7 @@ export function History() {
             >
               {["All", "High", "Medium", "Low"].map((r) => (
                 <option key={r} value={r}>
-                  Risk: {r}
+                  Score: {r}
                 </option>
               ))}
             </select>
@@ -440,27 +404,22 @@ export function History() {
                 )
               }
             />
-            {[
-              "File Name",
-              "Type",
-              "Risk Score",
-              "Verdict",
-              "Date",
-              "Actions",
-            ].map((h) => (
-              <span
-                key={h}
-                className="text-slate-500 dark:text-slate-400"
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                {h}
-              </span>
-            ))}
+            {["File Name", "Type", "Score", "Verdict", "Date", "Actions"].map(
+              (h) => (
+                <span
+                  key={h}
+                  className="text-slate-500 dark:text-slate-400"
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  {h}
+                </span>
+              ),
+            )}
           </div>
 
           {/* Rows */}
@@ -477,8 +436,9 @@ export function History() {
           ) : (
             paginated.map((item, i) => {
               const VStyle =
-                verdictStyle[item.verdict as keyof typeof verdictStyle];
-              const TypeIcon = typeIcon[item.type as keyof typeof typeIcon];
+                verdictStyle[item.verdict as keyof typeof verdictStyle] ||
+                verdictStyle.Authentic;
+              const TypeIcon = typeIcon[item.type] || ImageIcon;
               const riskColor =
                 item.risk >= 70
                   ? "text-red-500"
@@ -572,7 +532,19 @@ export function History() {
 
                   {/* Actions */}
                   <button
-                    onClick={() => navigate("/results")}
+                    onClick={() =>
+                      navigate("/results", {
+                        state: {
+                          label: item.verdict,
+                          score: item.risk / 100,
+                          fileName: item.name,
+                          type: item.type,
+                          scanJobId: item.scanJobId,
+                          originalUrl: item.originalUrl,
+                          confidence: item.confidence,
+                        },
+                      })
+                    }
                     className="flex items-center gap-1.5 text-[#2563EB] dark:text-[#22D3EE] hover:underline"
                     style={{ fontSize: "12px", fontWeight: 600 }}
                   >
@@ -638,8 +610,9 @@ export function History() {
           ) : (
             paginated.map((item, i) => {
               const VStyle =
-                verdictStyle[item.verdict as keyof typeof verdictStyle];
-              const TypeIcon = typeIcon[item.type as keyof typeof typeIcon];
+                verdictStyle[item.verdict as keyof typeof verdictStyle] ||
+                verdictStyle.Authentic;
+              const TypeIcon = typeIcon[item.type] || ImageIcon;
               const riskColor =
                 item.risk >= 70
                   ? "text-red-500"
@@ -703,7 +676,7 @@ export function History() {
                         className="text-slate-400 ml-1"
                         style={{ fontSize: "11px" }}
                       >
-                        risk score
+                        detection score
                       </span>
                       <div className="mt-1 h-1.5 w-24 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                         <div
@@ -713,7 +686,19 @@ export function History() {
                       </div>
                     </div>
                     <button
-                      onClick={() => navigate("/results")}
+                      onClick={() =>
+                        navigate("/results", {
+                          state: {
+                            label: item.verdict,
+                            score: item.risk / 100,
+                            fileName: item.name,
+                            type: item.type,
+                            scanJobId: item.scanJobId,
+                            originalUrl: item.originalUrl,
+                            confidence: item.confidence,
+                          },
+                        })
+                      }
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE] hover:bg-[#2563EB]/20 transition-colors"
                       style={{ fontSize: "12px", fontWeight: 600 }}
                     >

@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router";
+import { NavLink, useNavigate, useLocation } from "react-router";
 import {
   LayoutDashboard,
   ScanSearch,
@@ -10,20 +10,95 @@ import {
   Moon,
   LogOut,
   Radio,
+  CreditCard,
+  Users,
 } from "lucide-react";
 import { useTheme } from "../../app/providers/ThemeProvider";
+import { useAuth } from "../../features/auth/context/AuthContext";
+import { ImageWithFallback } from "./ImageWithFallback";
 
-const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/detect", label: "Detect Media", icon: ScanSearch },
-  { to: "/realtime", label: "Realtime Monitor", icon: Radio },
-  { to: "/history", label: "History", icon: History },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
+const allNavItems = [
+  // ADMIN navigation
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    requiredRole: "ADMIN" as const,
+  },
+  {
+    to: "/admin?tab=scan-jobs",
+    label: "Admin Actions",
+    icon: Shield,
+    requiredRole: "ADMIN" as const,
+  },
+  {
+    to: "/admin?tab=users",
+    label: "User Management",
+    icon: Users,
+    requiredRole: "ADMIN" as const,
+  },
+  {
+    to: "/admin/analytics",
+    label: "Analytics",
+    icon: BarChart3,
+    requiredRole: "ADMIN" as const,
+  },
+  // Shared navigation (USER only)
+  {
+    to: "/plan",
+    label: "Plan & Billing",
+    icon: CreditCard,
+    requiredRole: "USER" as const,
+  },
+  // USER navigation
+  {
+    to: "/detect",
+    label: "Detect Media",
+    icon: ScanSearch,
+    requiredRole: "USER" as const,
+  },
+  {
+    to: "/realtime",
+    label: "Realtime Monitor",
+    icon: Radio,
+    requiredRole: "USER" as const,
+  },
+  {
+    to: "/history",
+    label: "History",
+    icon: History,
+    requiredRole: "USER" as const,
+  },
 ];
 
 export function Sidebar() {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { profile, role, logout } = useAuth();
+
+  // Filter nav items based on user role
+  const navItems = allNavItems.filter((item) => {
+    if (!item.requiredRole) return true; // Show to all users
+    const requiredRoles = Array.isArray(item.requiredRole)
+      ? item.requiredRole
+      : [item.requiredRole];
+    return role && requiredRoles.includes(role); // Show if user's role matches
+  });
+
+  // Helper to check if a nav item is active including search params
+  const isNavItemActive = (to: string) => {
+    const [pathname, search] = to.split("?");
+    if (location.pathname !== pathname) return false;
+    if (!search) return true;
+    const itemParams = new URLSearchParams(search);
+    const currentParams = new URLSearchParams(location.search);
+    // All params of the nav item must match the current URL's params
+    for (const [key, value] of itemParams) {
+      if (currentParams.get(key) !== value) return false;
+    }
+    return true;
+  };
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 flex flex-col bg-white dark:bg-[#0F172A] border-r border-slate-200 dark:border-slate-800 z-40">
@@ -73,49 +148,43 @@ export function Sidebar() {
         >
           Main Menu
         </p>
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={label}
-            to={to}
-            end
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group ${
-                isActive
+        {navItems.map(({ to, label, icon: Icon }) => {
+          const active = isNavItemActive(to);
+          return (
+            <button
+              key={label}
+              onClick={() => navigate(to)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group text-left ${
+                active
                   ? "bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE] dark:bg-[#2563EB]/10"
                   : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon
-                  className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-[#2563EB] dark:text-[#22D3EE]" : ""}`}
-                />
-                <span style={{ fontSize: "14px", fontWeight: 500 }}>
-                  {label}
+              }`}
+            >
+              <Icon
+                className={`w-4 h-4 flex-shrink-0 ${active ? "text-[#2563EB] dark:text-[#22D3EE]" : ""}`}
+              />
+              <span style={{ fontSize: "14px", fontWeight: 500 }}>{label}</span>
+              {active && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
+              )}
+              {/* Live badge for Realtime Monitor */}
+              {!active && label === "Realtime Monitor" && (
+                <span
+                  className="ml-auto px-1 py-0.5 rounded"
+                  style={{
+                    fontSize: "8px",
+                    fontWeight: 800,
+                    backgroundColor: "rgba(239,68,68,0.15)",
+                    color: "#EF4444",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  LIVE
                 </span>
-                {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
-                )}
-                {/* Live badge for Realtime Monitor */}
-                {!isActive && label === "Realtime Monitor" && (
-                  <span
-                    className="ml-auto px-1 py-0.5 rounded"
-                    style={{
-                      fontSize: "8px",
-                      fontWeight: 800,
-                      backgroundColor: "rgba(239,68,68,0.15)",
-                      color: "#EF4444",
-                      letterSpacing: "0.06em",
-                    }}
-                  >
-                    LIVE
-                  </span>
-                )}
-              </>
-            )}
-          </NavLink>
-        ))}
+              )}
+            </button>
+          );
+        })}
 
         <div className="pt-4 border-t border-slate-200 dark:border-slate-800 mt-4 space-y-1">
           <p
@@ -186,28 +255,39 @@ export function Sidebar() {
 
         {/* User */}
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
-            <span
-              className="text-white"
-              style={{ fontSize: "11px", fontWeight: 700 }}
-            >
-              A
-            </span>
-          </div>
+          {profile?.avatarUrl ? (
+            <ImageWithFallback
+              src={profile.avatarUrl}
+              alt={profile.fullName}
+              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
+              <span
+                className="text-white"
+                style={{ fontSize: "11px", fontWeight: 700 }}
+              >
+                {profile?.fullName?.charAt(0).toUpperCase() || "U"}
+              </span>
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p
               className="text-slate-900 dark:text-slate-200 truncate"
               style={{ fontSize: "12px", fontWeight: 600 }}
             >
-              Admin User
+              {profile?.fullName || "User"}
             </p>
             <p className="text-slate-400 truncate" style={{ fontSize: "11px" }}>
-              admin@deepguard.ai
+              {profile?.bio || "Loading..."}
             </p>
           </div>
           <button
-            onClick={() => navigate("/")}
-            title="Back to Home"
+            onClick={() => {
+              logout();
+              navigate("/login");
+            }}
+            title="Logout"
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
