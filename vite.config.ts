@@ -23,7 +23,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://deepguard-be-production.up.railway.app",
+        target: "https://delightful-charisma-production-4f29.up.railway.app",
         changeOrigin: true,
         secure: false,
       },
