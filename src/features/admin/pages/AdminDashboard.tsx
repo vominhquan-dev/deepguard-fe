@@ -1057,13 +1057,16 @@ function DetectionResultsTable() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700">
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
+                  Preview
+                </th>
+                <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
                   File
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
                   User
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Fake Score
+                  Fake Prob.
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
                   Confidence
@@ -1072,18 +1075,15 @@ function DetectionResultsTable() {
                   Result
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Model
-                </th>
-                <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
                   Processed
                 </th>
               </tr>
             </thead>
             <tbody>
               {data.map((item) => {
-                const prediction = item.aiDetect?.prediction ?? "UNKNOWN";
-                const fakeProbability = item.aiDetect?.fakeProbability ?? 0;
-                const realProbability = item.aiDetect?.realProbability ?? 0;
+                const prediction = item.resultLabel ?? "UNKNOWN";
+                const fakeProbability = item.fakeScore ?? 0;
+                const realProbability = item.confidence ?? 0;
                 const cfg = resultLabelConfig[prediction] || {
                   icon: AlertTriangle,
                   label: prediction,
@@ -1091,18 +1091,10 @@ function DetectionResultsTable() {
                   bg: "bg-slate-500/10",
                 };
                 const ResultIcon = cfg.icon;
-                const isHighFake = fakeProbability >= 0.7;
-                const isMidFake = fakeProbability >= 0.31;
-                const scoreColor = isHighFake
-                  ? "text-red-500"
-                  : isMidFake
-                    ? "text-amber-500"
-                    : "text-emerald-500";
-                const scoreBar = isHighFake
-                  ? "bg-red-500"
-                  : isMidFake
-                    ? "bg-amber-500"
-                    : "bg-emerald-500";
+                const scoreColor = "text-red-500";
+                const scoreBar = "bg-red-500";
+                const confidenceColor = "text-emerald-500";
+                const confidenceBar = "bg-emerald-500";
 
                 return (
                   <tr
@@ -1111,10 +1103,40 @@ function DetectionResultsTable() {
                   >
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2.5">
+                        <a
+                          href={item.originalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 flex-shrink-0 group relative"
+                        >
+                          <img
+                            src={item.originalUrl}
+                            alt={item.fileName}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                              (
+                                e.target as HTMLImageElement
+                              ).nextElementSibling?.classList.remove("hidden");
+                            }}
+                          />
+                          <div className="hidden absolute inset-0 items-center justify-center text-slate-400">
+                            {getFileIcon(
+                              item.fileName?.split(".").pop() || "",
+                              "w-5 h-5",
+                            )}
+                          </div>
+                        </a>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
                           {getFileIcon(item.fileName?.split(".").pop() || "")}
                         </div>
-                        <div className="min-w-0 max-w-[180px]">
+                        <div className="min-w-0 max-w-[160px]">
                           <p
                             className="text-slate-900 dark:text-slate-200 truncate font-semibold"
                             style={{ fontSize: "13px" }}
@@ -1151,12 +1173,22 @@ function DetectionResultsTable() {
                       </div>
                     </td>
                     <td className="py-3 px-3">
-                      <span
-                        className="text-slate-500 font-semibold"
-                        style={{ fontSize: "13px" }}
-                      >
-                        {Math.round(realProbability * 100)}%
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`font-extrabold ${confidenceColor}`}
+                          style={{ fontSize: "14px" }}
+                        >
+                          {Math.round(realProbability * 100)}%
+                        </span>
+                        <div className="w-12 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${confidenceBar}`}
+                            style={{
+                              width: `${Math.round(realProbability * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
                     </td>
                     <td className="py-3 px-3">
                       <div
@@ -1170,11 +1202,6 @@ function DetectionResultsTable() {
                           {cfg.label}
                         </span>
                       </div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="text-slate-500 text-xs font-mono">
-                        {item.modelVersion || "-"}
-                      </span>
                     </td>
                     <td className="py-3 px-3">
                       <span

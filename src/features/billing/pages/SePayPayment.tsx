@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -6,11 +6,32 @@ import {
   CheckCircle2,
   Clock,
   ExternalLink,
+  CheckCircle,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { createSePayPayment, type SePayPaymentData } from "../api/sepayApi";
+import { getPaymentById } from "../api/paymentsApi";
 import { useAuth } from "../../auth/context/AuthContext";
+
+const POLL_INTERVAL = 5000; // 5 seconds
+const POLL_DURATION = 300000; // 5 minutes
+const PAYMENT_SESSION_KEY = "deepguard_sepay_pending";
+
+// Module-level promise to deduplicate concurrent payment creation
+// (e.g., React StrictMode double-mount in dev)
+let pendingInitPromise: Promise<{
+  response: Awaited<ReturnType<typeof createSePayPayment>>;
+}> | null = null;
+
+interface PaymentSession {
+  paymentId: string;
+  planId: string;
+  paymentData: SePayPaymentData;
+  expiresAt: number;
+}
 
 export function SePayPayment() {
   const navigate = useNavigate();
@@ -20,41 +41,205 @@ export function SePayPayment() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+  const [polling, setPolling] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
-  useEffect(() => {
-    if (!planId) {
-      setError("Invalid plan ID");
-      setLoading(false);
-      return;
+  // Refs for timers and guards
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollDurationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completedRef = useRef(false);
+  const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup all timers
+  const cleanupTimers = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
     }
+    if (pollDurationRef.current) {
+      clearTimeout(pollDurationRef.current);
+      pollDurationRef.current = null;
+    }
+    if (navigateTimeoutRef.current) {
+      clearTimeout(navigateTimeoutRef.current);
+      navigateTimeoutRef.current = null;
+    }
+    setPolling(false);
+  };
+
+  const clearSession = () => {
+    sessionStorage.removeItem(PAYMENT_SESSION_KEY);
+  };
+
+  const handleCompleted = () => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    cleanupTimers();
+    clearSession();
+    setCompleted(true);
+
+    // Show success toast for 3 seconds
+    toast.success(
+      "🎉 Payment successful! Your plan has been upgraded and credits have been added.",
+      {
+        duration: 3000,
+        position: "top-center",
+        style: {
+          background: "linear-gradient(135deg, #059669, #10B981)",
+          color: "white",
+          border: "none",
+          fontSize: "14px",
+          fontWeight: 600,
+          padding: "16px 24px",
+          borderRadius: "12px",
+          boxShadow: "0 8px 32px rgba(5, 150, 105, 0.3)",
+        },
+      },
+    );
+  };
+
+  const startPolling = (pid: string, token: string) => {
+    setPolling(true);
+
+    const checkStatus = async () => {
+      try {
+        const response = await getPaymentById(pid, token);
+        if (!response.success) return;
+
+        const data = response.data;
+        if (completedRef.current) return;
+
+        setPaymentStatus(data.status);
+
+        if (data.status === "COMPLETED" || data.status === "SUCCESS") {
+          handleCompleted();
+        } else if (
+          data.status === "FAILED" ||
+          data.status === "EXPIRED" ||
+          data.status === "CANCELLED"
+        ) {
+          cleanupTimers();
+          clearSession();
+          setError(
+            data.status === "FAILED"
+              ? "Payment failed. Please try again."
+              : data.status === "EXPIRED"
+                ? "Payment session expired. Please try again."
+                : "Payment was cancelled.",
+          );
+        }
+      } catch {
+        // Silently retry on next interval
+      }
+    };
+
+    // Initial check immediately
+    checkStatus();
+
+    // Poll every 5s
+    pollTimerRef.current = setInterval(checkStatus, POLL_INTERVAL);
+
+    // Stop after 5 minutes
+    pollDurationRef.current = setTimeout(() => {
+      cleanupTimers();
+      clearSession();
+      if (!completedRef.current) {
+        toast.info(
+          "Payment status check ended. You can check your billing history for updates.",
+        );
+      }
+    }, POLL_DURATION);
+  };
+
+  // Main initialization effect
+  useEffect(() => {
+    // Guard: only proceed if we have all required params
+    if (!planId || !accessToken) return;
 
     const token = accessToken;
-    if (!token) {
-      setError("You must be logged in to make a payment");
-      setLoading(false);
-      return;
-    }
+    const safePlanId: string = planId;
+
+    let isSubscribed = true;
 
     async function initPayment() {
-      try {
-        setLoading(true);
-        const response = await createSePayPayment(
-          { pricingPlanId: planId! },
-          token as string,
-        );
-        if (response.success) {
-          setPayment(response.data);
-        } else {
-          setError(response.message || "Failed to create payment");
+      // Check sessionStorage first — resume pending payment on page refresh
+      const existingRaw = sessionStorage.getItem(PAYMENT_SESSION_KEY);
+      if (existingRaw) {
+        try {
+          const session: PaymentSession = JSON.parse(existingRaw);
+          if (
+            session.paymentId &&
+            session.planId === safePlanId &&
+            session.paymentData &&
+            session.expiresAt > Date.now()
+          ) {
+            if (!isSubscribed) return;
+            setPayment(session.paymentData);
+            setLoading(false);
+            startPolling(session.paymentId, token);
+            return;
+          }
+        } catch {
+          clearSession();
         }
+      }
+
+      // Deduplicate concurrent API calls (e.g. React StrictMode double-mount in dev).
+      // Module-level promise ensures both mounts share the same in-flight request.
+      if (!pendingInitPromise) {
+        pendingInitPromise = (async () => {
+          setLoading(true);
+          const response = await createSePayPayment(
+            { pricingPlanId: safePlanId },
+            token,
+          );
+          if (!response.success) {
+            throw new Error(response.message || "Failed to create payment");
+          }
+          return { response };
+        })();
+      }
+
+      try {
+        const result = await pendingInitPromise;
+
+        if (!isSubscribed) return;
+
+        if (!result.response.success) return;
+
+        setPayment(result.response.data);
+
+        // Save to sessionStorage so page refresh can resume
+        sessionStorage.setItem(
+          PAYMENT_SESSION_KEY,
+          JSON.stringify({
+            paymentId: result.response.data.paymentId,
+            planId: safePlanId,
+            paymentData: result.response.data,
+            expiresAt: Date.now() + POLL_DURATION,
+          } satisfies PaymentSession),
+        );
+
+        startPolling(result.response.data.paymentId, token);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        if (isSubscribed) {
+          setError(err instanceof Error ? err.message : "Something went wrong");
+        }
       } finally {
-        setLoading(false);
+        if (isSubscribed) {
+          setLoading(false);
+        }
       }
     }
 
     initPayment();
+
+    return () => {
+      isSubscribed = false;
+      cleanupTimers();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, accessToken]);
 
   const handleCopy = async (text: string) => {
@@ -91,7 +276,10 @@ export function SePayPayment() {
       <DashboardLayout>
         <div className="p-8">
           <button
-            onClick={() => navigate("/plan")}
+            onClick={() => {
+              clearSession();
+              navigate("/plan");
+            }}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-6 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -159,16 +347,102 @@ export function SePayPayment() {
                 </p>
               </div>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
-              <Clock className="w-3 h-3 text-amber-500" />
-              <span
-                className="text-amber-500"
-                style={{ fontSize: "11px", fontWeight: 600 }}
-              >
-                Pending
-              </span>
+            <div className="flex items-center gap-2">
+              {paymentStatus === "COMPLETED" || completed ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                  <CheckCircle className="w-3 h-3 text-emerald-500" />
+                  <span
+                    className="text-emerald-500"
+                    style={{ fontSize: "11px", fontWeight: 600 }}
+                  >
+                    Completed
+                  </span>
+                </div>
+              ) : paymentStatus === "FAILED" ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20">
+                  <AlertCircle className="w-3 h-3 text-red-500" />
+                  <span
+                    className="text-red-500"
+                    style={{ fontSize: "11px", fontWeight: 600 }}
+                  >
+                    Failed
+                  </span>
+                </div>
+              ) : paymentStatus === "EXPIRED" ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/20">
+                  <Clock className="w-3 h-3 text-slate-500" />
+                  <span
+                    className="text-slate-500"
+                    style={{ fontSize: "11px", fontWeight: 600 }}
+                  >
+                    Expired
+                  </span>
+                </div>
+              ) : paymentStatus === "CANCELLED" ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/20">
+                  <Clock className="w-3 h-3 text-slate-500" />
+                  <span
+                    className="text-slate-500"
+                    style={{ fontSize: "11px", fontWeight: 600 }}
+                  >
+                    Cancelled
+                  </span>
+                </div>
+              ) : polling ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+                  <RefreshCw className="w-3 h-3 text-amber-500 animate-spin" />
+                  <span
+                    className="text-amber-500"
+                    style={{ fontSize: "11px", fontWeight: 600 }}
+                  >
+                    Waiting for payment...
+                  </span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+                  <Clock className="w-3 h-3 text-amber-500" />
+                  <span
+                    className="text-amber-500"
+                    style={{ fontSize: "11px", fontWeight: 600 }}
+                  >
+                    Pending
+                  </span>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Completed state */}
+          {completed && (
+            <div className="p-6 bg-gradient-to-r from-emerald-500/5 to-emerald-500/10 border-b border-emerald-500/20">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-8 h-8 text-emerald-500" />
+                </div>
+                <div>
+                  <h3
+                    className="text-emerald-600 dark:text-emerald-400 font-bold"
+                    style={{ fontSize: "16px" }}
+                  >
+                    Payment Successful!
+                  </h3>
+                  <p
+                    className="text-emerald-600/70 dark:text-emerald-400/70"
+                    style={{ fontSize: "13px" }}
+                  >
+                    Your plan has been upgraded. {payment.credits} credits have
+                    been added to your account.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate("/plan")}
+                className="mt-4 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors"
+              >
+                Back to Plan
+              </button>
+            </div>
+          )}
 
           {/* Two-column layout: QR left, info right */}
           <div className="flex flex-col lg:flex-row gap-6 p-6">

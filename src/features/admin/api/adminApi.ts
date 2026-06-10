@@ -1,5 +1,4 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 /* ────── Scan Jobs Types ────── */
 
@@ -151,13 +150,9 @@ export interface DetectionResultItem {
   mediaId: string;
   fileName: string;
   originalUrl: string;
-  aiDetect?: {
-    prediction: string;
-    fakeProbability: number;
-    realProbability: number;
-    imageUrl: string | null;
-    message: string | null;
-  };
+  fakeScore: number;
+  confidence: number;
+  resultLabel: string;
   modelVersion: string;
   processedAt: string;
 }

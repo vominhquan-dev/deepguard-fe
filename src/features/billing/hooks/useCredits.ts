@@ -17,12 +17,20 @@ export function triggerCreditsRefetch() {
 }
 
 export function useCredits(): UseCreditsReturn {
-  const { accessToken } = useAuth();
+  const { accessToken, role } = useAuth();
   const [credits, setCredits] = useState<CreditsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchCredits = useCallback(async () => {
+    // Admin accounts don't have a credits profile — skip the API call
+    if (role === "ADMIN") {
+      setCredits(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     if (!accessToken) {
       setCredits(null);
       setLoading(false);
@@ -47,7 +55,7 @@ export function useCredits(): UseCreditsReturn {
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, role]);
 
   // Register this instance's refetch in the global listener set
   useEffect(() => {

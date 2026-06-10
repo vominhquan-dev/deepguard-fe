@@ -9,11 +9,17 @@ import {
   Zap,
   Check,
   Loader2,
+  RefreshCw,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  ArrowRight,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useAuth } from "../../auth/context/AuthContext";
 import { useCredits } from "../hooks/useCredits";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { getMyPayments, type PaymentListItem } from "../api/paymentsApi";
 
 interface PlanConfig {
   id: string;
@@ -114,13 +120,34 @@ const plans: PlanConfig[] = [
 export function Plan() {
   const navigate = useNavigate();
   const currentPlan = "free";
-  const { profile } = useAuth();
+  const { profile, accessToken } = useAuth();
   const { credits, loading: creditsLoading } = useCredits();
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
 
   const dailyLimit = 5;
   const usedToday = credits?.usedCredits ?? 0;
   const usedPercent = Math.min((usedToday / dailyLimit) * 100, 100);
+
+  const [payments, setPayments] = useState<PaymentListItem[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
+
+  const fetchPayments = useCallback(async () => {
+    try {
+      setPaymentsLoading(true);
+      const response = await getMyPayments(accessToken as string);
+      if (response.success) {
+        setPayments(response.data);
+      }
+    } catch {
+      // Silently fail - show empty state
+    } finally {
+      setPaymentsLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
 
   const handleUpgrade = async (plan: PlanConfig) => {
     if (plan.id === "free") {
@@ -139,6 +166,65 @@ export function Plan() {
     } finally {
       setUpgradingPlan(null);
     }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "COMPLETED":
+      case "SUCCESS":
+        return {
+          label: status === "SUCCESS" ? "Success" : "Completed",
+          color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+          icon: CheckCircle,
+        };
+      case "PENDING":
+        return {
+          label: "Pending",
+          color: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+          icon: Clock,
+        };
+      case "FAILED":
+        return {
+          label: "Failed",
+          color: "bg-red-500/10 text-red-500 border-red-500/20",
+          icon: AlertCircle,
+        };
+      case "EXPIRED":
+        return {
+          label: "Expired",
+          color: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+          icon: AlertCircle,
+        };
+      case "CANCELLED":
+        return {
+          label: "Cancelled",
+          color: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+          icon: AlertCircle,
+        };
+      default:
+        return {
+          label: status,
+          color: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+          icon: Clock,
+        };
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    // API returns UTC time (e.g. "2026-06-10T18:09:31.031771").
+    // Parse numbers and treat as UTC, convert to GMT+7 by adding 7 hours manually.
+    const normalized = dateStr.replace(" ", "T");
+    const [datePart, timePart] = normalized.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute] = timePart ? timePart.split(":").map(Number) : [0, 0];
+    // Force UTC+7 by adding 7 hours to UTC timestamp, then use getUTCHours
+    const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    const gmt7 = new Date(utcDate.getTime() + 7 * 60 * 60 * 1000);
+    return `${String(gmt7.getUTCHours()).padStart(2, "0")}:${String(gmt7.getUTCMinutes()).padStart(2, "0")} ${String(gmt7.getUTCDate()).padStart(2, "0")}/${String(gmt7.getUTCMonth() + 1).padStart(2, "0")}/${gmt7.getUTCFullYear()}`;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString("vi-VN") + "₫";
   };
 
   return (
@@ -255,7 +341,7 @@ export function Plan() {
               return (
                 <div
                   key={plan.id}
-                  className={`relative rounded-2xl border-2 p-5 transition-all duration-200 hover:shadow-lg ${
+                  className={`relative rounded-2xl border-2 p-5 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-xl ${
                     isCurrent
                       ? "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
                       : plan.popular
@@ -397,28 +483,163 @@ export function Plan() {
 
         {/* Payment history */}
         <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-6 mt-8">
-          <h2
-            className="text-slate-900 dark:text-white mb-4"
-            style={{ fontSize: "16px", fontWeight: 700 }}
-          >
-            Billing History
-          </h2>
-          <div className="p-8 text-center">
-            <CreditCard className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-            <p
-              className="text-slate-500 dark:text-slate-400"
-              style={{ fontSize: "14px" }}
+          <div className="flex items-center justify-between mb-4">
+            <h2
+              className="text-slate-900 dark:text-white"
+              style={{ fontSize: "16px", fontWeight: 700 }}
             >
-              No billing history yet
-            </p>
-            <p
-              className="text-slate-400 dark:text-slate-600 mt-1"
-              style={{ fontSize: "12px" }}
+              Billing History
+            </h2>
+            <button
+              onClick={fetchPayments}
+              disabled={paymentsLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm"
             >
-              Your invoices and receipts will appear here after your first
-              purchase.
-            </p>
+              <RefreshCw
+                className={`w-4 h-4 ${paymentsLoading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
           </div>
+
+          {paymentsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          ) : payments.length === 0 ? (
+            <div className="p-8 text-center">
+              <CreditCard className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+              <p
+                className="text-slate-500 dark:text-slate-400"
+                style={{ fontSize: "14px" }}
+              >
+                No billing history yet
+              </p>
+              <p
+                className="text-slate-400 dark:text-slate-600 mt-1"
+                style={{ fontSize: "12px" }}
+              >
+                Your invoices and receipts will appear here after your first
+                purchase.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    <th
+                      className="text-left pb-3 text-slate-500 dark:text-slate-400 font-semibold"
+                      style={{ fontSize: "12px" }}
+                    >
+                      Date
+                    </th>
+                    <th
+                      className="text-left pb-3 text-slate-500 dark:text-slate-400 font-semibold"
+                      style={{ fontSize: "12px" }}
+                    >
+                      Transaction
+                    </th>
+                    <th
+                      className="text-left pb-3 text-slate-500 dark:text-slate-400 font-semibold"
+                      style={{ fontSize: "12px" }}
+                    >
+                      Plan
+                    </th>
+                    <th
+                      className="text-left pb-3 text-slate-500 dark:text-slate-400 font-semibold"
+                      style={{ fontSize: "12px" }}
+                    >
+                      Amount
+                    </th>
+                    <th
+                      className="text-left pb-3 text-slate-500 dark:text-slate-400 font-semibold"
+                      style={{ fontSize: "12px" }}
+                    >
+                      Credits
+                    </th>
+                    <th
+                      className="text-left pb-3 text-slate-500 dark:text-slate-400 font-semibold"
+                      style={{ fontSize: "12px" }}
+                    >
+                      Status
+                    </th>
+                    <th
+                      className="text-right pb-3 text-slate-500 dark:text-slate-400 font-semibold"
+                      style={{ fontSize: "12px" }}
+                    >
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment) => {
+                    const statusBadge = getStatusBadge(payment.status);
+                    const StatusIcon = statusBadge.icon;
+                    return (
+                      <tr
+                        key={payment.paymentId}
+                        className="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                      >
+                        <td
+                          className="py-3.5 text-slate-700 dark:text-slate-300"
+                          style={{ fontSize: "13px" }}
+                        >
+                          {formatDate(payment.createdAt)}
+                        </td>
+                        <td
+                          className="py-3.5 text-slate-700 dark:text-slate-300 font-mono"
+                          style={{ fontSize: "12px" }}
+                        >
+                          {payment.transactionCode}
+                        </td>
+                        <td
+                          className="py-3.5 text-slate-700 dark:text-slate-300"
+                          style={{ fontSize: "13px" }}
+                        >
+                          {payment.pricingPlanName}
+                        </td>
+                        <td
+                          className="py-3.5 text-slate-900 dark:text-white font-semibold"
+                          style={{ fontSize: "13px" }}
+                        >
+                          {formatCurrency(payment.amount)}
+                        </td>
+                        <td
+                          className="py-3.5 text-slate-700 dark:text-slate-300"
+                          style={{ fontSize: "13px" }}
+                        >
+                          {payment.credits}
+                        </td>
+                        <td className="py-3.5">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${statusBadge.color}`}
+                            style={{ fontSize: "11px", fontWeight: 600 }}
+                          >
+                            <StatusIcon className="w-3 h-3" />
+                            {statusBadge.label}
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-right">
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/payment/sepay/${payment.pricingPlanId}`,
+                              )
+                            }
+                            className="text-[#2563EB] hover:text-blue-700 transition-colors"
+                            style={{ fontSize: "13px", fontWeight: 600 }}
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout>
