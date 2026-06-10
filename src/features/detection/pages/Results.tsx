@@ -335,7 +335,7 @@ export function Results() {
           imageUrl: parsed.imageUrl ?? null,
           message: parsed.message ?? null,
         };
-        // Try to get more info from lastUploadData
+        // Try to get more info from lastUploadData (includes originalUrl for image preview)
         const uploadDataStr = localStorage.getItem("lastUploadData");
         if (uploadDataStr) {
           try {
@@ -346,6 +346,8 @@ export function Results() {
             data.uploadedAt = uploadData.uploadedAt;
             data.mediaId = uploadData.id;
             data.scanJobId = uploadData.id;
+            // Use originalUrl from upload response for image preview (fallback to imageUrl from aiDetect)
+            data.imageUrl = uploadData.originalUrl || data.imageUrl;
           } catch {}
         }
         setDetection(data);
@@ -438,6 +440,20 @@ export function Results() {
             <div className="flex justify-center mb-6">
               <VerdictBadge prediction={detection.prediction} />
             </div>
+
+            {/* Scanned Image Preview */}
+            {detection.imageUrl && (
+              <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                <img
+                  src={detection.imageUrl}
+                  alt={detection.fileName || "Scanned image"}
+                  className="w-full h-auto max-h-80 object-contain bg-slate-100 dark:bg-slate-800"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              </div>
+            )}
 
             {/* Stats Cards */}
             <div className="flex gap-3 mb-6">

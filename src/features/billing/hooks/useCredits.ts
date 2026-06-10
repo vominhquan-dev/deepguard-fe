@@ -9,6 +9,13 @@ interface UseCreditsReturn {
   refetch: () => void;
 }
 
+// Global listener registry so all useCredits instances stay in sync
+const refetchListeners = new Set<() => void>();
+
+export function triggerCreditsRefetch() {
+  refetchListeners.forEach((fn) => fn());
+}
+
 export function useCredits(): UseCreditsReturn {
   const { accessToken } = useAuth();
   const [credits, setCredits] = useState<CreditsData | null>(null);
@@ -41,6 +48,14 @@ export function useCredits(): UseCreditsReturn {
       setLoading(false);
     }
   }, [accessToken]);
+
+  // Register this instance's refetch in the global listener set
+  useEffect(() => {
+    refetchListeners.add(fetchCredits);
+    return () => {
+      refetchListeners.delete(fetchCredits);
+    };
+  }, [fetchCredits]);
 
   useEffect(() => {
     fetchCredits();

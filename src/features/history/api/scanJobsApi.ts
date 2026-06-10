@@ -15,19 +15,15 @@ export interface ScanJobData {
 export interface DetectionResultData {
   detectionResultId: string;
   scanJobId: string;
-  email: string;
+  email: string | null;
   mediaId: string;
   fileName: string;
   originalUrl: string;
-  modelVersion: string;
+  fakeScore: number;
+  confidence: number;
+  resultLabel: string;
+  modelVersion?: string;
   processedAt: string;
-  aiDetect?: {
-    prediction: string;
-    fakeProbability: number;
-    realProbability: number;
-    imageUrl: string | null;
-    message: string | null;
-  };
 }
 
 export interface ScanJobsResponse {

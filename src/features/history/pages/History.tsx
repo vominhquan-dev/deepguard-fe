@@ -404,7 +404,7 @@ export function History() {
                 )
               }
             />
-            {["File Name", "Type", "Score", "Verdict", "Date", "Actions"].map(
+            {["File Name", "Type", "Label", "Verdict", "Date", "Actions"].map(
               (h) => (
                 <span
                   key={h}
@@ -466,8 +466,25 @@ export function History() {
 
                   {/* File name */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
-                      <TypeIcon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {item.originalUrl ? (
+                        <img
+                          src={item.originalUrl}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                            (
+                              e.target as HTMLImageElement
+                            ).nextElementSibling?.classList.remove("hidden");
+                          }}
+                        />
+                      ) : null}
+                      <TypeIcon
+                        className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 ${item.originalUrl ? "hidden" : ""}`}
+                      />
                     </div>
                     <div className="min-w-0">
                       <p
@@ -493,20 +510,22 @@ export function History() {
                     {item.type}
                   </span>
 
-                  {/* Risk score */}
+                  {/* Label (REAL/FAKE) */}
                   <div>
                     <span
-                      className={`${riskColor}`}
+                      className={
+                        item.verdict === "Deepfake"
+                          ? "text-red-500"
+                          : "text-emerald-500"
+                      }
                       style={{ fontSize: "14px", fontWeight: 800 }}
                     >
-                      {item.risk}%
+                      {item.verdict === "Deepfake"
+                        ? "FAKE"
+                        : item.verdict === "Suspicious"
+                          ? "SUSPICIOUS"
+                          : "REAL"}
                     </span>
-                    <div className="mt-1 h-1 w-12 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${item.risk >= 70 ? "bg-red-500" : item.risk >= 31 ? "bg-amber-500" : "bg-emerald-500"}`}
-                        style={{ width: `${item.risk}%` }}
-                      />
-                    </div>
                   </div>
 
                   {/* Verdict */}
@@ -635,8 +654,25 @@ export function History() {
                   className="p-4 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700"
                 >
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
-                      <TypeIcon className="w-4 h-4 text-slate-400" />
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {item.originalUrl ? (
+                        <img
+                          src={item.originalUrl}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                            (
+                              e.target as HTMLImageElement
+                            ).nextElementSibling?.classList.remove("hidden");
+                          }}
+                        />
+                      ) : null}
+                      <TypeIcon
+                        className={`w-4 h-4 text-slate-400 ${item.originalUrl ? "hidden" : ""}`}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p

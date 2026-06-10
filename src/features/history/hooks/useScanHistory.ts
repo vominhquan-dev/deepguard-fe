@@ -109,17 +109,17 @@ export function useScanHistory(): UseScanHistoryReturn {
           );
           const fileSize = matchingJob ? 0 : 0; // Size not available from API yet
 
-          // Use only aiDetect nested format
-          const prediction = dr.aiDetect?.prediction || "REAL";
-          const fakeProb = dr.aiDetect?.fakeProbability ?? 0;
-          const realProb = dr.aiDetect?.realProbability ?? 1;
+          // Use flat API response fields
+          const prediction = dr.resultLabel || "REAL";
+          const fakeScore = dr.fakeScore ?? 0;
+          const confidence = dr.confidence ?? 1;
 
           return {
             id: dr.detectionResultId,
             scanJobId: dr.scanJobId,
             name: dr.fileName,
             type: inferMediaType(dr.fileName),
-            risk: Math.round(fakeProb * 100),
+            risk: Math.round(fakeScore * 100),
             verdict: mapVerdict(prediction),
             date: dr.processedAt
               ? dr.processedAt.split("T")[0]
@@ -127,7 +127,7 @@ export function useScanHistory(): UseScanHistoryReturn {
             size: formatFileSize(fileSize),
             status: "Completed",
             originalUrl: dr.originalUrl,
-            confidence: Math.round(realProb * 100),
+            confidence: Math.round(confidence * 100),
           };
         });
 

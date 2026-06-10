@@ -29,6 +29,9 @@ import {
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useMediaUpload } from "../../detection/hooks/useMediaUpload";
 import { useDetectionResults } from "../../detection/hooks/useDetectionResults";
+import { triggerCreditsRefetch } from "../../billing/hooks/useCredits";
+import { downloadScanReportPdf } from "../../detection/api/reportApi";
+import { useAuth } from "../../auth/context/AuthContext";
 
 type UploadState = "idle" | "selected" | "scanning" | "done" | "error";
 type ErrorType =
@@ -119,8 +122,12 @@ export function Dashboard() {
     aiDetect,
     data,
   } = useMediaUpload();
-  const { results: recentResults, loading: resultsLoading } =
-    useDetectionResults();
+  const {
+    results: recentResults,
+    loading: resultsLoading,
+    refetch: refetchResults,
+  } = useDetectionResults();
+  const { accessToken } = useAuth();
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -149,15 +156,13 @@ export function Dashboard() {
     "Generating risk report...",
   ];
 
-  // Safely extract detection info from aiDetect nested format
-  const getDetectionPrediction = (r: { aiDetect?: { prediction?: string } }) =>
-    r.aiDetect?.prediction || "REAL";
-  const getDetectionFakeProb = (r: {
-    aiDetect?: { fakeProbability?: number };
-  }): number => r.aiDetect?.fakeProbability ?? 0;
-  const getDetectionRealProb = (r: {
-    aiDetect?: { realProbability?: number };
-  }): number => r.aiDetect?.realProbability ?? 1;
+  // Safely extract detection info from flat API fields (resultLabel, fakeScore, confidence)
+  const getDetectionPrediction = (r: { resultLabel?: string }) =>
+    r.resultLabel || "REAL";
+  const getDetectionFakeProb = (r: { fakeScore?: number }): number =>
+    r.fakeScore ?? 0;
+  const getDetectionRealProb = (r: { confidence?: number }): number =>
+    r.confidence ?? 1;
 
   const triggerError = (type: ErrorType) => {
     setErrorType(type);
@@ -216,6 +221,10 @@ export function Dashboard() {
         // Upload file to server and receive AI detection results
         const uploadData = await upload(file, token);
 
+        // Refresh credits and recent results after successful upload/detection
+        triggerCreditsRefetch();
+        refetchResults();
+
         // Store AI detection result for Results page
         if (uploadData?.aiDetect) {
           localStorage.setItem(
@@ -250,7 +259,7 @@ export function Dashboard() {
         toast.error(message);
       }
     },
-    [navigate, upload],
+    [navigate, upload, refetchResults],
   );
 
   const handleFile = (file: File) => {
@@ -283,29 +292,33 @@ export function Dashboard() {
     if (file) handleFile(file);
   };
 
-  const handleDownloadReport = () => {
-    if (!data || !aiDetect) return;
-    const report = {
-      fileName: selectedFile?.name || data.fileName,
-      fileType: data.fileType,
-      fileSize: data.fileSize,
-      uploadedAt: data.uploadedAt,
-      analysis: {
-        prediction: aiDetect.prediction,
-        fakeProbability: aiDetect.fakeProbability,
-        realProbability: aiDetect.realProbability,
-      },
-    };
-    const blob = new Blob([JSON.stringify(report, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `deepguard-report-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Report downloaded!");
+  const handleDownloadReport = async () => {
+    if (!accessToken) {
+      toast.error("Authentication required. Please login again.");
+      return;
+    }
+
+    // Find the scanJobId from the latest detection result that matches our upload
+    const latestResult = recentResults.length > 0 ? recentResults[0] : null;
+    const scanJobId = latestResult?.scanJobId;
+
+    if (!scanJobId) {
+      toast.error("No scan result available for download.");
+      return;
+    }
+
+    try {
+      await downloadScanReportPdf(
+        scanJobId,
+        accessToken,
+        `deepguard-report-${Date.now()}.pdf`,
+      );
+      toast.success("Report downloaded!");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to download report";
+      toast.error(msg);
+    }
   };
 
   const typeButtons = [

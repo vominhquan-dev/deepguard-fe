@@ -1,22 +1,17 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 export interface DetectionResultData {
   detectionResultId: string;
   scanJobId: string;
-  email: string;
+  email: string | null;
   mediaId: string;
   fileName: string;
   originalUrl: string;
+  fakeScore: number;
+  confidence: number;
+  resultLabel: string;
   modelVersion?: string;
   processedAt: string;
-  aiDetect?: {
-    prediction: string;
-    fakeProbability: number;
-    realProbability: number;
-    imageUrl: string | null;
-    message: string | null;
-  };
 }
 
 export interface DetectionResultsResponse {

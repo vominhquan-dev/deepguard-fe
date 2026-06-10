@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useAuth } from "../../auth/context/AuthContext";
+import { useCredits } from "../hooks/useCredits";
 import { useState } from "react";
 
 interface PlanConfig {
@@ -52,7 +53,7 @@ const plans: PlanConfig[] = [
   },
   {
     id: "premium-1m",
-    pricingPlanId: "BASIC",
+    pricingPlanId: "PREMIUM_1M",
     name: "Premium",
     badge: "1 Month",
     price: "99.000",
@@ -71,7 +72,7 @@ const plans: PlanConfig[] = [
   },
   {
     id: "premium-3m",
-    pricingPlanId: "  ",
+    pricingPlanId: "PREMIUM_3M",
     name: "Pro",
     badge: "3 Months",
     price: "539.000",
@@ -114,7 +115,12 @@ export function Plan() {
   const navigate = useNavigate();
   const currentPlan = "free";
   const { profile } = useAuth();
+  const { credits, loading: creditsLoading } = useCredits();
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
+
+  const dailyLimit = 5;
+  const usedToday = credits?.usedCredits ?? 0;
+  const usedPercent = Math.min((usedToday / dailyLimit) * 100, 100);
 
   const handleUpgrade = async (plan: PlanConfig) => {
     if (plan.id === "free") {
@@ -205,49 +211,25 @@ export function Plan() {
                 className="text-slate-900 dark:text-white"
                 style={{ fontSize: "13px", fontWeight: 600 }}
               >
-                2 / 5
+                {creditsLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
+                ) : (
+                  usedToday
+                )}
               </span>
             </div>
             <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
               <div
-                className="h-full w-[40%] rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE]"
-                style={{ transition: "width 0.5s ease" }}
+                className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE]"
+                style={{
+                  width: `${creditsLoading ? 0 : usedPercent}%`,
+                  transition: "width 0.5s ease",
+                }}
               />
             </div>
             <p className="text-slate-400 mt-2" style={{ fontSize: "11px" }}>
-              Resets in 12 hours · Watch an ad to earn +1 credit
+              Resets in 24 hours
             </p>
-          </div>
-
-          {/* Quick stats */}
-          <div className="grid sm:grid-cols-3 gap-3">
-            {[
-              { label: "Total Credits Used", value: "47" },
-              { label: "Scans Performed", value: "32" },
-              { label: "Days Active", value: "14" },
-            ].map(({ label, value }) => (
-              <div
-                key={label}
-                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-              >
-                <p
-                  className="text-slate-500 dark:text-slate-400"
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {label}
-                </p>
-                <p
-                  className="text-slate-900 dark:text-white mt-1"
-                  style={{ fontSize: "18px", fontWeight: 800 }}
-                >
-                  {value}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
 
