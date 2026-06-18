@@ -279,7 +279,7 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
 export function Results() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { accessToken } = useAuth();
+  const { accessToken, userInfo } = useAuth();
   const [detection, setDetection] = useState<DetectionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showReport, setShowReport] = useState(false);
@@ -323,8 +323,9 @@ export function Results() {
       return;
     }
 
-    // Priority 2: read from localStorage (saved after scan)
-    const stored = localStorage.getItem("lastDetection");
+    // Priority 2: read from localStorage (saved after scan) using user-specific key
+    const prefix = userInfo?.email || userInfo?.id || "anonymous";
+    const stored = localStorage.getItem(`lastDetection_${prefix}`);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -334,20 +335,26 @@ export function Results() {
           realProbability: parsed.realProbability ?? 1,
           imageUrl: parsed.imageUrl ?? null,
           message: parsed.message ?? null,
+          // Preserve scanJobId if it was saved in lastDetection (e.g. from Recent Scans)
+          scanJobId: parsed.scanJobId ?? null,
         };
         // Try to get more info from lastUploadData (includes originalUrl for image preview)
-        const uploadDataStr = localStorage.getItem("lastUploadData");
+        // Note: uploadData.id is mediaId, NOT scanJobId - use separate field for clarity
+        // IMPORTANT: All fields from lastUploadData are fallbacks only (via ||),
+        // so data from lastDetection (e.g. Recent Scans) is NOT overwritten.
+        const uploadDataStr = localStorage.getItem(`lastUploadData_${prefix}`);
         if (uploadDataStr) {
           try {
             const uploadData = JSON.parse(uploadDataStr);
-            data.fileName = uploadData.fileName;
-            data.fileType = uploadData.fileType;
-            data.fileSize = uploadData.fileSize;
-            data.uploadedAt = uploadData.uploadedAt;
-            data.mediaId = uploadData.id;
-            data.scanJobId = uploadData.id;
+            data.fileName = data.fileName || uploadData.fileName;
+            data.fileType = data.fileType || uploadData.fileType;
+            data.fileSize = data.fileSize ?? uploadData.fileSize;
+            data.uploadedAt = data.uploadedAt || uploadData.uploadedAt;
+            data.mediaId = data.mediaId || uploadData.id;
+            // NOTE: Do NOT assign uploadData.id to scanJobId - they are different entities!
+            // scanJobId comes from scan jobs API, not from upload response.
             // Use originalUrl from upload response for image preview (fallback to imageUrl from aiDetect)
-            data.imageUrl = uploadData.originalUrl || data.imageUrl;
+            data.imageUrl = data.imageUrl || uploadData.originalUrl;
           } catch {}
         }
         setDetection(data);
@@ -356,7 +363,7 @@ export function Results() {
       }
     }
     setLoading(false);
-  }, [location.state]);
+  }, [location.state, userInfo]);
 
   if (loading) {
     return (

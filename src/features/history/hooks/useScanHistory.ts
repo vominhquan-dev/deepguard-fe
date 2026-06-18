@@ -131,7 +131,21 @@ export function useScanHistory(): UseScanHistoryReturn {
           };
         });
 
-        setItems(merged);
+        // Sort by processedAt descending (newest first)
+        const sorted = merged.sort((a, b) => {
+          const dateA = detectionResults.find(
+            (dr) => dr.detectionResultId === a.id,
+          )?.processedAt;
+          const dateB = detectionResults.find(
+            (dr) => dr.detectionResultId === b.id,
+          )?.processedAt;
+          if (dateA && dateB) return dateB.localeCompare(dateA);
+          if (dateA) return -1;
+          if (dateB) return 1;
+          return 0;
+        });
+
+        setItems(sorted);
       } else if (scanJobs.length > 0) {
         // Fall back to scan jobs only
         const mapped: HistoryItem[] = scanJobs.map((sj) => ({
@@ -150,7 +164,17 @@ export function useScanHistory(): UseScanHistoryReturn {
           confidence: 0,
         }));
 
-        setItems(mapped);
+        // Sort by startedAt descending (newest first)
+        const sortedFallback = mapped.sort((a, b) => {
+          const dateA = scanJobs.find((sj) => sj.scanJobId === a.id)?.startedAt;
+          const dateB = scanJobs.find((sj) => sj.scanJobId === b.id)?.startedAt;
+          if (dateA && dateB) return dateB.localeCompare(dateA);
+          if (dateA) return -1;
+          if (dateB) return 1;
+          return 0;
+        });
+
+        setItems(sortedFallback);
       } else {
         setItems([]);
         if (

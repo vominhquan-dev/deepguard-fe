@@ -18,13 +18,16 @@ import { useAuth } from "../../auth/context/AuthContext";
 
 const POLL_INTERVAL = 5000; // 5 seconds
 const POLL_DURATION = 300000; // 5 minutes
-const PAYMENT_SESSION_KEY = "deepguard_sepay_pending";
+const PAYMENT_SESSION_KEY_PREFIX = "deepguard_sepay_pending";
 
-// Module-level promise to deduplicate concurrent payment creation
+// Module-level promises keyed by planId + user to deduplicate concurrent payment creation
 // (e.g., React StrictMode double-mount in dev)
-let pendingInitPromise: Promise<{
-  response: Awaited<ReturnType<typeof createSePayPayment>>;
-}> | null = null;
+const pendingInitPromises = new Map<
+  string,
+  Promise<{
+    response: Awaited<ReturnType<typeof createSePayPayment>>;
+  }>
+>();
 
 interface PaymentSession {
   paymentId: string;
@@ -36,7 +39,7 @@ interface PaymentSession {
 export function SePayPayment() {
   const navigate = useNavigate();
   const { planId } = useParams<{ planId: string }>();
-  const { accessToken } = useAuth();
+  const { accessToken, userInfo } = useAuth();
   const [payment, setPayment] = useState<SePayPaymentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -50,6 +53,14 @@ export function SePayPayment() {
   const pollDurationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const completedRef = useRef(false);
   const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Build a session key scoped to user + planId (Bug 3 fix)
+  const getSessionKey = () => {
+    const userIdentifier =
+      userInfo?.email || userInfo?.id || accessToken?.slice(-8) || "anonymous";
+    const safePlanId = planId || "unknown";
+    return `${PAYMENT_SESSION_KEY_PREFIX}_${safePlanId}_${userIdentifier}`;
+  };
 
   // Cleanup all timers
   const cleanupTimers = () => {
@@ -69,7 +80,7 @@ export function SePayPayment() {
   };
 
   const clearSession = () => {
-    sessionStorage.removeItem(PAYMENT_SESSION_KEY);
+    sessionStorage.removeItem(getSessionKey());
   };
 
   const handleCompleted = () => {
@@ -159,12 +170,13 @@ export function SePayPayment() {
 
     const token = accessToken;
     const safePlanId: string = planId;
+    const dedupKey = `${safePlanId}_${token.slice(-8)}`;
 
     let isSubscribed = true;
 
     async function initPayment() {
       // Check sessionStorage first — resume pending payment on page refresh
-      const existingRaw = sessionStorage.getItem(PAYMENT_SESSION_KEY);
+      const existingRaw = sessionStorage.getItem(getSessionKey());
       if (existingRaw) {
         try {
           const session: PaymentSession = JSON.parse(existingRaw);
@@ -186,9 +198,10 @@ export function SePayPayment() {
       }
 
       // Deduplicate concurrent API calls (e.g. React StrictMode double-mount in dev).
-      // Module-level promise ensures both mounts share the same in-flight request.
-      if (!pendingInitPromise) {
-        pendingInitPromise = (async () => {
+      // Module-level Map keyed by dedupKey ensures different users/plans don't share one promise.
+      // (Bug 2 fix: was a single module-level variable shared across all planIds/users)
+      if (!pendingInitPromises.has(dedupKey)) {
+        const promise = (async () => {
           setLoading(true);
           const response = await createSePayPayment(
             { pricingPlanId: safePlanId },
@@ -199,10 +212,15 @@ export function SePayPayment() {
           }
           return { response };
         })();
+        pendingInitPromises.set(dedupKey, promise);
+        // Clean up the promise map after it resolves/rejects
+        promise.finally(() => {
+          pendingInitPromises.delete(dedupKey);
+        });
       }
 
       try {
-        const result = await pendingInitPromise;
+        const result = await pendingInitPromises.get(dedupKey)!;
 
         if (!isSubscribed) return;
 
@@ -212,7 +230,7 @@ export function SePayPayment() {
 
         // Save to sessionStorage so page refresh can resume
         sessionStorage.setItem(
-          PAYMENT_SESSION_KEY,
+          getSessionKey(),
           JSON.stringify({
             paymentId: result.response.data.paymentId,
             planId: safePlanId,

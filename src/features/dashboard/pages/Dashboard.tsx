@@ -31,7 +31,7 @@ import { useMediaUpload } from "../../detection/hooks/useMediaUpload";
 import { useDetectionResults } from "../../detection/hooks/useDetectionResults";
 import { triggerCreditsRefetch } from "../../billing/hooks/useCredits";
 import { downloadScanReportPdf } from "../../detection/api/reportApi";
-import { useAuth } from "../../auth/context/AuthContext";
+import { useAuth, type UserInfo } from "../../auth/context/AuthContext";
 
 type UploadState = "idle" | "selected" | "scanning" | "done" | "error";
 type ErrorType =
@@ -127,7 +127,7 @@ export function Dashboard() {
     loading: resultsLoading,
     refetch: refetchResults,
   } = useDetectionResults();
-  const { accessToken } = useAuth();
+  const { accessToken, userInfo } = useAuth();
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -225,13 +225,23 @@ export function Dashboard() {
         triggerCreditsRefetch();
         refetchResults();
 
-        // Store AI detection result for Results page
+        // Store the full upload data (with mediaId) and detection result for Results page
         if (uploadData?.aiDetect) {
+          const prefix = userInfo?.email || userInfo?.id || "anonymous";
           localStorage.setItem(
-            "lastDetection",
-            JSON.stringify(uploadData.aiDetect),
+            `lastDetection_${prefix}`,
+            JSON.stringify({
+              prediction: uploadData.aiDetect.prediction,
+              fakeProbability: uploadData.aiDetect.fakeProbability,
+              realProbability: uploadData.aiDetect.realProbability,
+              imageUrl: uploadData.aiDetect.imageUrl ?? null,
+              message: uploadData.aiDetect.message ?? null,
+            }),
           );
-          localStorage.setItem("lastUploadData", JSON.stringify(uploadData));
+          localStorage.setItem(
+            `lastUploadData_${prefix}`,
+            JSON.stringify(uploadData),
+          );
         }
 
         // Show scanning animation briefly with real detection status
@@ -259,7 +269,7 @@ export function Dashboard() {
         toast.error(message);
       }
     },
-    [navigate, upload, refetchResults],
+    [navigate, upload, refetchResults, userInfo],
   );
 
   const handleFile = (file: File) => {
@@ -939,7 +949,25 @@ export function Dashboard() {
                               Download Report
                             </button>
                             <button
-                              onClick={() => navigate("/results")}
+                              onClick={() => {
+                                // Pass fresh aiDetect + uploadData to Results page so it doesn't rely on stale localStorage
+                                navigate("/results", {
+                                  state: {
+                                    prediction: aiDetect.prediction,
+                                    fakeProbability: aiDetect.fakeProbability,
+                                    realProbability: aiDetect.realProbability,
+                                    imageUrl: aiDetect.imageUrl ?? null,
+                                    message: aiDetect.message ?? null,
+                                    fileName: selectedFile.name,
+                                    fileType: data.fileType,
+                                    fileSize: data.fileSize,
+                                    uploadedAt: data.uploadedAt,
+                                    mediaId: data.id,
+                                    originalUrl: data.originalUrl,
+                                    scanJobId: null, // not available yet from fresh upload
+                                  },
+                                });
+                              }}
                               className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ml-auto"
                               style={{ fontSize: "13px", fontWeight: 600 }}
                             >
@@ -1198,8 +1226,10 @@ export function Dashboard() {
                         <button
                           key={result.detectionResultId}
                           onClick={() => {
+                            const prefix =
+                              userInfo?.email || userInfo?.id || "anonymous";
                             localStorage.setItem(
-                              "lastDetection",
+                              `lastDetection_${prefix}`,
                               JSON.stringify({
                                 detectionResultId: result.detectionResultId,
                                 scanJobId: result.scanJobId,

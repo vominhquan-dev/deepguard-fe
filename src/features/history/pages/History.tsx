@@ -554,12 +554,14 @@ export function History() {
                     onClick={() =>
                       navigate("/results", {
                         state: {
-                          label: item.verdict,
-                          score: item.risk / 100,
+                          prediction: item.verdict,
+                          fakeProbability: item.risk / 100,
+                          realProbability: 1 - item.risk / 100,
                           fileName: item.name,
                           type: item.type,
                           scanJobId: item.scanJobId,
-                          originalUrl: item.originalUrl,
+                          detectionResultId: item.id,
+                          imageUrl: item.originalUrl,
                           confidence: item.confidence,
                         },
                       })
@@ -725,12 +727,14 @@ export function History() {
                       onClick={() =>
                         navigate("/results", {
                           state: {
-                            label: item.verdict,
-                            score: item.risk / 100,
+                            prediction: item.verdict,
+                            fakeProbability: item.risk / 100,
+                            realProbability: 1 - item.risk / 100,
                             fileName: item.name,
                             type: item.type,
                             scanJobId: item.scanJobId,
-                            originalUrl: item.originalUrl,
+                            detectionResultId: item.id,
+                            imageUrl: item.originalUrl,
                             confidence: item.confidence,
                           },
                         })
