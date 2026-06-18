@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../auth/context/AuthContext";
-import { getScanJobs, getAdminMedia } from "../api/adminApi";
+import { getScanJobs, getAdminMedia, getBillingHistory } from "../api/adminApi";
 import {
   Loader2,
   AlertTriangle,
@@ -129,6 +129,20 @@ export function AnalyticsTab() {
   const [fileTypeData, setFileTypeData] = useState<any[]>([]);
   const [scanJobsTrend, setScanJobsTrend] = useState<any[]>([]);
 
+  /* ────── Billing State ────── */
+  const [billingStats, setBillingStats] = useState({
+    totalRevenue: 0,
+    totalTransactions: 0,
+    successCount: 0,
+    pendingCount: 0,
+    failedCount: 0,
+    refundedCount: 0,
+  });
+  const [dailyRevenueData, setDailyRevenueData] = useState<any[]>([]);
+  const [paymentMethodData, setPaymentMethodData] = useState<any[]>([]);
+  const [paymentStatusData, setPaymentStatusData] = useState<any[]>([]);
+  const [billingPlanData, setBillingPlanData] = useState<any[]>([]);
+
   const fetchAnalytics = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
@@ -249,6 +263,128 @@ export function AnalyticsTab() {
         }
       });
       setScanJobsTrend(Object.values(trendMap));
+
+      /* ────── Billing Data ────── */
+      const billingRes = await getBillingHistory(accessToken, {
+        page: 0,
+        size: 1000,
+        sort: ["createdAt,desc"],
+      });
+      const payments = billingRes.success ? billingRes.data.content : [];
+
+      const rev = payments.reduce(
+        (sum: number, p: any) =>
+          p.status === "SUCCESS" ? sum + (p.amount || 0) : sum,
+        0,
+      );
+      const successCount = payments.filter(
+        (p: any) => p.status === "SUCCESS",
+      ).length;
+      const pendCount = payments.filter(
+        (p: any) => p.status === "PENDING",
+      ).length;
+      const failCount = payments.filter(
+        (p: any) => p.status === "FAILED",
+      ).length;
+      const refundCount = payments.filter(
+        (p: any) => p.status === "REFUNDED",
+      ).length;
+      const cancCount = payments.filter(
+        (p: any) => p.status === "CANCELLED",
+      ).length;
+
+      setBillingStats({
+        totalRevenue: rev,
+        totalTransactions: payments.length,
+        successCount,
+        pendingCount: pendCount,
+        failedCount: failCount,
+        refundedCount: refundCount,
+      });
+
+      // Daily revenue (last 7 days)
+      const revDailyMap: Record<string, any> = {};
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now - i * oneDay);
+        const key = d.toISOString().slice(0, 10);
+        revDailyMap[key] = {
+          date: new Date(key + "T00:00:00").toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          Revenue: 0,
+          Transactions: 0,
+        };
+      }
+      payments.forEach((p: any) => {
+        const createdAt = p.createdAt
+          ? new Date(p.createdAt).toISOString().slice(0, 10)
+          : null;
+        if (createdAt && revDailyMap[createdAt]) {
+          revDailyMap[createdAt].Transactions += 1;
+          if (p.status === "SUCCESS") {
+            revDailyMap[createdAt].Revenue += p.amount || 0;
+          }
+        }
+      });
+      setDailyRevenueData(Object.values(revDailyMap));
+
+      // Payment method distribution
+      const methodMap: Record<string, number> = {};
+      payments.forEach((p: any) => {
+        const m = p.paymentMethod || "Unknown";
+        methodMap[m] = (methodMap[m] || 0) + 1;
+      });
+      const methodColors: Record<string, string> = {
+        BANK_TRANSFER: "#3B82F6",
+        CREDIT_CARD: "#8B5CF6",
+        VNPAY: "#10B981",
+        PAYPAL: "#F59E0B",
+        MOMO: "#EC4899",
+        Unknown: "#6B7280",
+      };
+      setPaymentMethodData(
+        Object.entries(methodMap).map(([key, value]) => ({
+          name: key.charAt(0).toUpperCase() + key.slice(1),
+          value,
+          color: methodColors[key] || "#6B7280",
+        })),
+      );
+
+      // Payment status distribution
+      setPaymentStatusData([
+        {
+          name: "Success",
+          value: successCount,
+          color: "#10B981",
+        },
+        { name: "Pending", value: pendCount, color: "#F59E0B" },
+        { name: "Failed", value: failCount, color: "#EF4444" },
+        { name: "Cancelled", value: cancCount, color: "#6B7280" },
+        { name: "Refunded", value: refundCount, color: "#8B5CF6" },
+      ]);
+
+      // Plan distribution
+      const planMap: Record<string, number> = {};
+      payments.forEach((p: any) => {
+        const plan = p.pricingPlanName || "Unknown";
+        planMap[plan] = (planMap[plan] || 0) + 1;
+      });
+      const planColors = [
+        "#3B82F6",
+        "#8B5CF6",
+        "#10B981",
+        "#F59E0B",
+        "#EC4899",
+        "#6B7280",
+      ];
+      setBillingPlanData(
+        Object.entries(planMap).map(([key, value], idx) => ({
+          name: key,
+          value,
+          color: planColors[idx % planColors.length],
+        })),
+      );
     } catch (err) {
       console.error("Analytics fetch error:", err);
     } finally {
@@ -343,18 +479,18 @@ export function AnalyticsTab() {
         />
       </div>
 
-      {/* Charts Grid */}
+      {/* Charts Grid - Billing & Revenue */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Scan Jobs Trend */}
+        {/* Daily Revenue */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
           <h3
             className="text-slate-900 dark:text-white font-bold mb-4"
             style={{ fontSize: "14px" }}
           >
-            Daily Scan Jobs (7 days)
+            Daily Revenue (7 days)
           </h3>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={dailyJobsData} barGap={2}>
+            <BarChart data={dailyRevenueData} barGap={2}>
               <CartesianGrid
                 strokeDasharray="3 3"
                 stroke="#334155"
@@ -364,39 +500,33 @@ export function AnalyticsTab() {
               <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} />
               <Tooltip content={<ChartTooltip />} />
               <Bar
-                dataKey="Total"
-                fill="#8B5CF6"
-                radius={[4, 4, 0, 0]}
-                name="Total"
-              />
-              <Bar
-                dataKey="Completed"
+                dataKey="Revenue"
                 fill="#10B981"
                 radius={[4, 4, 0, 0]}
-                name="Completed"
+                name="Revenue ($)"
               />
               <Bar
-                dataKey="Failed"
-                fill="#EF4444"
+                dataKey="Transactions"
+                fill="#3B82F6"
                 radius={[4, 4, 0, 0]}
-                name="Failed"
+                name="Transactions"
               />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Status Distribution Pie */}
+        {/* Payment Method Distribution */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
           <h3
             className="text-slate-900 dark:text-white font-bold mb-4"
             style={{ fontSize: "14px" }}
           >
-            Scan Jobs by Status
+            Payment Methods
           </h3>
           <ResponsiveContainer width="100%" height={260}>
             <RePieChart>
               <Pie
-                data={statusChartData.filter((d) => d.value > 0)}
+                data={paymentMethodData}
                 cx="50%"
                 cy="50%"
                 innerRadius={55}
@@ -404,7 +534,43 @@ export function AnalyticsTab() {
                 paddingAngle={3}
                 dataKey="value"
               >
-                {statusChartData
+                {paymentMethodData.map((entry, idx) => (
+                  <Cell key={`cell-${idx}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip content={<ChartTooltip />} />
+              <Legend
+                wrapperStyle={{ fontSize: "12px" }}
+                formatter={(value) => (
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {value}
+                  </span>
+                )}
+              />
+            </RePieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Payment Status Distribution */}
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+          <h3
+            className="text-slate-900 dark:text-white font-bold mb-4"
+            style={{ fontSize: "14px" }}
+          >
+            Payment Status Distribution
+          </h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <RePieChart>
+              <Pie
+                data={paymentStatusData.filter((d) => d.value > 0)}
+                cx="50%"
+                cy="50%"
+                innerRadius={55}
+                outerRadius={90}
+                paddingAngle={3}
+                dataKey="value"
+              >
+                {paymentStatusData
                   .filter((d) => d.value > 0)
                   .map((entry, idx) => (
                     <Cell key={`cell-${idx}`} fill={entry.color} />
@@ -423,67 +589,29 @@ export function AnalyticsTab() {
           </ResponsiveContainer>
         </div>
 
-        {/* File Type Distribution Pie */}
+        {/* Pricing Plan Distribution */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
           <h3
             className="text-slate-900 dark:text-white font-bold mb-4"
             style={{ fontSize: "14px" }}
           >
-            Media by File Type
+            Pricing Plan Distribution
           </h3>
-          {fileTypeData.length === 0 ? (
-            <div className="flex items-center justify-center h-[260px]">
-              <p className="text-slate-400" style={{ fontSize: "13px" }}>
-                No media data
-              </p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <RePieChart>
-                <Pie
-                  data={fileTypeData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={90}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {fileTypeData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<ChartTooltip />} />
-                <Legend
-                  wrapperStyle={{ fontSize: "12px" }}
-                  formatter={(value) => (
-                    <span className="text-slate-500 dark:text-slate-400">
-                      {value}
-                    </span>
-                  )}
-                />
-              </RePieChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Scan Jobs Stacked Bar (Status over time) */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-          <h3
-            className="text-slate-900 dark:text-white font-bold mb-4"
-            style={{ fontSize: "14px" }}
-          >
-            Scan Jobs Trend by Status
-          </h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={scanJobsTrend} barGap={2}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#334155"
-                opacity={0.3}
-              />
-              <XAxis dataKey="date" tick={{ fill: "#94A3B8", fontSize: 11 }} />
-              <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} />
+          <ResponsiveContainer width="100%" height={260}>
+            <RePieChart>
+              <Pie
+                data={billingPlanData}
+                cx="50%"
+                cy="50%"
+                innerRadius={55}
+                outerRadius={90}
+                paddingAngle={3}
+                dataKey="value"
+              >
+                {billingPlanData.map((entry, idx) => (
+                  <Cell key={`cell-${idx}`} fill={entry.color} />
+                ))}
+              </Pie>
               <Tooltip content={<ChartTooltip />} />
               <Legend
                 wrapperStyle={{ fontSize: "12px" }}
@@ -493,31 +621,7 @@ export function AnalyticsTab() {
                   </span>
                 )}
               />
-              <Bar
-                dataKey="Queued"
-                stackId="a"
-                fill={STATUS_COLORS.QUEUED}
-                radius={[2, 2, 0, 0]}
-              />
-              <Bar
-                dataKey="Processing"
-                stackId="a"
-                fill={STATUS_COLORS.PROCESSING}
-                radius={[2, 2, 0, 0]}
-              />
-              <Bar
-                dataKey="Completed"
-                stackId="a"
-                fill={STATUS_COLORS.COMPLETED}
-                radius={[2, 2, 0, 0]}
-              />
-              <Bar
-                dataKey="Failed"
-                stackId="a"
-                fill={STATUS_COLORS.FAILED}
-                radius={[2, 2, 0, 0]}
-              />
-            </BarChart>
+            </RePieChart>
           </ResponsiveContainer>
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
   Radio,
   CreditCard,
   Users,
+  Receipt,
 } from "lucide-react";
 import { useTheme } from "../../app/providers/ThemeProvider";
 import { useAuth } from "../../features/auth/context/AuthContext";
@@ -41,6 +42,12 @@ const allNavItems = [
     to: "/admin/analytics",
     label: "Analytics",
     icon: BarChart3,
+    requiredRole: "ADMIN" as const,
+  },
+  {
+    to: "/admin/billing-history",
+    label: "Billing History",
+    icon: Receipt,
     requiredRole: "ADMIN" as const,
   },
   // Shared navigation (USER only)

@@ -427,3 +427,88 @@ export async function updateUserRole(
 
   return data as AdminActionResponse;
 }
+
+/* ────── Billing History Types ────── */
+
+export interface BillingHistoryItem {
+  paymentId: string;
+  transactionCode: string;
+  amount: number;
+  paymentMethod: string;
+  status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "REFUNDED";
+  createdAt: string;
+  userId: string;
+  userEmail: string;
+  username: string;
+  subscriptionId: string;
+  subscriptionStatus: string;
+  subscriptionStartDate: string;
+  subscriptionEndDate: string;
+  pricingPlanId: string;
+  pricingPlanName: string;
+  credits: number;
+}
+
+export interface BillingHistoryResponse {
+  success: boolean;
+  code: string;
+  message: string;
+  data: {
+    content: BillingHistoryItem[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+    last: boolean;
+  };
+  timestamp: string;
+}
+
+/**
+ * Get billing history for all users with pagination and filtering
+ * GET /api/admin/users/billing-history
+ */
+export async function getBillingHistory(
+  accessToken: string,
+  params: {
+    keyword?: string;
+    status?: string;
+    paymentMethod?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    size?: number;
+    sort?: string[];
+  },
+): Promise<BillingHistoryResponse> {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page ?? 0));
+  query.set("size", String(params.size ?? 20));
+  if (params.keyword) query.set("keyword", params.keyword);
+  if (params.status) query.set("status", params.status);
+  if (params.paymentMethod) query.set("paymentMethod", params.paymentMethod);
+  if (params.startDate) query.set("startDate", params.startDate);
+  if (params.endDate) query.set("endDate", params.endDate);
+  if (params.sort && params.sort.length > 0) {
+    params.sort.forEach((s) => query.append("sort", s));
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/admin/users/billing-history?${query.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new Error(error.message || "Failed to fetch billing history");
+  }
+
+  return data as BillingHistoryResponse;
+}

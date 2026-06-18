@@ -6,6 +6,7 @@ import { DashboardHome } from "../../features/dashboard/pages/DashboardHome";
 import { Dashboard } from "../../features/dashboard/pages/Dashboard";
 import { AdminDashboard } from "../../features/admin/pages/AdminDashboard";
 import { AnalyticsPage } from "../../features/admin/pages/AnalyticsPage";
+import { BillingHistoryPage } from "../../features/admin/pages/BillingHistoryPage";
 import { Results } from "../../features/detection/pages/Results";
 import { History } from "../../features/history/pages/History";
 import { Settings } from "../../features/settings/pages/Settings";
@@ -57,6 +58,10 @@ export const router = createBrowserRouter([
       { path: "dashboard", Component: withAuth(DashboardHome, "ADMIN") },
       { path: "admin", Component: withAuth(AdminDashboard, "ADMIN") },
       { path: "admin/analytics", Component: withAuth(AnalyticsPage, "ADMIN") },
+      {
+        path: "admin/billing-history",
+        Component: withAuth(BillingHistoryPage, "ADMIN"),
+      },
 
       // Authenticated routes (any role)
       { path: "settings", Component: withAuth(Settings) },
