@@ -286,7 +286,18 @@ export function Sidebar() {
               {profile?.fullName || "User"}
             </p>
             <p className="text-slate-400 truncate" style={{ fontSize: "11px" }}>
-              {profile?.bio || "Loading..."}
+              {profile === null ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="text-amber-500 font-medium">
+                    Chưa tạo profile
+                  </span>
+                </span>
+              ) : profile?.bio ? (
+                profile.bio
+              ) : (
+                "No bio"
+              )}
             </p>
           </div>
           <button
