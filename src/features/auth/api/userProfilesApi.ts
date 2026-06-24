@@ -4,8 +4,7 @@ import {
   type ErrorResponse,
 } from "../types/auth";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 /**
  * Create user profile with fullName, bio (optional) and avatar (optional)
@@ -20,9 +19,9 @@ export async function createUserProfile(
   },
 ): Promise<UserProfileResponse> {
   // Build URL with query params for fullName and bio
-  const url = new URL(`${API_BASE_URL}/user-profiles`);
-  url.searchParams.append("fullName", data.fullName);
-  if (data.bio) url.searchParams.append("bio", data.bio);
+  const queryParams = new URLSearchParams();
+  queryParams.append("fullName", data.fullName);
+  if (data.bio) queryParams.append("bio", data.bio);
 
   // Use FormData for avatar upload if provided
   const formData = new FormData();
@@ -30,14 +29,17 @@ export async function createUserProfile(
     formData.append("avatar", data.avatar);
   }
 
-  const response = await fetch(url.toString(), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      // Do NOT set Content-Type when using FormData - browser sets it with boundary
+  const response = await fetch(
+    `${API_BASE_URL}/user-profiles?${queryParams.toString()}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // Do NOT set Content-Type when using FormData - browser sets it with boundary
+      },
+      body: formData,
     },
-    body: formData,
-  });
+  );
 
   const result = await response.json();
 
@@ -63,9 +65,9 @@ export async function updateUserProfile(
   },
 ): Promise<UserProfileResponse> {
   // Build URL with query params for fullName and bio
-  const url = new URL(`${API_BASE_URL}/user-profiles/me`);
-  url.searchParams.append("fullName", data.fullName);
-  if (data.bio) url.searchParams.append("bio", data.bio);
+  const queryParams = new URLSearchParams();
+  queryParams.append("fullName", data.fullName);
+  if (data.bio) queryParams.append("bio", data.bio);
 
   // Use FormData for avatar upload if provided
   const formData = new FormData();
@@ -73,13 +75,16 @@ export async function updateUserProfile(
     formData.append("avatar", data.avatar);
   }
 
-  const response = await fetch(url.toString(), {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const response = await fetch(
+    `${API_BASE_URL}/user-profiles/me?${queryParams.toString()}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
     },
-    body: formData,
-  });
+  );
 
   const result = await response.json();
 

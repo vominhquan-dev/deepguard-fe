@@ -1505,7 +1505,20 @@ export function Dashboard() {
                                 mediaId: result.mediaId,
                               }),
                             );
-                            navigate("/results");
+                            // Pass scanJobId via location state so Results.tsx calls
+                            // GET /api/detection-results/{scanJobId} for full detail
+                            navigate("/results", {
+                              state: {
+                                scanJobId: result.scanJobId,
+                                prediction,
+                                fakeProbability: fakeProb,
+                                realProbability: realProb,
+                                imageUrl: result.originalUrl,
+                                fileName: result.fileName,
+                                uploadedAt: result.processedAt,
+                                mediaId: result.mediaId,
+                              },
+                            });
                           }}
                           className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all text-left group"
                         >

@@ -293,11 +293,11 @@ export function CreateProfile() {
           {/* Top bar */}
           <div className="flex items-center justify-between mb-10">
             <button
-              onClick={() => navigate("/login")}
+              onClick={() => navigate(-1)}
               className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
               style={{ fontSize: "13px", fontWeight: 500 }}
             >
-              ← Back to login
+              ← Back
             </button>
             <button
               onClick={toggleTheme}

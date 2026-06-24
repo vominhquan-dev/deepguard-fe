@@ -28,6 +28,10 @@ import { toast } from "sonner";
 import { useAuth } from "../../auth/context/AuthContext";
 import { downloadScanReportPdf } from "../api/reportApi";
 import { useCredits } from "../../billing/hooks/useCredits";
+import {
+  getDetectionResultByScanJobId,
+  type DetectionResultDetail,
+} from "../api/detectionApi";
 import type { HiveFrameData } from "../types/media";
 
 interface DetectionData {
@@ -695,10 +699,9 @@ export function Results() {
   }, [hiveDetection]);
 
   useEffect(() => {
-    // Priority 1: check location state (navigated from History, Dashboard, etc.)
     const locationState = location.state as Record<string, unknown> | null;
 
-    // Priority 1a: location state contains full _videoHive data (from Dashboard video result)
+    // Priority 1: location state contains full _videoHive data (from Dashboard video result)
     if (locationState?._videoHive) {
       const hive = locationState._videoHive as HiveDetectionData;
       setHiveDetection(hive);
@@ -722,7 +725,44 @@ export function Results() {
       return;
     }
 
-    // Priority 1b: standard location state (from History, etc.)
+    // Priority 1b: location state has scanJobId → fetch full detail from API
+    const stateWithScanJob = location.state as DetectionData | null;
+    if (stateWithScanJob?.scanJobId && accessToken) {
+      setLoading(true);
+      getDetectionResultByScanJobId(stateWithScanJob.scanJobId, accessToken)
+        .then((res) => {
+          if (res.success && res.data) {
+            const d = res.data;
+            const isFake = d.fakeScore > 0.5;
+            const prediction = d.resultLabel || (isFake ? "FAKE" : "REAL");
+            setDetection({
+              detectionResultId: d.detectionResultId,
+              scanJobId: d.scanJobId,
+              prediction,
+              fakeProbability: isFake ? d.confidence : 1 - d.confidence,
+              realProbability: isFake ? 1 - d.confidence : d.confidence,
+              imageUrl: d.originalUrl || null,
+              fileName: d.fileName || stateWithScanJob.fileName,
+              fileType: stateWithScanJob.fileType,
+              fileSize: stateWithScanJob.fileSize,
+              uploadedAt: d.processedAt || stateWithScanJob.uploadedAt,
+              mediaId: d.mediaId || stateWithScanJob.mediaId,
+              email: d.email || undefined,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to fetch detection result detail:", err);
+          // Fallback to whatever was passed in state
+          if (stateWithScanJob) {
+            setDetection(stateWithScanJob);
+          }
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    // Priority 1c: standard location state (from History without scanJobId, etc.)
     const standardState = location.state as DetectionData | null;
     if (standardState && standardState.prediction) {
       setDetection(standardState);
