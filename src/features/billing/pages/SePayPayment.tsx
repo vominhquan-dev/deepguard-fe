@@ -19,6 +19,7 @@ import { useAuth } from "../../auth/context/AuthContext";
 const POLL_INTERVAL = 5000; // 5 seconds
 const POLL_DURATION = 300000; // 5 minutes
 const PAYMENT_SESSION_KEY_PREFIX = "deepguard_sepay_pending";
+const PAYMENT_COMPLETED_KEY_PREFIX = "deepguard_sepay_completed";
 
 // Module-level promises keyed by planId + user to deduplicate concurrent payment creation
 // (e.g., React StrictMode double-mount in dev)
@@ -90,6 +91,15 @@ export function SePayPayment() {
     clearSession();
     setCompleted(true);
 
+    // Save to localStorage so page refresh won't create a new order
+    // Use planId as key since that's what we have on page refresh from URL
+    const planIdentifier = planId || payment?.planName || "unknown";
+    const completedKey = `${PAYMENT_COMPLETED_KEY_PREFIX}_${planIdentifier}`;
+    localStorage.setItem(
+      completedKey,
+      JSON.stringify({ completedAt: Date.now() }),
+    );
+
     // Show success toast for 3 seconds
     toast.success(
       "🎉 Payment successful! Your plan has been upgraded and credits have been added.",
@@ -108,6 +118,11 @@ export function SePayPayment() {
         },
       },
     );
+
+    // Auto-redirect to /plan after 3 seconds
+    navigateTimeoutRef.current = setTimeout(() => {
+      navigate("/plan", { replace: true });
+    }, 3000);
   };
 
   const startPolling = (pid: string, token: string) => {
@@ -175,6 +190,25 @@ export function SePayPayment() {
     let isSubscribed = true;
 
     async function initPayment() {
+      // Check localStorage for completed payment — redirect to /plan to avoid recreating order
+      const completedKey = `${PAYMENT_COMPLETED_KEY_PREFIX}_${safePlanId}`;
+      const completedRaw = localStorage.getItem(completedKey);
+      if (completedRaw) {
+        try {
+          const { completedAt } = JSON.parse(completedRaw);
+          // Keep the flag for 1 hour after completion
+          if (completedAt && Date.now() - completedAt < 3600000) {
+            if (!isSubscribed) return;
+            navigate("/plan", { replace: true });
+            return;
+          } else {
+            localStorage.removeItem(completedKey);
+          }
+        } catch {
+          localStorage.removeItem(completedKey);
+        }
+      }
+
       // Check sessionStorage first — resume pending payment on page refresh
       const existingRaw = sessionStorage.getItem(getSessionKey());
       if (existingRaw) {
