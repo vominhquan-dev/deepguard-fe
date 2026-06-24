@@ -30,6 +30,7 @@ import { downloadScanReportPdf } from "../api/reportApi";
 import { useCredits } from "../../billing/hooks/useCredits";
 import {
   getDetectionResultByScanJobId,
+  getUserDetectionResults,
   type DetectionResultDetail,
 } from "../api/detectionApi";
 import type { HiveFrameData } from "../types/media";
@@ -665,20 +666,59 @@ export function Results() {
   const { credits } = useCredits();
 
   const handleDownloadPdf = async () => {
-    if (!detection?.scanJobId) {
-      toast.error("No scan job ID available for this detection.");
-      return;
-    }
     if (!accessToken) {
       toast.error("Please log in again to download reports.");
       return;
     }
+
+    let scanJobId = detection?.scanJobId;
+
+    // If scanJobId is not available yet, try fetching latest results from API
+    if (!scanJobId) {
+      toast.info("Fetching scan data...");
+
+      try {
+        const response = await getUserDetectionResults(accessToken);
+        if (response.success && response.data.length > 0) {
+          // Find the matching result by mediaId if available, otherwise use latest
+          const matchingResult = detection?.mediaId
+            ? response.data.find((r) => r.mediaId === detection.mediaId)
+            : null;
+          const latestResult = matchingResult || response.data[0];
+          scanJobId = latestResult.scanJobId;
+
+          // Also update detection with scanJobId for future use
+          setDetection((prev) => {
+            if (prev) {
+              return { ...prev, scanJobId: latestResult.scanJobId };
+            }
+            return prev;
+          });
+        } else {
+          toast.error("No scan result found. Please try scanning again.");
+          return;
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch scan data for report download",
+        );
+        return;
+      }
+    }
+
+    if (!scanJobId) {
+      toast.error("No scan job ID available for this detection.");
+      return;
+    }
+
     setDownloadingPdf(true);
     try {
       await downloadScanReportPdf(
-        detection.scanJobId,
+        scanJobId,
         accessToken,
-        `deepguard-report-${detection.scanJobId}.pdf`,
+        `deepguard-report-${scanJobId}.pdf`,
       );
       toast.success("PDF report downloaded successfully");
     } catch (error) {
