@@ -10,6 +10,38 @@ export interface AiDetectData {
   message: string | null;
 }
 
+/**
+ * Frame-level detection result in a video
+ */
+export interface HiveFrameData {
+  frameIndex: number;
+  timestamp: number;
+  aiGeneratedScore: number;
+  notAiGeneratedScore: number;
+  deepfakeScore: number;
+  attributedGenerator: string;
+  aiGeneratedAudioScore: number;
+  notAiGeneratedAudioScore: number;
+}
+
+/**
+ * Hive video detection result
+ */
+export interface HiveDetectData {
+  prediction: string;
+  confidence: number;
+  aiGeneratedScore: number;
+  notAiGeneratedScore: number;
+  deepfakeScore: number;
+  aiGeneratedAudioScore: number;
+  notAiGeneratedAudioScore: number;
+  attributedGenerator: string;
+  frames: HiveFrameData[];
+  taskId: string;
+  mediaUrl: string;
+  video: boolean;
+}
+
 export interface MediaUploadData {
   id: string;
   userId: string;
@@ -18,7 +50,8 @@ export interface MediaUploadData {
   fileType: string;
   fileSize: number;
   uploadedAt: string;
-  aiDetect?: AiDetectData;
+  aiDetect?: AiDetectData | null;
+  hiveDetect?: HiveDetectData | null;
 }
 
 export interface MediaUploadResponse {

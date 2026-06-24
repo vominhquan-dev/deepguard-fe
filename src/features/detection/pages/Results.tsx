@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { motion } from "motion/react";
 import {
@@ -14,12 +14,22 @@ import {
   FileText,
   Info,
   HelpCircle,
+  Video,
+  BarChart,
+  Clock,
+  Layers,
+  ChevronDown,
+  ChevronUp,
+  AudioWaveform,
+  Film,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { toast } from "sonner";
 import { useAuth } from "../../auth/context/AuthContext";
 import { downloadScanReportPdf } from "../api/reportApi";
 import { useCredits } from "../../billing/hooks/useCredits";
+import type { HiveFrameData } from "../types/media";
+
 interface DetectionData {
   detectionResultId?: string;
   scanJobId?: string;
@@ -37,16 +47,32 @@ interface DetectionData {
   type?: string;
 }
 
+interface HiveDetectionData {
+  prediction: string;
+  confidence: number;
+  aiGeneratedScore: number;
+  notAiGeneratedScore: number;
+  deepfakeScore: number;
+  aiGeneratedAudioScore: number;
+  notAiGeneratedAudioScore: number;
+  attributedGenerator: string;
+  frames: HiveFrameData[];
+  taskId: string;
+  mediaUrl: string;
+  video: boolean;
+}
+
 // ── Verdict Badge ──
 function VerdictBadge({ prediction }: { prediction: string }) {
   const isReal =
     prediction?.toUpperCase() === "REAL" ||
     prediction?.toUpperCase() === "AUTHENTIC" ||
-    prediction?.toUpperCase() === "HUMAN";
+    prediction?.toUpperCase() === "HUMAN" ||
+    prediction?.toUpperCase() === "NOT_AI_GENERATED";
   const isFake =
     prediction?.toUpperCase() === "FAKE" ||
-    prediction?.toUpperCase() === "DEEPFAKE";
-  const isSuspicious = prediction?.toUpperCase() === "SUSPICIOUS";
+    prediction?.toUpperCase() === "DEEPFAKE" ||
+    prediction?.toUpperCase() === "AI_GENERATED";
 
   const color = isReal
     ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
@@ -77,10 +103,12 @@ function StatCard({
   label,
   value,
   color,
+  sub,
 }: {
   label: string;
   value: string;
   color: string;
+  sub?: string;
 }) {
   return (
     <div className="flex-1 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
@@ -88,6 +116,44 @@ function StatCard({
         {label}
       </p>
       <p className={`text-lg font-black ${color}`}>{value}</p>
+      {sub && <p className="text-slate-400 text-[10px] mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+// ── Score bar ──
+function ScoreBar({
+  label,
+  score,
+  color,
+  invert = false,
+}: {
+  label: string;
+  score: number;
+  color: string;
+  invert?: boolean;
+}) {
+  const barColor = invert
+    ? score > 0.5
+      ? "bg-emerald-500"
+      : "bg-red-500"
+    : color;
+  const percentage = (score * 100).toFixed(1);
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-slate-500 dark:text-slate-400 text-xs">
+          {label}
+        </span>
+        <span className={`text-xs font-bold ${color}`}>{percentage}%</span>
+      </div>
+      <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full ${barColor} transition-all`}
+          style={{ width: `${Math.min(parseFloat(percentage), 100)}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -164,14 +230,16 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
               className={`w-14 h-14 rounded-xl flex items-center justify-center ${
                 detection.prediction?.toUpperCase() === "REAL" ||
                 detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                detection.prediction?.toUpperCase() === "HUMAN"
+                detection.prediction?.toUpperCase() === "HUMAN" ||
+                detection.prediction?.toUpperCase() === "NOT_AI_GENERATED"
                   ? "bg-emerald-500/10 text-emerald-500"
                   : "bg-red-500/10 text-red-500"
               }`}
             >
               {detection.prediction?.toUpperCase() === "REAL" ||
               detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-              detection.prediction?.toUpperCase() === "HUMAN" ? (
+              detection.prediction?.toUpperCase() === "HUMAN" ||
+              detection.prediction?.toUpperCase() === "NOT_AI_GENERATED" ? (
                 <CheckCircle2 className="w-7 h-7" />
               ) : (
                 <AlertTriangle className="w-7 h-7" />
@@ -181,7 +249,8 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
               <p className="text-slate-900 dark:text-white text-base font-bold">
                 {detection.prediction?.toUpperCase() === "REAL" ||
                 detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                detection.prediction?.toUpperCase() === "HUMAN"
+                detection.prediction?.toUpperCase() === "HUMAN" ||
+                detection.prediction?.toUpperCase() === "NOT_AI_GENERATED"
                   ? "AUTHENTIC CONTENT"
                   : "AI-GENERATED / MANIPULATED"}
               </p>
@@ -202,7 +271,8 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
               className={`text-base font-black ${
                 detection.prediction?.toUpperCase() === "REAL" ||
                 detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                detection.prediction?.toUpperCase() === "HUMAN"
+                detection.prediction?.toUpperCase() === "HUMAN" ||
+                detection.prediction?.toUpperCase() === "NOT_AI_GENERATED"
                   ? "text-emerald-500"
                   : "text-red-500"
               }`}
@@ -275,12 +345,316 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
   );
 }
 
+// ── Frame Detail Row ──
+function FrameRow({
+  frame,
+  isExpanded,
+  onToggle,
+}: {
+  frame: HiveFrameData;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const isAIGenerated = frame.aiGeneratedScore > 0.5;
+
+  return (
+    <div className="border-b border-slate-100 dark:border-slate-700/60 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Film className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+          <span className="text-slate-700 dark:text-slate-300 text-sm font-medium">
+            Frame {frame.frameIndex}
+          </span>
+          <span className="text-slate-400 text-xs">@ {frame.timestamp}s</span>
+        </div>
+
+        <span
+          className={`text-xs font-bold px-2 py-0.5 rounded ${
+            isAIGenerated
+              ? "bg-red-500/10 text-red-500"
+              : "bg-emerald-500/10 text-emerald-500"
+          }`}
+        >
+          {isAIGenerated ? "FAKE" : "REAL"}
+        </span>
+
+        <span className="text-slate-400 text-xs">
+          {(
+            (isAIGenerated
+              ? frame.aiGeneratedScore
+              : frame.notAiGeneratedScore) * 100
+          ).toFixed(1)}
+          %
+        </span>
+
+        {isExpanded ? (
+          <ChevronUp className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+        ) : (
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          className="px-4 pb-4 space-y-3"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <ScoreBar
+              label="AI Generated"
+              score={frame.aiGeneratedScore}
+              color={
+                frame.aiGeneratedScore > 0.5
+                  ? "text-red-500"
+                  : "text-emerald-500"
+              }
+            />
+            <ScoreBar
+              label="Not AI Generated"
+              score={frame.notAiGeneratedScore}
+              color={
+                frame.notAiGeneratedScore > 0.5
+                  ? "text-emerald-500"
+                  : "text-red-500"
+              }
+            />
+          </div>
+          {frame.deepfakeScore > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-400">Deepfake Score:</span>
+              <span className="font-bold text-red-500">
+                {(frame.deepfakeScore * 100).toFixed(2)}%
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-slate-400">Attributed Generator:</span>
+            <span className="font-medium text-slate-600 dark:text-slate-300">
+              {frame.attributedGenerator || "N/A"}
+            </span>
+          </div>
+          {frame.aiGeneratedAudioScore > 0 && (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60">
+              <p className="text-xs font-medium text-slate-500 mb-2">
+                <AudioWaveform className="w-3 h-3 inline mr-1" />
+                Audio Analysis
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <ScoreBar
+                  label="AI Audio"
+                  score={frame.aiGeneratedAudioScore}
+                  color={
+                    frame.aiGeneratedAudioScore > 0.5
+                      ? "text-red-500"
+                      : "text-emerald-500"
+                  }
+                />
+                <ScoreBar
+                  label="Natural Audio"
+                  score={frame.notAiGeneratedAudioScore}
+                  color={
+                    frame.notAiGeneratedAudioScore > 0.5
+                      ? "text-emerald-500"
+                      : "text-red-500"
+                  }
+                />
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// ── Video Detection View ──
+function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
+  const [expandedFrames, setExpandedFrames] = useState<Set<number>>(new Set());
+  const [showAllFrames, setShowAllFrames] = useState(false);
+
+  const isReal = hive.prediction === "NOT_AI_GENERATED";
+  const displayedFrames = useMemo(
+    () => (showAllFrames ? hive.frames : hive.frames.slice(0, 5)),
+    [hive.frames, showAllFrames],
+  );
+
+  const toggleFrame = (frameIndex: number) => {
+    setExpandedFrames((prev) => {
+      const next = new Set(prev);
+      if (next.has(frameIndex)) {
+        next.delete(frameIndex);
+      } else {
+        next.add(frameIndex);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Video Preview */}
+      {hive.mediaUrl && (
+        <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
+          <video
+            src={hive.mediaUrl}
+            controls
+            className="w-full max-h-80 object-contain"
+            poster={hive.mediaUrl}
+          >
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      )}
+
+      {/* Overall Prediction */}
+      <div
+        className={`p-5 rounded-xl border ${
+          isReal
+            ? "bg-emerald-500/5 border-emerald-500/20"
+            : "bg-red-500/5 border-red-500/20"
+        }`}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          {isReal ? (
+            <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+          ) : (
+            <AlertTriangle className="w-6 h-6 text-red-500" />
+          )}
+          <div>
+            <p
+              className={`text-lg font-bold ${
+                isReal ? "text-emerald-500" : "text-red-500"
+              }`}
+            >
+              {isReal ? "AUTHENTIC VIDEO" : "AI-GENERATED / MANIPULATED"}
+            </p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              Confidence: {(hive.confidence * 100).toFixed(2)}%
+            </p>
+          </div>
+        </div>
+
+        {/* Score bars */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <ScoreBar
+            label="AI Generated Score"
+            score={hive.aiGeneratedScore}
+            color={
+              hive.aiGeneratedScore > 0.5 ? "text-red-500" : "text-emerald-500"
+            }
+          />
+          <ScoreBar
+            label="Not AI Generated Score"
+            score={hive.notAiGeneratedScore}
+            color={
+              hive.notAiGeneratedScore > 0.5
+                ? "text-emerald-500"
+                : "text-red-500"
+            }
+          />
+        </div>
+
+        {hive.deepfakeScore > 0 && (
+          <div className="mb-4">
+            <ScoreBar
+              label="Deepfake Score"
+              score={hive.deepfakeScore}
+              color="text-red-500"
+            />
+          </div>
+        )}
+
+        {/* Audio scores */}
+        {(hive.aiGeneratedAudioScore > 0 ||
+          hive.notAiGeneratedAudioScore > 0) && (
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <AudioWaveform className="w-3.5 h-3.5" />
+              Audio Analysis
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ScoreBar
+                label="AI Generated Audio"
+                score={hive.aiGeneratedAudioScore}
+                color={
+                  hive.aiGeneratedAudioScore > 0.5
+                    ? "text-red-500"
+                    : "text-emerald-500"
+                }
+              />
+              <ScoreBar
+                label="Natural Audio"
+                score={hive.notAiGeneratedAudioScore}
+                color={
+                  hive.notAiGeneratedAudioScore > 0.5
+                    ? "text-emerald-500"
+                    : "text-red-500"
+                }
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Attributed Generator */}
+        <div className="flex items-center gap-2 text-xs mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <span className="text-slate-400">Attributed Generator:</span>
+          <span className="font-semibold text-slate-700 dark:text-slate-300">
+            {hive.attributedGenerator || "N/A"}
+          </span>
+        </div>
+      </div>
+
+      {/* Frame-by-frame analysis */}
+      {hive.frames.length > 0 && (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+            <Layers className="w-4 h-4 text-[#2563EB]" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              Frame-by-Frame Analysis
+            </h3>
+            <span className="text-xs text-slate-400 ml-auto">
+              {hive.frames.length} frames
+            </span>
+          </div>
+
+          {displayedFrames.map((frame) => (
+            <FrameRow
+              key={frame.frameIndex}
+              frame={frame}
+              isExpanded={expandedFrames.has(frame.frameIndex)}
+              onToggle={() => toggleFrame(frame.frameIndex)}
+            />
+          ))}
+
+          {hive.frames.length > 5 && (
+            <button
+              onClick={() => setShowAllFrames(!showAllFrames)}
+              className="w-full py-3 text-center text-sm font-semibold text-[#2563EB] dark:text-[#22D3EE] hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+            >
+              {showAllFrames
+                ? "Show Less"
+                : `Show All ${hive.frames.length} Frames`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Results Page ──
 export function Results() {
   const navigate = useNavigate();
   const location = useLocation();
   const { accessToken, userInfo } = useAuth();
   const [detection, setDetection] = useState<DetectionData | null>(null);
+  const [hiveDetection, setHiveDetection] = useState<HiveDetectionData | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [showReport, setShowReport] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -314,17 +688,100 @@ export function Results() {
     }
   };
 
+  const isVideoResult = useMemo(() => {
+    // Check if we have hive detection data (video)
+    if (hiveDetection) return true;
+    return false;
+  }, [hiveDetection]);
+
   useEffect(() => {
-    // Priority 1: check location state (navigated from History, etc.)
-    const locationState = location.state as DetectionData | null;
-    if (locationState && locationState.prediction) {
-      setDetection(locationState);
+    // Priority 1: check location state (navigated from History, Dashboard, etc.)
+    const locationState = location.state as Record<string, unknown> | null;
+
+    // Priority 1a: location state contains full _videoHive data (from Dashboard video result)
+    if (locationState?._videoHive) {
+      const hive = locationState._videoHive as HiveDetectionData;
+      setHiveDetection(hive);
+      const isReal = hive.prediction === "NOT_AI_GENERATED";
+      setDetection({
+        prediction: hive.prediction,
+        fakeProbability: isReal
+          ? hive.aiGeneratedScore
+          : hive.notAiGeneratedScore,
+        realProbability: isReal
+          ? hive.notAiGeneratedScore
+          : hive.aiGeneratedScore,
+        imageUrl: hive.mediaUrl,
+        fileName: (locationState.fileName as string) || undefined,
+        fileType: (locationState.fileType as string) || undefined,
+        fileSize: locationState.fileSize as number | undefined,
+        uploadedAt: (locationState.uploadedAt as string) || undefined,
+        mediaId: (locationState.mediaId as string) || undefined,
+      });
       setLoading(false);
       return;
     }
 
-    // Priority 2: read from localStorage (saved after scan) using user-specific key
+    // Priority 1b: standard location state (from History, etc.)
+    const standardState = location.state as DetectionData | null;
+    if (standardState && standardState.prediction) {
+      setDetection(standardState);
+      setHiveDetection(null);
+      setLoading(false);
+      return;
+    }
+
     const prefix = userInfo?.email || userInfo?.id || "anonymous";
+
+    // Priority 2: check for hive (video) detection data in localStorage
+    const hiveStored = localStorage.getItem(`lastDetectionHive_${prefix}`);
+    if (hiveStored) {
+      try {
+        const parsed: HiveDetectionData = JSON.parse(hiveStored);
+        setHiveDetection(parsed);
+
+        // Also build standard detection data from hiveDetect for compatibility
+        const isReal = parsed.prediction === "NOT_AI_GENERATED";
+        setDetection({
+          prediction: parsed.prediction,
+          fakeProbability: isReal
+            ? parsed.aiGeneratedScore
+            : parsed.notAiGeneratedScore,
+          realProbability: isReal
+            ? parsed.notAiGeneratedScore
+            : parsed.aiGeneratedScore,
+          imageUrl: parsed.mediaUrl,
+        });
+
+        // Try to enrich with uploadData
+        const uploadDataStr = localStorage.getItem(`lastUploadData_${prefix}`);
+        if (uploadDataStr) {
+          try {
+            const uploadData = JSON.parse(uploadDataStr);
+            setDetection((prev) => ({
+              ...(prev ?? {
+                prediction: parsed.prediction,
+                fakeProbability: 0,
+                realProbability: 0,
+                imageUrl: parsed.mediaUrl,
+              }),
+              fileName: uploadData.fileName,
+              fileType: uploadData.fileType,
+              fileSize: uploadData.fileSize,
+              uploadedAt: uploadData.uploadedAt,
+              mediaId: uploadData.id,
+              imageUrl:
+                prev?.imageUrl || uploadData.originalUrl || parsed.mediaUrl,
+            }));
+          } catch {}
+        }
+
+        setLoading(false);
+        return;
+      } catch {}
+    }
+
+    // Priority 3: read standard aiDetect from localStorage
     const stored = localStorage.getItem(`lastDetection_${prefix}`);
     if (stored) {
       try {
@@ -335,13 +792,8 @@ export function Results() {
           realProbability: parsed.realProbability ?? 1,
           imageUrl: parsed.imageUrl ?? null,
           message: parsed.message ?? null,
-          // Preserve scanJobId if it was saved in lastDetection (e.g. from Recent Scans)
           scanJobId: parsed.scanJobId ?? null,
         };
-        // Try to get more info from lastUploadData (includes originalUrl for image preview)
-        // Note: uploadData.id is mediaId, NOT scanJobId - use separate field for clarity
-        // IMPORTANT: All fields from lastUploadData are fallbacks only (via ||),
-        // so data from lastDetection (e.g. Recent Scans) is NOT overwritten.
         const uploadDataStr = localStorage.getItem(`lastUploadData_${prefix}`);
         if (uploadDataStr) {
           try {
@@ -351,9 +803,6 @@ export function Results() {
             data.fileSize = data.fileSize ?? uploadData.fileSize;
             data.uploadedAt = data.uploadedAt || uploadData.uploadedAt;
             data.mediaId = data.mediaId || uploadData.id;
-            // NOTE: Do NOT assign uploadData.id to scanJobId - they are different entities!
-            // scanJobId comes from scan jobs API, not from upload response.
-            // Use originalUrl from upload response for image preview (fallback to imageUrl from aiDetect)
             data.imageUrl = data.imageUrl || uploadData.originalUrl;
           } catch {}
         }
@@ -378,7 +827,7 @@ export function Results() {
     );
   }
 
-  if (!detection) {
+  if (!detection && !hiveDetection) {
     return (
       <DashboardLayout>
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
@@ -422,7 +871,7 @@ export function Results() {
                 </h1>
               </div>
               <p className="text-slate-500 dark:text-slate-400 ml-3 text-sm">
-                {detection.fileName
+                {detection?.fileName
                   ? `Analysis complete for ${detection.fileName}`
                   : "Analysis complete"}
               </p>
@@ -445,95 +894,113 @@ export function Results() {
           >
             {/* Verdict Badge */}
             <div className="flex justify-center mb-6">
-              <VerdictBadge prediction={detection.prediction} />
-            </div>
-
-            {/* Scanned Image Preview */}
-            {detection.imageUrl && (
-              <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
-                <img
-                  src={detection.imageUrl}
-                  alt={detection.fileName || "Scanned image"}
-                  className="w-full h-auto max-h-80 object-contain bg-slate-100 dark:bg-slate-800"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Stats Cards */}
-            <div className="flex gap-3 mb-6">
-              <StatCard
-                label="Prediction"
-                value={detection.prediction}
-                color={
-                  detection.prediction?.toUpperCase() === "REAL" ||
-                  detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                  detection.prediction?.toUpperCase() === "HUMAN"
-                    ? "text-emerald-500"
-                    : "text-red-500"
+              <VerdictBadge
+                prediction={
+                  isVideoResult && hiveDetection
+                    ? hiveDetection.prediction === "NOT_AI_GENERATED"
+                      ? "REAL"
+                      : hiveDetection.prediction
+                    : detection?.prediction || "REAL"
                 }
               />
-              <StatCard
-                label="Fake Probability"
-                value={`${(detection.fakeProbability * 100).toFixed(2)}%`}
-                color="text-red-500"
-              />
-              <StatCard
-                label="Real Probability"
-                value={`${(detection.realProbability * 100).toFixed(2)}%`}
-                color="text-emerald-500"
-              />
             </div>
 
-            {/* AI Verdict Highlight */}
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 mb-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    detection.prediction?.toUpperCase() === "REAL" ||
-                    detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                    detection.prediction?.toUpperCase() === "HUMAN"
-                      ? "bg-emerald-500/10 text-emerald-500"
-                      : "bg-red-500/10 text-red-500"
-                  }`}
-                >
-                  {detection.prediction?.toUpperCase() === "REAL" ||
-                  detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                  detection.prediction?.toUpperCase() === "HUMAN" ? (
-                    <CheckCircle2 className="w-6 h-6" />
-                  ) : (
-                    <AlertTriangle className="w-6 h-6" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-slate-900 dark:text-white text-base font-bold">
-                    {detection.prediction?.toUpperCase() === "REAL" ||
-                    detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                    detection.prediction?.toUpperCase() === "HUMAN"
-                      ? "AUTHENTIC CONTENT"
-                      : "AI-GENERATED / MANIPULATED"}
-                  </p>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">
-                    AI Verdict
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* Video Detection View */}
+            {isVideoResult && hiveDetection ? (
+              <VideoDetectionView hive={hiveDetection} />
+            ) : (
+              <>
+                {/* Image/Audio Detection View */}
+                {/* Scanned Image Preview */}
+                {detection?.imageUrl && (
+                  <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                    <img
+                      src={detection.imageUrl}
+                      alt={detection.fileName || "Scanned image"}
+                      className="w-full h-auto max-h-80 object-contain bg-slate-100 dark:bg-slate-800"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  </div>
+                )}
 
-            {/* Message */}
-            {detection.message && (
-              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 mb-4">
-                <p className="text-amber-700 dark:text-amber-400 text-sm font-medium">
-                  {detection.message}
-                </p>
-              </div>
+                {/* Stats Cards */}
+                <div className="flex gap-3 mb-6">
+                  <StatCard
+                    label="Prediction"
+                    value={detection?.prediction || "REAL"}
+                    color={
+                      detection?.prediction?.toUpperCase() === "REAL" ||
+                      detection?.prediction?.toUpperCase() === "AUTHENTIC" ||
+                      detection?.prediction?.toUpperCase() === "HUMAN"
+                        ? "text-emerald-500"
+                        : "text-red-500"
+                    }
+                  />
+                  <StatCard
+                    label="Fake Probability"
+                    value={`${((detection?.fakeProbability ?? 0) * 100).toFixed(2)}%`}
+                    color="text-red-500"
+                  />
+                  <StatCard
+                    label="Real Probability"
+                    value={`${((detection?.realProbability ?? 1) * 100).toFixed(2)}%`}
+                    color="text-emerald-500"
+                  />
+                </div>
+
+                {/* AI Verdict Highlight */}
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                        detection?.prediction?.toUpperCase() === "REAL" ||
+                        detection?.prediction?.toUpperCase() === "AUTHENTIC" ||
+                        detection?.prediction?.toUpperCase() === "HUMAN"
+                          ? "bg-emerald-500/10 text-emerald-500"
+                          : "bg-red-500/10 text-red-500"
+                      }`}
+                    >
+                      {detection?.prediction?.toUpperCase() === "REAL" ||
+                      detection?.prediction?.toUpperCase() === "AUTHENTIC" ||
+                      detection?.prediction?.toUpperCase() === "HUMAN" ? (
+                        <CheckCircle2 className="w-6 h-6" />
+                      ) : (
+                        <AlertTriangle className="w-6 h-6" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-slate-900 dark:text-white text-base font-bold">
+                        {detection?.prediction?.toUpperCase() === "REAL" ||
+                        detection?.prediction?.toUpperCase() === "AUTHENTIC" ||
+                        detection?.prediction?.toUpperCase() === "HUMAN"
+                          ? "AUTHENTIC CONTENT"
+                          : "AI-GENERATED / MANIPULATED"}
+                      </p>
+                      <p className="text-slate-500 dark:text-slate-400 text-sm">
+                        AI Verdict
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Message */}
+                {detection?.message && (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 mb-4">
+                    <p className="text-amber-700 dark:text-amber-400 text-sm font-medium">
+                      {detection.message}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* File info */}
-            {detection.fileName && (
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-700/50">
+            {/* File info (shown for both views) */}
+            {detection?.fileName && (
+              <div
+                className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-700/50 ${isVideoResult ? "mt-4" : ""}`}
+              >
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-slate-400" />
                   <span className="text-slate-600 dark:text-slate-300 text-sm">
@@ -602,7 +1069,7 @@ export function Results() {
         </div>
 
         {/* Report Modal */}
-        {showReport && (
+        {showReport && detection && (
           <ReportModal
             detection={detection}
             onClose={() => setShowReport(false)}

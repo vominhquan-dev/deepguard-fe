@@ -31,7 +31,7 @@ import { useMediaUpload } from "../../detection/hooks/useMediaUpload";
 import { useDetectionResults } from "../../detection/hooks/useDetectionResults";
 import { triggerCreditsRefetch } from "../../billing/hooks/useCredits";
 import { downloadScanReportPdf } from "../../detection/api/reportApi";
-import { useAuth, type UserInfo } from "../../auth/context/AuthContext";
+import { useAuth } from "../../auth/context/AuthContext";
 
 type UploadState = "idle" | "selected" | "scanning" | "done" | "error";
 type ErrorType =
@@ -120,6 +120,7 @@ export function Dashboard() {
     progress,
     error: uploadError,
     aiDetect,
+    hiveDetect,
     data,
   } = useMediaUpload();
   const {
@@ -225,9 +226,10 @@ export function Dashboard() {
         triggerCreditsRefetch();
         refetchResults();
 
-        // Store the full upload data (with mediaId) and detection result for Results page
+        const prefix = userInfo?.email || userInfo?.id || "anonymous";
+
+        // Store AI detection result (for images/audio)
         if (uploadData?.aiDetect) {
-          const prefix = userInfo?.email || userInfo?.id || "anonymous";
           localStorage.setItem(
             `lastDetection_${prefix}`,
             JSON.stringify({
@@ -238,6 +240,33 @@ export function Dashboard() {
               message: uploadData.aiDetect.message ?? null,
             }),
           );
+        }
+
+        // Store Hive detection result (for videos)
+        if (uploadData?.hiveDetect) {
+          localStorage.setItem(
+            `lastDetectionHive_${prefix}`,
+            JSON.stringify({
+              prediction: uploadData.hiveDetect.prediction,
+              confidence: uploadData.hiveDetect.confidence,
+              aiGeneratedScore: uploadData.hiveDetect.aiGeneratedScore,
+              notAiGeneratedScore: uploadData.hiveDetect.notAiGeneratedScore,
+              deepfakeScore: uploadData.hiveDetect.deepfakeScore,
+              aiGeneratedAudioScore:
+                uploadData.hiveDetect.aiGeneratedAudioScore,
+              notAiGeneratedAudioScore:
+                uploadData.hiveDetect.notAiGeneratedAudioScore,
+              attributedGenerator: uploadData.hiveDetect.attributedGenerator,
+              frames: uploadData.hiveDetect.frames,
+              taskId: uploadData.hiveDetect.taskId,
+              mediaUrl: uploadData.hiveDetect.mediaUrl,
+              video: uploadData.hiveDetect.video,
+            }),
+          );
+        }
+
+        // Always store the full upload data
+        if (uploadData) {
           localStorage.setItem(
             `lastUploadData_${prefix}`,
             JSON.stringify(uploadData),
@@ -269,7 +298,7 @@ export function Dashboard() {
         toast.error(message);
       }
     },
-    [navigate, upload, refetchResults, userInfo],
+    [upload, refetchResults, userInfo],
   );
 
   const handleFile = (file: File) => {
@@ -1109,7 +1138,239 @@ export function Dashboard() {
                         </motion.div>
                       )}
 
-                    {uploadState === "done" && !aiDetect && (
+                    {uploadState === "done" &&
+                      !aiDetect &&
+                      hiveDetect &&
+                      data &&
+                      selectedFile && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="p-6"
+                        >
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-5">
+                            <div>
+                              <h2
+                                className="text-slate-900 dark:text-white"
+                                style={{ fontSize: "20px", fontWeight: 800 }}
+                              >
+                                Detection Results
+                              </h2>
+                              <p
+                                className="text-slate-500 dark:text-slate-400 mt-0.5"
+                                style={{ fontSize: "13px" }}
+                              >
+                                Analysis complete for{" "}
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  {selectedFile.name}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex gap-3 mb-6">
+                            <button
+                              onClick={resetUpload}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
+                              style={{ fontSize: "13px", fontWeight: 700 }}
+                            >
+                              <Upload className="w-4 h-4" />
+                              Scan Another
+                            </button>
+                            <button
+                              onClick={handleDownloadReport}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                              style={{ fontSize: "13px", fontWeight: 600 }}
+                            >
+                              <Download className="w-4 h-4" />
+                              Download Report
+                            </button>
+                            <button
+                              onClick={() => {
+                                // Pass full hiveDetect data so Results can show video view
+                                navigate("/results", {
+                                  state: {
+                                    prediction: hiveDetect.prediction,
+                                    fakeProbability:
+                                      hiveDetect.aiGeneratedScore,
+                                    realProbability:
+                                      hiveDetect.notAiGeneratedScore,
+                                    imageUrl: data.originalUrl ?? null,
+                                    fileName: selectedFile.name,
+                                    fileType: data.fileType,
+                                    fileSize: data.fileSize,
+                                    uploadedAt: data.uploadedAt,
+                                    mediaId: data.id,
+                                    originalUrl: data.originalUrl,
+                                    scanJobId: null,
+                                    _videoHive: hiveDetect, // pass full hive data
+                                  },
+                                });
+                              }}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ml-auto"
+                              style={{ fontSize: "13px", fontWeight: 600 }}
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Full Report
+                            </button>
+                          </div>
+
+                          {/* Video Preview */}
+                          <div className="mb-5 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
+                            <video
+                              src={data.originalUrl}
+                              controls
+                              className="w-full max-h-80 object-contain"
+                            >
+                              Your browser does not support the video tag.
+                            </video>
+                          </div>
+
+                          {/* Video AI Verdict */}
+                          {(() => {
+                            const isReal =
+                              hiveDetect.prediction === "NOT_AI_GENERATED";
+                            return (
+                              <div
+                                className={`flex items-start gap-3 p-4 rounded-xl mb-5 ${
+                                  isReal
+                                    ? "bg-emerald-500/5 border border-emerald-500/20"
+                                    : "bg-red-500/5 border border-red-500/20"
+                                }`}
+                              >
+                                {isReal ? (
+                                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                                ) : (
+                                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                                )}
+                                <p
+                                  className={`text-sm ${
+                                    isReal
+                                      ? "text-emerald-600 dark:text-emerald-300"
+                                      : "text-red-600 dark:text-red-300"
+                                  }`}
+                                >
+                                  {isReal
+                                    ? "This video appears to be authentic."
+                                    : "Deepfake or AI-generated content detected in this video."}
+                                </p>
+                              </div>
+                            );
+                          })()}
+
+                          {/* File info line */}
+                          <div className="flex items-center gap-2 text-slate-400 mb-6 text-xs">
+                            <span className="font-medium text-slate-500 dark:text-slate-400">
+                              {selectedFile.name}
+                            </span>
+                            <span>·</span>
+                            <span>{formatFileSize(data.fileSize)}</span>
+                            <span>·</span>
+                            <span>{getFileTypeLabel(data.fileType)}</span>
+                          </div>
+
+                          {/* Main verdict card */}
+                          {(() => {
+                            const isReal =
+                              hiveDetect.prediction === "NOT_AI_GENERATED";
+                            const verdictColor = isReal
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              : "bg-red-500/10 text-red-400 border-red-500/30";
+                            const verdictBg = isReal
+                              ? "bg-emerald-500/5 border-emerald-500/20"
+                              : "bg-red-500/5 border-red-500/20";
+                            const confidence = (
+                              hiveDetect.confidence * 100
+                            ).toFixed(2);
+                            const aiScore = (
+                              hiveDetect.aiGeneratedScore * 100
+                            ).toFixed(2);
+                            const realScore = (
+                              hiveDetect.notAiGeneratedScore * 100
+                            ).toFixed(2);
+
+                            return (
+                              <div
+                                className={`rounded-xl border ${verdictBg} p-6 mb-6`}
+                              >
+                                <div className="flex items-center gap-3 mb-4">
+                                  <div className="w-10 h-10 rounded-xl bg-white/10 dark:bg-white/5 flex items-center justify-center">
+                                    {isReal ? (
+                                      <CheckCircle2
+                                        className={`w-5 h-5 ${verdictColor}`}
+                                      />
+                                    ) : (
+                                      <AlertTriangle
+                                        className={`w-5 h-5 ${verdictColor}`}
+                                      />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p
+                                      className={`font-bold text-lg ${isReal ? "text-emerald-500" : "text-red-500"}`}
+                                    >
+                                      {isReal
+                                        ? "✓ AUTHENTIC CONTENT"
+                                        : "⚠ DEEPFAKE DETECTED"}
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 text-xs">
+                                      Hive AI Verdict · Confidence: {confidence}
+                                      %
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3 mb-4">
+                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
+                                    <p className="text-slate-400 text-xs mb-0.5">
+                                      Prediction
+                                    </p>
+                                    <p
+                                      className={`font-bold text-sm ${isReal ? "text-emerald-500" : "text-red-500"}`}
+                                    >
+                                      {hiveDetect.prediction}
+                                    </p>
+                                  </div>
+                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
+                                    <p className="text-slate-400 text-xs mb-0.5">
+                                      AI Score
+                                    </p>
+                                    <p
+                                      className={`font-bold text-sm ${!isReal ? "text-red-500" : "text-emerald-500"}`}
+                                    >
+                                      {aiScore}%
+                                    </p>
+                                  </div>
+                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
+                                    <p className="text-slate-400 text-xs mb-0.5">
+                                      Real Score
+                                    </p>
+                                    <p
+                                      className={`font-bold text-sm ${isReal ? "text-emerald-500" : "text-red-500"}`}
+                                    >
+                                      {realScore}%
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 text-slate-400 text-xs">
+                                  <span>{getFileTypeLabel(data.fileType)}</span>
+                                  <span>·</span>
+                                  <span>{formatFileSize(data.fileSize)}</span>
+                                  <span>·</span>
+                                  <span>
+                                    {hiveDetect.frames.length} frames analyzed
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </motion.div>
+                      )}
+
+                    {uploadState === "done" && !aiDetect && !hiveDetect && (
                       <div className="p-8 flex flex-col items-center justify-center gap-3">
                         <CheckCircle2 className="w-12 h-12 text-emerald-400" />
                         <p className="text-slate-900 dark:text-white font-semibold text-sm">

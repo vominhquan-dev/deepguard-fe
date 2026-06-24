@@ -4,6 +4,7 @@ import type {
   MediaUploadData,
   UploadProgress,
   AiDetectData,
+  HiveDetectData,
 } from "../types/media";
 
 interface UseMediaUploadState {
@@ -13,6 +14,7 @@ interface UseMediaUploadState {
   error: string | null;
   data: MediaUploadData | null;
   aiDetect: AiDetectData | null;
+  hiveDetect: HiveDetectData | null;
 }
 
 export function useMediaUpload() {
@@ -23,6 +25,7 @@ export function useMediaUpload() {
     error: null,
     data: null,
     aiDetect: null,
+    hiveDetect: null,
   });
 
   const upload = useCallback(async (file: File, token: string) => {
@@ -33,6 +36,7 @@ export function useMediaUpload() {
       error: null,
       data: null,
       aiDetect: null,
+      hiveDetect: null,
     }));
 
     try {
@@ -49,6 +53,7 @@ export function useMediaUpload() {
           uploading: false,
           data: response.data,
           aiDetect: response.data.aiDetect ?? null,
+          hiveDetect: response.data.hiveDetect ?? null,
           progress: { loaded: 100, total: 100, percentage: 100 },
         }));
         return response.data;
@@ -74,6 +79,7 @@ export function useMediaUpload() {
       error: null,
       data: null,
       aiDetect: null,
+      hiveDetect: null,
     });
   }, []);
 
