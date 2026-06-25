@@ -1426,36 +1426,7 @@ export function Results() {
                       </span>
                     </div>
                   )}
-                  {detection?.detectionResultId && (
-                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                        Result ID
-                      </span>
-                      <span className="text-slate-700 dark:text-slate-200 text-xs font-mono text-right ml-4 break-all max-w-[260px]">
-                        {detection.detectionResultId}
-                      </span>
-                    </div>
-                  )}
-                  {detection?.scanJobId && (
-                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                        Scan Job ID
-                      </span>
-                      <span className="text-slate-700 dark:text-slate-200 text-xs font-mono text-right ml-4 break-all max-w-[260px]">
-                        {detection.scanJobId}
-                      </span>
-                    </div>
-                  )}
-                  {detection?.mediaId && (
-                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                        Media ID
-                      </span>
-                      <span className="text-slate-700 dark:text-slate-200 text-xs font-mono text-right ml-4 break-all max-w-[260px]">
-                        {detection.mediaId}
-                      </span>
-                    </div>
-                  )}
+                  {/* Result ID, Scan Job ID, Media ID removed per user request */}
                   {detection?.processedAt && (
                     <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
                       <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
