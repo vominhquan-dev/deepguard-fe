@@ -18,6 +18,7 @@ import {
   ChevronRight as ChevronRightIcon,
   Calendar,
   Loader2,
+  Play,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useScanHistory } from "../hooks/useScanHistory";
@@ -466,21 +467,44 @@ export function History() {
 
                   {/* File name */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
                       {item.originalUrl ? (
-                        <img
-                          src={item.originalUrl}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                            (
-                              e.target as HTMLImageElement
-                            ).nextElementSibling?.classList.remove("hidden");
-                          }}
-                        />
+                        item.type === "Video" ? (
+                          <>
+                            <video
+                              src={item.originalUrl}
+                              className="w-full h-full object-cover"
+                              muted
+                              preload="metadata"
+                              onError={(e) => {
+                                (e.target as HTMLVideoElement).style.display =
+                                  "none";
+                                (
+                                  e.target as HTMLVideoElement
+                                ).nextElementSibling?.classList.remove(
+                                  "hidden",
+                                );
+                              }}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <Play className="w-3 h-3 text-white" />
+                            </div>
+                          </>
+                        ) : (
+                          <img
+                            src={item.originalUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                              (
+                                e.target as HTMLImageElement
+                              ).nextElementSibling?.classList.remove("hidden");
+                            }}
+                          />
+                        )
                       ) : null}
                       <TypeIcon
                         className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 ${item.originalUrl ? "hidden" : ""}`}
@@ -656,21 +680,44 @@ export function History() {
                   className="p-4 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700"
                 >
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
                       {item.originalUrl ? (
-                        <img
-                          src={item.originalUrl}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                            (
-                              e.target as HTMLImageElement
-                            ).nextElementSibling?.classList.remove("hidden");
-                          }}
-                        />
+                        item.type === "Video" ? (
+                          <>
+                            <video
+                              src={item.originalUrl}
+                              className="w-full h-full object-cover"
+                              muted
+                              preload="metadata"
+                              onError={(e) => {
+                                (e.target as HTMLVideoElement).style.display =
+                                  "none";
+                                (
+                                  e.target as HTMLVideoElement
+                                ).nextElementSibling?.classList.remove(
+                                  "hidden",
+                                );
+                              }}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <Play className="w-3.5 h-3.5 text-white" />
+                            </div>
+                          </>
+                        ) : (
+                          <img
+                            src={item.originalUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                              (
+                                e.target as HTMLImageElement
+                              ).nextElementSibling?.classList.remove("hidden");
+                            }}
+                          />
+                        )
                       ) : null}
                       <TypeIcon
                         className={`w-4 h-4 text-slate-400 ${item.originalUrl ? "hidden" : ""}`}

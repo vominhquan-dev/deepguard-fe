@@ -50,6 +50,12 @@ interface DetectionData {
   mediaId?: string;
   email?: string;
   type?: string;
+  // Full API fields
+  originalUrl?: string | null;
+  fakeScore?: number;
+  confidence?: number;
+  modelVersion?: string;
+  processedAt?: string;
 }
 
 interface HiveDetectionData {
@@ -651,6 +657,45 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
   );
 }
 
+/** Check whether a file is a video based on fileName, fileType, or URL */
+function isVideoFile(detection: DetectionData): boolean {
+  // Check fileType first
+  if (detection.fileType) {
+    const t = detection.fileType.toLowerCase();
+    if (t.startsWith("video/") || t === "video") return true;
+  }
+
+  // Check fileName extension
+  const name = detection.fileName || "";
+  const videoExts = [
+    "mp4",
+    "webm",
+    "ogg",
+    "mov",
+    "avi",
+    "mkv",
+    "wmv",
+    "flv",
+    "m4v",
+    "mpeg",
+    "mpg",
+    "3gp",
+  ];
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  if (videoExts.includes(ext)) return true;
+
+  // Check URL extension (imageUrl or originalUrl)
+  const urls = [detection.imageUrl, detection.originalUrl].filter(
+    Boolean,
+  ) as string[];
+  for (const url of urls) {
+    const urlExt = url.split(".").pop()?.toLowerCase().split("?")[0] || "";
+    if (videoExts.includes(urlExt)) return true;
+  }
+
+  return false;
+}
+
 // ── Main Results Page ──
 export function Results() {
   const navigate = useNavigate();
@@ -779,8 +824,9 @@ export function Results() {
               detectionResultId: d.detectionResultId,
               scanJobId: d.scanJobId,
               prediction,
-              fakeProbability: isFake ? d.confidence : 1 - d.confidence,
-              realProbability: isFake ? 1 - d.confidence : d.confidence,
+              // fakeProbability from API fakeScore, realProbability as 1 - fakeScore
+              fakeProbability: d.fakeScore,
+              realProbability: 1 - d.fakeScore,
               imageUrl: d.originalUrl || null,
               fileName: d.fileName || stateWithScanJob.fileName,
               fileType: stateWithScanJob.fileType,
@@ -788,6 +834,12 @@ export function Results() {
               uploadedAt: d.processedAt || stateWithScanJob.uploadedAt,
               mediaId: d.mediaId || stateWithScanJob.mediaId,
               email: d.email || undefined,
+              // Full API fields
+              originalUrl: d.originalUrl || undefined,
+              fakeScore: d.fakeScore,
+              confidence: d.confidence,
+              modelVersion: d.modelVersion,
+              processedAt: d.processedAt,
             });
           }
         })
@@ -991,8 +1043,8 @@ export function Results() {
             ) : (
               <>
                 {/* Image/Audio Detection View */}
-                {/* Scanned Image Preview */}
-                {detection?.imageUrl && (
+                {/* Scanned Media Preview (video or image) */}
+                {detection?.imageUrl && !isVideoFile(detection) && (
                   <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
                     <img
                       src={detection.imageUrl}
@@ -1002,6 +1054,18 @@ export function Results() {
                         (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
+                  </div>
+                )}
+                {detection?.imageUrl && isVideoFile(detection) && (
+                  <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
+                    <video
+                      src={detection.imageUrl}
+                      controls
+                      className="w-full max-h-80 object-contain"
+                      preload="metadata"
+                    >
+                      Your browser does not support the video tag.
+                    </video>
                   </div>
                 )}
 
@@ -1090,6 +1154,328 @@ export function Results() {
                     <span className="text-slate-400 text-xs ml-auto">
                       {(detection.fileSize / 1024).toFixed(1)} KB
                     </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Original Media Preview (from originalUrl) ── */}
+            {detection?.originalUrl &&
+              detection?.imageUrl !== detection?.originalUrl &&
+              !isVideoFile(detection) && (
+                <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                    <Video className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-xs font-medium text-slate-500">
+                      Original Media
+                    </span>
+                  </div>
+                  <img
+                    src={detection.originalUrl}
+                    alt="Original media"
+                    className="w-full h-auto max-h-80 object-contain bg-slate-100 dark:bg-slate-800"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                </div>
+              )}
+            {detection?.originalUrl &&
+              detection?.imageUrl !== detection?.originalUrl &&
+              isVideoFile(detection) && (
+                <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                    <Video className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-xs font-medium text-slate-500">
+                      Original Media
+                    </span>
+                  </div>
+                  <video
+                    src={detection.originalUrl}
+                    controls
+                    className="w-full max-h-80 object-contain"
+                    preload="metadata"
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              )}
+
+            {/* ── Raw Scores Section ── */}
+            {(detection?.fakeScore !== undefined ||
+              detection?.confidence !== undefined) && (
+              <div className="mt-4 p-5 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-800/30 border border-slate-100 dark:border-slate-700/50">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                  <BarChart className="w-3.5 h-3.5 text-[#2563EB]" />
+                  <span>AI Model Scores</span>
+                </h3>
+                <div className="space-y-4">
+                  {detection.fakeScore !== undefined && (
+                    <div
+                      className={`relative overflow-hidden rounded-xl border p-4 ${
+                        detection.fakeScore > 0.5
+                          ? "bg-gradient-to-r from-red-500/5 to-red-500/10 border-red-500/20"
+                          : detection.fakeScore > 0.2
+                            ? "bg-gradient-to-r from-amber-500/5 to-amber-500/10 border-amber-500/20"
+                            : "bg-gradient-to-r from-emerald-500/5 to-emerald-500/10 border-emerald-500/20"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
+                            detection.fakeScore > 0.5
+                              ? "bg-red-500/15 text-red-500"
+                              : detection.fakeScore > 0.2
+                                ? "bg-amber-500/15 text-amber-500"
+                                : "bg-emerald-500/15 text-emerald-500"
+                          }`}
+                        >
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-xs font-semibold ${
+                                  detection.fakeScore > 0.5
+                                    ? "text-red-600 dark:text-red-400"
+                                    : detection.fakeScore > 0.2
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : "text-emerald-600 dark:text-emerald-400"
+                                }`}
+                              >
+                                Fake Score
+                              </span>
+                              {detection.fakeScore > 0.5 ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-500">
+                                  HIGH
+                                </span>
+                              ) : detection.fakeScore > 0.2 ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500">
+                                  MEDIUM
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500">
+                                  LOW
+                                </span>
+                              )}
+                            </div>
+                            <span
+                              className={`text-lg font-black ${
+                                detection.fakeScore > 0.5
+                                  ? "text-red-500"
+                                  : detection.fakeScore > 0.2
+                                    ? "text-amber-500"
+                                    : "text-emerald-500"
+                              }`}
+                            >
+                              {(detection.fakeScore * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="relative h-2.5 bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                detection.fakeScore > 0.5
+                                  ? "bg-gradient-to-r from-red-400 to-red-500"
+                                  : detection.fakeScore > 0.2
+                                    ? "bg-gradient-to-r from-amber-400 to-amber-500"
+                                    : "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                              }`}
+                              style={{
+                                width: `${Math.min(detection.fakeScore * 100, 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {detection.fakeScore > 0.5
+                              ? "High probability of AI-generated content"
+                              : detection.fakeScore > 0.2
+                                ? "Moderate probability of AI-generated content"
+                                : "Low probability of AI-generated content"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {detection.confidence !== undefined && (
+                    <div
+                      className={`relative overflow-hidden rounded-xl border p-4 ${
+                        detection.confidence > 0.8
+                          ? "bg-gradient-to-r from-emerald-500/5 to-emerald-500/10 border-emerald-500/20"
+                          : detection.confidence > 0.5
+                            ? "bg-gradient-to-r from-blue-500/5 to-blue-500/10 border-blue-500/20"
+                            : "bg-gradient-to-r from-amber-500/5 to-amber-500/10 border-amber-500/20"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
+                            detection.confidence > 0.8
+                              ? "bg-emerald-500/15 text-emerald-500"
+                              : detection.confidence > 0.5
+                                ? "bg-blue-500/15 text-blue-500"
+                                : "bg-amber-500/15 text-amber-500"
+                          }`}
+                        >
+                          <Shield className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-xs font-semibold ${
+                                  detection.confidence > 0.8
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : detection.confidence > 0.5
+                                      ? "text-blue-600 dark:text-blue-400"
+                                      : "text-amber-600 dark:text-amber-400"
+                                }`}
+                              >
+                                Confidence
+                              </span>
+                              {detection.confidence > 0.8 ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500">
+                                  HIGH
+                                </span>
+                              ) : detection.confidence > 0.5 ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-500">
+                                  MEDIUM
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500">
+                                  LOW
+                                </span>
+                              )}
+                            </div>
+                            <span
+                              className={`text-lg font-black ${
+                                detection.confidence > 0.8
+                                  ? "text-emerald-500"
+                                  : detection.confidence > 0.5
+                                    ? "text-blue-500"
+                                    : "text-amber-500"
+                              }`}
+                            >
+                              {(detection.confidence * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="relative h-2.5 bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                detection.confidence > 0.8
+                                  ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                                  : detection.confidence > 0.5
+                                    ? "bg-gradient-to-r from-blue-400 to-blue-500"
+                                    : "bg-gradient-to-r from-amber-400 to-amber-500"
+                              }`}
+                              style={{
+                                width: `${Math.min(detection.confidence * 100, 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {detection.confidence > 0.8
+                              ? "High confidence in this prediction"
+                              : detection.confidence > 0.5
+                                ? "Moderate confidence in this prediction"
+                                : "Low confidence in this prediction"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Full Metadata Table ── */}
+            {(detection?.modelVersion ||
+              detection?.email ||
+              detection?.detectionResultId ||
+              detection?.scanJobId ||
+              detection?.mediaId ||
+              detection?.processedAt) && (
+              <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                  <Layers className="w-4 h-4 text-[#2563EB]" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Technical Details
+                  </h3>
+                </div>
+                <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  {detection?.email && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                        Email
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-200 text-xs font-semibold text-right ml-4 break-all">
+                        {detection.email}
+                      </span>
+                    </div>
+                  )}
+                  {detection?.modelVersion && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                        Model Version
+                      </span>
+                      <span
+                        className="text-slate-700 dark:text-slate-200 text-xs font-mono text-right ml-4 break-all max-w-[260px]"
+                        title={detection.modelVersion}
+                      >
+                        {detection.modelVersion}
+                      </span>
+                    </div>
+                  )}
+                  {detection?.detectionResultId && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                        Result ID
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-200 text-xs font-mono text-right ml-4 break-all max-w-[260px]">
+                        {detection.detectionResultId}
+                      </span>
+                    </div>
+                  )}
+                  {detection?.scanJobId && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                        Scan Job ID
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-200 text-xs font-mono text-right ml-4 break-all max-w-[260px]">
+                        {detection.scanJobId}
+                      </span>
+                    </div>
+                  )}
+                  {detection?.mediaId && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                        Media ID
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-200 text-xs font-mono text-right ml-4 break-all max-w-[260px]">
+                        {detection.mediaId}
+                      </span>
+                    </div>
+                  )}
+                  {detection?.processedAt && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                        Processed At
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-200 text-xs font-semibold text-right ml-4">
+                        {new Date(detection.processedAt).toLocaleString(
+                          "en-US",
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                            timeZoneName: "short",
+                          },
+                        )}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>

@@ -25,6 +25,7 @@ import {
   Clock,
   Layers,
   ChevronDown,
+  Play,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useMediaUpload } from "../../detection/hooks/useMediaUpload";
@@ -420,7 +421,10 @@ export function Dashboard() {
   };
 
   const formatRelativeTime = (dateStr: string) => {
-    const date = new Date(dateStr);
+    // Backend returns UTC timestamps without "Z" suffix (e.g. "2026-06-25T10:45:08.903042")
+    // Append "Z" to ensure it's parsed as UTC, not local time
+    const utcStr = dateStr.endsWith("Z") ? dateStr : dateStr + "Z";
+    const date = new Date(utcStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -1483,6 +1487,9 @@ export function Dashboard() {
                       const isImage = /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(
                         result.fileName,
                       );
+                      const isVideo = /\.(mp4|webm|mov|avi|mkv|wmv|flv)$/i.test(
+                        result.fileName,
+                      );
                       return (
                         <button
                           key={result.detectionResultId}
@@ -1522,19 +1529,44 @@ export function Dashboard() {
                           }}
                           className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all text-left group"
                         >
-                          {isImage && result.originalUrl ? (
-                            <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-600">
-                              <img
-                                src={result.originalUrl}
-                                alt={result.fileName}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  const img = e.target as HTMLImageElement;
-                                  img.style.display = "none";
-                                }}
-                              />
-                            </div>
-                          ) : (
+                          {result.originalUrl ? (
+                            isVideo ? (
+                              <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-600 relative bg-black">
+                                <video
+                                  src={result.originalUrl}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  preload="metadata"
+                                  onError={(e) => {
+                                    (
+                                      e.target as HTMLVideoElement
+                                    ).style.display = "none";
+                                    (
+                                      e.target as HTMLVideoElement
+                                    ).nextElementSibling?.classList.remove(
+                                      "hidden",
+                                    );
+                                  }}
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                  <Play className="w-4 h-4 text-white opacity-80" />
+                                </div>
+                              </div>
+                            ) : isImage ? (
+                              <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-600">
+                                <img
+                                  src={result.originalUrl}
+                                  alt={result.fileName}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const img = e.target as HTMLImageElement;
+                                    img.style.display = "none";
+                                  }}
+                                />
+                              </div>
+                            ) : null
+                          ) : null}
+                          {!result.originalUrl && (
                             <div
                               className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
                                 isFake
