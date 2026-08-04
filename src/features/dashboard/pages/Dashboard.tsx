@@ -33,6 +33,7 @@ import { useDetectionResults } from "../../detection/hooks/useDetectionResults";
 import { triggerCreditsRefetch } from "../../billing/hooks/useCredits";
 import { downloadScanReportPdf } from "../../detection/api/reportApi";
 import { useAuth } from "../../auth/context/AuthContext";
+import i18n from "../../../shared/i18n/config";
 
 type UploadState = "idle" | "selected" | "scanning" | "done" | "error";
 type ErrorType =
@@ -216,7 +217,7 @@ export function Dashboard() {
         const token = localStorage.getItem("accessToken");
         if (!token) {
           triggerError("network_error");
-          toast.error("Authentication required. Please login again.");
+          toast.error(i18n.t("errors.api.authRequired"));
           return;
         }
 
@@ -295,7 +296,10 @@ export function Dashboard() {
           });
         }, 60);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Upload failed";
+        const message =
+          err instanceof Error
+            ? err.message
+            : i18n.t("errors.api.uploadFailed");
         toast.error(message);
       }
     },
@@ -306,14 +310,14 @@ export function Dashboard() {
     // Validate file size (500MB)
     if (file.size > 500 * 1024 * 1024) {
       triggerError("file_too_large");
-      toast.error("File exceeds the 500MB limit.");
+      toast.error(i18n.t("errors.api.fileTooLarge"));
       return;
     }
     // Validate file type
     const validTypes = ["image/", "video/", "audio/"];
     if (!validTypes.some((t) => file.type.startsWith(t))) {
       triggerError("unsupported_format");
-      toast.error("Unsupported file format.");
+      toast.error(i18n.t("errors.api.unsupportedFormat"));
       return;
     }
     setSelectedFile(file);
@@ -334,7 +338,7 @@ export function Dashboard() {
 
   const handleDownloadReport = async () => {
     if (!accessToken) {
-      toast.error("Authentication required. Please login again.");
+      toast.error(i18n.t("errors.api.authRequired"));
       return;
     }
 
@@ -343,7 +347,7 @@ export function Dashboard() {
     const scanJobId = latestResult?.scanJobId;
 
     if (!scanJobId) {
-      toast.error("No scan result available for download.");
+      toast.error(i18n.t("errors.api.noScanResultDownload"));
       return;
     }
 
@@ -353,10 +357,12 @@ export function Dashboard() {
         accessToken,
         `deepguard-report-${Date.now()}.pdf`,
       );
-      toast.success("Report downloaded!");
+      toast.success(i18n.t("errors.api.reportDownloaded"));
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : "Failed to download report";
+        err instanceof Error
+          ? err.message
+          : i18n.t("errors.api.downloadFailed");
       toast.error(msg);
     }
   };

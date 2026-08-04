@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "../providers/ThemeProvider";
 import { useCredits } from "../../features/billing/hooks/useCredits";
+import { LanguageSwitcher } from "../../shared/i18n/LanguageSwitcher";
 import { Toaster } from "sonner";
 
 interface DashboardLayoutProps {
@@ -363,6 +364,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             >
               <ScanSearch className="w-4 h-4" />
             </button>
+            <LanguageSwitcher variant="compact" />
             <button className="relative w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400">
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
@@ -402,6 +404,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <ScanSearch className="w-3.5 h-3.5" />
               New Scan
             </button>
+
+            {/* Language switcher */}
+            <LanguageSwitcher variant="compact" />
 
             {/* Dark mode toggle */}
             <button

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useSearchParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../auth/context/AuthContext";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import {
@@ -137,25 +138,25 @@ const userStatusConfig: Record<
 > = {
   ACTIVE: {
     icon: CheckCircle2,
-    label: "Active",
+    label: "admin.active",
     color: "text-emerald-500",
     bg: "bg-emerald-500/10",
   },
   SUSPENDED: {
     icon: XCircle,
-    label: "Suspended",
+    label: "admin.suspended",
     color: "text-red-500",
     bg: "bg-red-500/10",
   },
   DELETED: {
     icon: AlertTriangle,
-    label: "Deleted",
+    label: "admin.deleted",
     color: "text-slate-500",
     bg: "bg-slate-500/10",
   },
   PENDING_VERIFICATION: {
     icon: Clock,
-    label: "Pending",
+    label: "admin.pending",
     color: "text-amber-500",
     bg: "bg-amber-500/10",
   },
@@ -236,6 +237,7 @@ const USER_STATUS_OPTIONS = [
 const USER_ROLE_OPTIONS = ["USER", "ADMIN"];
 
 function UsersTable() {
+  const { t } = useTranslation();
   const { accessToken } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [stats, setStats] = useState<AdminUserStats | null>(null);
@@ -320,42 +322,42 @@ function UsersTable() {
     if (!stats) return [];
     return [
       {
-        label: "Total Users",
+        label: "admin.totalUsers",
         value: stats.totalUsers,
         icon: Users,
         color: "text-purple-500",
         bg: "bg-purple-500/10",
       },
       {
-        label: "Active",
+        label: "admin.active",
         value: stats.activeUsers,
         icon: UserCheck,
         color: "text-emerald-500",
         bg: "bg-emerald-500/10",
       },
       {
-        label: "Suspended",
+        label: "admin.suspended",
         value: stats.suspendedUsers,
         icon: UserX,
         color: "text-red-500",
         bg: "bg-red-500/10",
       },
       {
-        label: "Pending Verification",
+        label: "admin.pendingVerification",
         value: stats.pendingVerificationUsers,
         icon: Clock,
         color: "text-amber-500",
         bg: "bg-amber-500/10",
       },
       {
-        label: "Admins",
+        label: "admin.admins",
         value: stats.totalAdmins,
         icon: Shield,
         color: "text-purple-500",
         bg: "bg-purple-500/10",
       },
     ];
-  }, [stats]);
+  }, [stats, t]);
 
   return (
     <div>
@@ -385,7 +387,7 @@ function UsersTable() {
                     className="text-slate-400 dark:text-slate-500"
                     style={{ fontSize: "11px", fontWeight: 600 }}
                   >
-                    {card.label}
+                    {t(card.label)}
                   </p>
                 </div>
               </div>
@@ -401,7 +403,7 @@ function UsersTable() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by name, email, username..."
+            placeholder={t("admin.searchPlaceholder")}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -412,7 +414,9 @@ function UsersTable() {
         {/* Status filter */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500">
           <Filter className="w-3.5 h-3.5" />
-          <span style={{ fontSize: "12px", fontWeight: 600 }}>Status:</span>
+          <span style={{ fontSize: "12px", fontWeight: 600 }}>
+            {t("admin.status")}
+          </span>
         </div>
         {["", "ACTIVE", "SUSPENDED", "PENDING_VERIFICATION", "DELETED"].map(
           (s) => (
@@ -428,7 +432,17 @@ function UsersTable() {
                   : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
               }`}
             >
-              {s === "" ? "All" : s.replace("_", " ")}
+              {s === ""
+                ? t("admin.all")
+                : t(
+                    s === "ACTIVE"
+                      ? "admin.active"
+                      : s === "SUSPENDED"
+                        ? "admin.suspended"
+                        : s === "PENDING_VERIFICATION"
+                          ? "admin.pending"
+                          : "admin.deleted",
+                  )}
             </button>
           ),
         )}
@@ -436,7 +450,9 @@ function UsersTable() {
         {/* Role filter */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 ml-2">
           <Shield className="w-3.5 h-3.5" />
-          <span style={{ fontSize: "12px", fontWeight: 600 }}>Role:</span>
+          <span style={{ fontSize: "12px", fontWeight: 600 }}>
+            {t("admin.role")}
+          </span>
         </div>
         {["", "USER", "ADMIN"].map((r) => (
           <button
@@ -451,7 +467,7 @@ function UsersTable() {
                 : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
             }`}
           >
-            {r || "All"}
+            {r || t("admin.all")}
           </button>
         ))}
 
@@ -590,7 +606,7 @@ function UsersTable() {
                             const sc = getUserStatusConfig(s);
                             return (
                               <option key={s} value={s}>
-                                {sc.label}
+                                {t(sc.label)}
                               </option>
                             );
                           })}
@@ -648,6 +664,7 @@ function UsersTable() {
 /* ────── Sub-tables (existing) ────── */
 
 function ScanJobsTable() {
+  const { t } = useTranslation();
   const { accessToken } = useAuth();
   const [data, setData] = useState<ScanJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -686,7 +703,9 @@ function ScanJobsTable() {
       <div className="flex items-center gap-3 mb-5">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500">
           <Filter className="w-3.5 h-3.5" />
-          <span style={{ fontSize: "12px", fontWeight: 600 }}>Status:</span>
+          <span style={{ fontSize: "12px", fontWeight: 600 }}>
+            {t("admin.status")}
+          </span>
         </div>
         {["", "QUEUED", "PROCESSING", "COMPLETED", "FAILED"].map((s) => (
           <button
@@ -976,6 +995,7 @@ function MediaTable() {
 }
 
 function DetectionResultsTable() {
+  const { t } = useTranslation();
   const { accessToken } = useAuth();
   const [data, setData] = useState<DetectionResultItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1014,7 +1034,9 @@ function DetectionResultsTable() {
       <div className="flex items-center gap-3 mb-5">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500">
           <Filter className="w-3.5 h-3.5" />
-          <span style={{ fontSize: "12px", fontWeight: 600 }}>Label:</span>
+          <span style={{ fontSize: "12px", fontWeight: 600 }}>
+            {t("admin.label")}
+          </span>
         </div>
         {["", "REAL", "FAKE"].map((l) => (
           <button
@@ -1227,10 +1249,14 @@ function DetectionResultsTable() {
 /* ────── Tabs ────── */
 
 const TABS = [
-  { key: "users", label: "Users", icon: Users },
-  { key: "scan-jobs", label: "Scan Jobs", icon: FileText },
-  { key: "media", label: "Media", icon: ImageIcon },
-  { key: "detection-results", label: "Detection Results", icon: AlertTriangle },
+  { key: "users", label: "admin.users", icon: Users },
+  { key: "scan-jobs", label: "admin.scanJobs", icon: FileText },
+  { key: "media", label: "admin.media", icon: ImageIcon },
+  {
+    key: "detection-results",
+    label: "admin.detectionResults",
+    icon: AlertTriangle,
+  },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -1238,6 +1264,7 @@ type TabKey = (typeof TABS)[number]["key"];
 /* ────── Page ────── */
 
 export function AdminDashboard() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const activeTab: TabKey =
@@ -1277,14 +1304,14 @@ export function AdminDashboard() {
                 letterSpacing: "-0.5px",
               }}
             >
-              Admin Panel
+              {t("admin.title")}
             </h1>
           </div>
           <p
             className="text-slate-500 dark:text-slate-400 ml-3"
             style={{ fontSize: "14px" }}
           >
-            System administration & data management
+            {t("admin.subtitle")}
           </p>
         </div>
 
@@ -1301,7 +1328,7 @@ export function AdminDashboard() {
               }`}
             >
               <TabIcon className="w-4 h-4" />
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>

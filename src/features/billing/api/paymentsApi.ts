@@ -1,3 +1,5 @@
+import i18n from "../../../shared/i18n/config";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 export interface PaymentData {
@@ -79,7 +81,7 @@ export async function getPaymentById(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch payment");
+    throw new Error(data.message || i18n.t("errors.api.fetchPaymentFailed"));
   }
 
   return data as PaymentResponse;
@@ -102,7 +104,9 @@ export async function getMyPayments(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch payment history");
+    throw new Error(
+      data.message || i18n.t("errors.api.fetchPaymentHistoryFailed"),
+    );
   }
 
   return data as PaymentListResponse;

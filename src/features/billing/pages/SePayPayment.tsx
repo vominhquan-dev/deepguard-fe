@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import i18n from "../../../shared/i18n/config";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { createSePayPayment, type SePayPaymentData } from "../api/sepayApi";
 import { getPaymentById } from "../api/paymentsApi";
@@ -101,23 +102,20 @@ export function SePayPayment() {
     );
 
     // Show success toast for 3 seconds
-    toast.success(
-      "🎉 Payment successful! Your plan has been upgraded and credits have been added.",
-      {
-        duration: 3000,
-        position: "top-center",
-        style: {
-          background: "linear-gradient(135deg, #059669, #10B981)",
-          color: "white",
-          border: "none",
-          fontSize: "14px",
-          fontWeight: 600,
-          padding: "16px 24px",
-          borderRadius: "12px",
-          boxShadow: "0 8px 32px rgba(5, 150, 105, 0.3)",
-        },
+    toast.success(i18n.t("errors.api.paymentSuccess"), {
+      duration: 3000,
+      position: "top-center",
+      style: {
+        background: "linear-gradient(135deg, #059669, #10B981)",
+        color: "white",
+        border: "none",
+        fontSize: "14px",
+        fontWeight: 600,
+        padding: "16px 24px",
+        borderRadius: "12px",
+        boxShadow: "0 8px 32px rgba(5, 150, 105, 0.3)",
       },
-    );
+    });
 
     // Auto-redirect to /plan after 3 seconds
     navigateTimeoutRef.current = setTimeout(() => {
@@ -149,10 +147,10 @@ export function SePayPayment() {
           clearSession();
           setError(
             data.status === "FAILED"
-              ? "Payment failed. Please try again."
+              ? i18n.t("billing.paymentFailed")
               : data.status === "EXPIRED"
-                ? "Payment session expired. Please try again."
-                : "Payment was cancelled.",
+                ? i18n.t("billing.paymentExpired")
+                : i18n.t("billing.paymentCancelled"),
           );
         }
       } catch {
@@ -171,9 +169,7 @@ export function SePayPayment() {
       cleanupTimers();
       clearSession();
       if (!completedRef.current) {
-        toast.info(
-          "Payment status check ended. You can check your billing history for updates.",
-        );
+        toast.info(i18n.t("errors.api.paymentStatusCheckEnd"));
       }
     }, POLL_DURATION);
   };
@@ -276,7 +272,11 @@ export function SePayPayment() {
         startPolling(result.response.data.paymentId, token);
       } catch (err) {
         if (isSubscribed) {
-          setError(err instanceof Error ? err.message : "Something went wrong");
+          setError(
+            err instanceof Error
+              ? err.message
+              : i18n.t("errors.api.somethingWentWrong"),
+          );
         }
       } finally {
         if (isSubscribed) {
@@ -298,10 +298,10 @@ export function SePayPayment() {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast.success(i18n.t("errors.api.copiedToClipboard"));
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Failed to copy");
+      toast.error(i18n.t("errors.api.failedToCopy"));
     }
   };
 
@@ -315,7 +315,7 @@ export function SePayPayment() {
               className="text-slate-500 dark:text-slate-400"
               style={{ fontSize: "14px" }}
             >
-              Generating payment QR code...
+              {i18n.t("billing.generatingQr")}
             </p>
           </div>
         </div>
@@ -335,7 +335,9 @@ export function SePayPayment() {
             className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-6 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span style={{ fontSize: "14px" }}>Back to Plans</span>
+            <span style={{ fontSize: "14px" }}>
+              {i18n.t("billing.backToPlans")}
+            </span>
           </button>
 
           <div className="max-w-md mx-auto mt-12 text-center">
@@ -346,16 +348,16 @@ export function SePayPayment() {
               className="text-slate-900 dark:text-white mb-2"
               style={{ fontSize: "18px", fontWeight: 700 }}
             >
-              Payment Error
+              {i18n.t("billing.paymentError")}
             </h2>
             <p className="text-slate-500 dark:text-slate-400 mb-6">
-              {error || "Unable to create payment"}
+              {error || i18n.t("billing.unableToCreatePayment")}
             </p>
             <button
               onClick={() => navigate("/plan")}
               className="px-6 py-2.5 rounded-xl bg-[#2563EB] text-white font-bold text-sm hover:bg-blue-700 transition-colors"
             >
-              Try Again
+              {i18n.t("billing.tryAgain")}
             </button>
           </div>
         </div>
@@ -374,7 +376,9 @@ export function SePayPayment() {
           className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span style={{ fontSize: "14px" }}>Back to Plans</span>
+          <span style={{ fontSize: "14px" }}>
+            {i18n.t("billing.backToPlans")}
+          </span>
         </button>
 
         <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700">
@@ -389,13 +393,13 @@ export function SePayPayment() {
                   className="text-slate-900 dark:text-white"
                   style={{ fontSize: "18px", fontWeight: 700 }}
                 >
-                  Complete Payment
+                  {i18n.t("billing.completePayment")}
                 </h2>
                 <p
                   className="text-slate-500 dark:text-slate-400"
                   style={{ fontSize: "13px" }}
                 >
-                  Transfer the exact amount via VietQR
+                  {i18n.t("billing.transferViaVietQr")}
                 </p>
               </div>
             </div>
@@ -407,7 +411,7 @@ export function SePayPayment() {
                     className="text-emerald-500"
                     style={{ fontSize: "11px", fontWeight: 600 }}
                   >
-                    Completed
+                    {i18n.t("billing.status.completed")}
                   </span>
                 </div>
               ) : paymentStatus === "FAILED" ? (
@@ -417,7 +421,7 @@ export function SePayPayment() {
                     className="text-red-500"
                     style={{ fontSize: "11px", fontWeight: 600 }}
                   >
-                    Failed
+                    {i18n.t("billing.status.failed")}
                   </span>
                 </div>
               ) : paymentStatus === "EXPIRED" ? (
@@ -427,7 +431,7 @@ export function SePayPayment() {
                     className="text-slate-500"
                     style={{ fontSize: "11px", fontWeight: 600 }}
                   >
-                    Expired
+                    {i18n.t("billing.status.expired")}
                   </span>
                 </div>
               ) : paymentStatus === "CANCELLED" ? (
@@ -437,7 +441,7 @@ export function SePayPayment() {
                     className="text-slate-500"
                     style={{ fontSize: "11px", fontWeight: 600 }}
                   >
-                    Cancelled
+                    {i18n.t("billing.status.cancelled")}
                   </span>
                 </div>
               ) : polling ? (
@@ -447,7 +451,7 @@ export function SePayPayment() {
                     className="text-amber-500"
                     style={{ fontSize: "11px", fontWeight: 600 }}
                   >
-                    Waiting for payment...
+                    {i18n.t("billing.status.waiting")}
                   </span>
                 </div>
               ) : (
@@ -457,7 +461,7 @@ export function SePayPayment() {
                     className="text-amber-500"
                     style={{ fontSize: "11px", fontWeight: 600 }}
                   >
-                    Pending
+                    {i18n.t("billing.status.pending")}
                   </span>
                 </div>
               )}
@@ -476,14 +480,15 @@ export function SePayPayment() {
                     className="text-emerald-600 dark:text-emerald-400 font-bold"
                     style={{ fontSize: "16px" }}
                   >
-                    Payment Successful!
+                    {i18n.t("billing.paymentSuccessful")}
                   </h3>
                   <p
                     className="text-emerald-600/70 dark:text-emerald-400/70"
                     style={{ fontSize: "13px" }}
                   >
-                    Your plan has been upgraded. {payment.credits} credits have
-                    been added to your account.
+                    {i18n.t("billing.paymentUpgradedCredits", {
+                      credits: payment.credits,
+                    })}
                   </p>
                 </div>
               </div>
@@ -491,7 +496,7 @@ export function SePayPayment() {
                 onClick={() => navigate("/plan")}
                 className="mt-4 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors"
               >
-                Back to Plan
+                {i18n.t("billing.backToPlan")}
               </button>
             </div>
           )}
@@ -514,7 +519,7 @@ export function SePayPayment() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-sm transition-colors shadow-lg shadow-blue-500/25"
               >
                 <ExternalLink className="w-4 h-4" />
-                Open in Banking App
+                {i18n.t("billing.openInBankingApp")}
               </a>
             </div>
 
@@ -527,7 +532,7 @@ export function SePayPayment() {
                     className="text-slate-500 dark:text-slate-400"
                     style={{ fontSize: "13px" }}
                   >
-                    Plan
+                    {i18n.t("billing.plan")}
                   </span>
                   <span
                     className="text-slate-900 dark:text-white font-semibold"
@@ -541,7 +546,7 @@ export function SePayPayment() {
                     className="text-slate-500 dark:text-slate-400"
                     style={{ fontSize: "13px" }}
                   >
-                    Credits
+                    {i18n.t("billing.credits")}
                   </span>
                   <span
                     className="text-slate-900 dark:text-white font-semibold"
@@ -555,7 +560,7 @@ export function SePayPayment() {
                     className="text-slate-500 dark:text-slate-400"
                     style={{ fontSize: "13px" }}
                   >
-                    Amount
+                    {i18n.t("billing.amount")}
                   </span>
                   <span
                     className="text-slate-900 dark:text-white font-bold"
@@ -573,7 +578,7 @@ export function SePayPayment() {
                     className="text-slate-500 dark:text-slate-400"
                     style={{ fontSize: "13px" }}
                   >
-                    Bank
+                    {i18n.t("billing.bank")}
                   </span>
                   <span
                     className="text-slate-900 dark:text-white font-semibold"
@@ -587,7 +592,7 @@ export function SePayPayment() {
                     className="text-slate-500 dark:text-slate-400"
                     style={{ fontSize: "13px" }}
                   >
-                    Account No.
+                    {i18n.t("billing.accountNo")}
                   </span>
                   <div className="flex items-center gap-2 min-w-0">
                     <span
@@ -613,7 +618,7 @@ export function SePayPayment() {
                     className="text-slate-500 dark:text-slate-400"
                     style={{ fontSize: "13px" }}
                   >
-                    Account Name
+                    {i18n.t("billing.accountName")}
                   </span>
                   <span
                     className="text-slate-900 dark:text-white font-semibold text-right"
@@ -628,7 +633,7 @@ export function SePayPayment() {
                       className="text-slate-500 dark:text-slate-400"
                       style={{ fontSize: "13px" }}
                     >
-                      Transfer Content
+                      {i18n.t("billing.transferContent")}
                     </span>
                     <div className="flex items-center gap-2 min-w-0">
                       <span
@@ -658,29 +663,28 @@ export function SePayPayment() {
                   className="text-slate-600 dark:text-slate-300 font-semibold mb-2"
                   style={{ fontSize: "12px" }}
                 >
-                  📋 Instructions
+                  {i18n.t("billing.instructions")}
                 </p>
                 <ol
                   className="text-slate-500 dark:text-slate-400 space-y-1.5"
                   style={{ fontSize: "12px" }}
                 >
-                  <li>1. Open your banking app</li>
-                  <li>2. Scan the QR code or transfer to the account above</li>
+                  <li>{i18n.t("billing.instructionsSteps.step1")}</li>
+                  <li>{i18n.t("billing.instructionsSteps.step2")}</li>
                   <li>
-                    3. Enter the exact amount:{" "}
+                    {i18n.t("billing.instructionsSteps.step3")}{" "}
                     <strong className="text-slate-900 dark:text-white">
                       {amountFormatted}₫
                     </strong>
                   </li>
-                  <li>4. Copy the transfer content exactly as shown</li>
-                  <li>5. Complete the transfer</li>
+                  <li>{i18n.t("billing.instructionsSteps.step4")}</li>
+                  <li>{i18n.t("billing.instructionsSteps.step5")}</li>
                 </ol>
                 <p
                   className="text-slate-400 mt-2 italic"
                   style={{ fontSize: "11px" }}
                 >
-                  Credits will be added automatically after payment is
-                  confirmed.
+                  {i18n.t("billing.creditsAutoAdded")}
                 </p>
               </div>
             </div>

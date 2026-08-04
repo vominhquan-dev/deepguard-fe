@@ -1,3 +1,5 @@
+import i18n from "../../../shared/i18n/config";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 /**
@@ -23,14 +25,12 @@ export async function downloadScanReportPdf(
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error("Authentication required. Please log in again.");
+      throw new Error(i18n.t("errors.api.authRequired"));
     }
     if (response.status === 404) {
-      throw new Error(
-        "Scan job not found. The report may no longer be available.",
-      );
+      throw new Error(i18n.t("errors.api.scanJobNotFound"));
     }
-    throw new Error("Failed to generate PDF report. Please try again later.");
+    throw new Error(i18n.t("errors.api.pdfGenerationFailed"));
   }
 
   // Convert response to blob and trigger download

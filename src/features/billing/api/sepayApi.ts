@@ -1,5 +1,6 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "/api";
+import i18n from "../../../shared/i18n/config";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 export interface SePayCreateRequest {
   pricingPlanId: string;
@@ -50,7 +51,7 @@ export async function createSePayPayment(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "Failed to create payment");
+    throw new Error(data.message || i18n.t("errors.api.createPaymentFailed"));
   }
 
   return data as SePayResponse;

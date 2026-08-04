@@ -1,3 +1,4 @@
+import i18n from "../../../shared/i18n/config";
 import {
   LoginRequest,
   LoginResponse,
@@ -48,7 +49,7 @@ export async function refreshToken(token: string): Promise<LoginResponse> {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to refresh token");
+    throw new Error(i18n.t("errors.api.refreshTokenFailed"));
   }
 
   return response.json();

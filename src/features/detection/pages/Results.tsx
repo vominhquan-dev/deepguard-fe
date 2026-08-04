@@ -24,6 +24,7 @@ import {
   Film,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
+import i18n from "../../../shared/i18n/config";
 import { toast } from "sonner";
 import { useAuth } from "../../auth/context/AuthContext";
 import { downloadScanReportPdf } from "../api/reportApi";
@@ -190,9 +191,9 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
       await navigator.clipboard.writeText(reportText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      toast.success("Report copied to clipboard");
+      toast.success(i18n.t("errors.api.reportCopied"));
     } catch {
-      toast.error("Failed to copy report");
+      toast.error(i18n.t("errors.api.failedToCopyReport"));
     }
   };
 
@@ -712,7 +713,7 @@ export function Results() {
 
   const handleDownloadPdf = async () => {
     if (!accessToken) {
-      toast.error("Please log in again to download reports.");
+      toast.error(i18n.t("errors.api.loginAgainDownload"));
       return;
     }
 
@@ -720,7 +721,7 @@ export function Results() {
 
     // If scanJobId is not available yet, try fetching latest results from API
     if (!scanJobId) {
-      toast.info("Fetching scan data...");
+      toast.info(i18n.t("errors.api.fetchingScanData"));
 
       try {
         const response = await getUserDetectionResults(accessToken);
@@ -740,21 +741,21 @@ export function Results() {
             return prev;
           });
         } else {
-          toast.error("No scan result found. Please try scanning again.");
+          toast.error(i18n.t("errors.api.noScanResultFound"));
           return;
         }
       } catch (error) {
         toast.error(
           error instanceof Error
             ? error.message
-            : "Failed to fetch scan data for report download",
+            : i18n.t("errors.api.fetchScanDataFailed"),
         );
         return;
       }
     }
 
     if (!scanJobId) {
-      toast.error("No scan job ID available for this detection.");
+      toast.error(i18n.t("errors.api.noScanJobId"));
       return;
     }
 
@@ -765,12 +766,12 @@ export function Results() {
         accessToken,
         `deepguard-report-${scanJobId}.pdf`,
       );
-      toast.success("PDF report downloaded successfully");
+      toast.success(i18n.t("errors.api.pdfDownloaded"));
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to download PDF report",
+          : i18n.t("errors.api.downloadPdfFailed"),
       );
     } finally {
       setDownloadingPdf(false);

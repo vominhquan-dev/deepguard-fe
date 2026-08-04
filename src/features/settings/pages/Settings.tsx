@@ -22,6 +22,7 @@ import {
   Globe,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
+import i18n from "../../../shared/i18n/config";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import { updateUserProfile } from "../../../features/auth/api/userProfilesApi";
@@ -29,36 +30,36 @@ import { createUserProfile } from "../../../features/auth/api/userProfilesApi";
 
 type Tab = "profile" | "notifications" | "security" | "appearance";
 
-const tabs: { id: Tab; label: string; icon: any }[] = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "security", label: "Security", icon: Shield },
-  { id: "appearance", label: "Appearance", icon: Palette },
+const tabs: { id: Tab; labelKey: string; icon: any }[] = [
+  { id: "profile", labelKey: "settings.tabs.profile", icon: User },
+  { id: "notifications", labelKey: "settings.tabs.notifications", icon: Bell },
+  { id: "security", labelKey: "settings.tabs.security", icon: Shield },
+  { id: "appearance", labelKey: "settings.tabs.appearance", icon: Palette },
 ];
 
 const notifOptions = [
   {
     key: "deepfake_alert",
-    label: "Deepfake Detected",
-    desc: "Alert when a scan returns a high-risk verdict",
+    labelKey: "settings.notifOptions.deepfakeAlert",
+    descKey: "settings.notifOptions.deepfakeAlertDesc",
     defaultOn: true,
   },
   {
     key: "scan_complete",
-    label: "Scan Complete",
-    desc: "Notify when your file analysis is done",
+    labelKey: "settings.notifOptions.scanComplete",
+    descKey: "settings.notifOptions.scanCompleteDesc",
     defaultOn: true,
   },
   {
     key: "weekly_report",
-    label: "Weekly Report",
-    desc: "Receive a weekly summary of your scan activity",
+    labelKey: "settings.notifOptions.weeklyReport",
+    descKey: "settings.notifOptions.weeklyReportDesc",
     defaultOn: false,
   },
   {
     key: "product_updates",
-    label: "Product Updates",
-    desc: "News about new features and improvements",
+    labelKey: "settings.notifOptions.productUpdates",
+    descKey: "settings.notifOptions.productUpdatesDesc",
     defaultOn: false,
   },
 ];
@@ -104,11 +105,11 @@ export function Settings() {
 
   const handleAvatarSelect = (file: File) => {
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file.");
+      toast.error(i18n.t("errors.api.selectImageFile"));
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5MB.");
+      toast.error(i18n.t("errors.api.imageTooLarge"));
       return;
     }
     setAvatarFile(file);
@@ -119,12 +120,12 @@ export function Settings() {
 
   const handleCreateProfile = async () => {
     if (!accessToken) {
-      toast.error("You must be logged in to create a profile.");
+      toast.error(i18n.t("errors.api.loginToCreateProfile"));
       return;
     }
 
     if (!profile.name.trim()) {
-      toast.error("Please enter your full name.");
+      toast.error(i18n.t("errors.api.enterFullName"));
       return;
     }
 
@@ -139,13 +140,13 @@ export function Settings() {
 
       if (response.success) {
         setAuthProfile(response.data);
-        toast.success("Profile created successfully!");
+        toast.success(i18n.t("errors.api.profileCreated"));
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Failed to create profile. Please try again.";
+          : i18n.t("errors.api.createProfileFailed");
       toast.error(errorMessage);
     } finally {
       setIsSaving(false);
@@ -154,12 +155,12 @@ export function Settings() {
 
   const handleSaveProfile = async () => {
     if (!accessToken) {
-      toast.error("You must be logged in to save your profile.");
+      toast.error(i18n.t("errors.api.loginToSaveProfile"));
       return;
     }
 
     if (!profile.name.trim()) {
-      toast.error("Please enter your full name.");
+      toast.error(i18n.t("errors.api.enterFullName"));
       return;
     }
 
@@ -174,13 +175,13 @@ export function Settings() {
 
       if (response.success) {
         setAuthProfile(response.data);
-        toast.success("Profile saved successfully!");
+        toast.success(i18n.t("errors.api.profileSaved"));
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Failed to save profile. Please try again.";
+          : i18n.t("errors.api.saveProfileFailed");
       toast.error(errorMessage);
     } finally {
       setIsSaving(false);
@@ -189,11 +190,11 @@ export function Settings() {
 
   const handleCopyKey = () => {
     navigator.clipboard.writeText(fakeApiKey).catch(() => {});
-    toast.success("API key copied to clipboard");
+    toast.success(i18n.t("errors.api.apiKeyCopied"));
   };
 
   const handleRegenerateKey = () => {
-    toast.info("Generating new API key... (demo only)");
+    toast.info(i18n.t("errors.api.generatingApiKey"));
   };
 
   return (
@@ -211,14 +212,14 @@ export function Settings() {
                 letterSpacing: "-0.5px",
               }}
             >
-              Settings
+              {i18n.t("settings.title")}
             </h1>
           </div>
           <p
             className="text-slate-500 dark:text-slate-400 ml-3"
             style={{ fontSize: "14px" }}
           >
-            Manage your account, preferences, and plan
+            {i18n.t("settings.subtitle")}
           </p>
         </div>
 
@@ -226,7 +227,7 @@ export function Settings() {
           {/* Sidebar tabs */}
           <div className="lg:col-span-1">
             <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-2">
-              {tabs.map(({ id, label, icon: Icon }) => (
+              {tabs.map(({ id, labelKey, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
@@ -238,7 +239,7 @@ export function Settings() {
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
                   <span style={{ fontSize: "14px", fontWeight: 500 }}>
-                    {label}
+                    {i18n.t(labelKey)}
                   </span>
                   {activeTab === id && (
                     <ChevronRight className="w-3.5 h-3.5 ml-auto" />
@@ -275,15 +276,13 @@ export function Settings() {
                         letterSpacing: "-0.3px",
                       }}
                     >
-                      Complete Your Profile
+                      {i18n.t("settings.completeYourProfile")}
                     </h2>
                     <p
                       className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm leading-relaxed"
                       style={{ fontSize: "14px" }}
                     >
-                      Set up your profile to unlock the full DeepGuard
-                      experience — add your name, bio, and a profile photo so
-                      your team can recognize you.
+                      {i18n.t("settings.completeProfileDesc")}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3">
                       <button
@@ -292,7 +291,7 @@ export function Settings() {
                         style={{ fontSize: "14px", fontWeight: 700 }}
                       >
                         <User className="w-4 h-4" />
-                        Create Profile
+                        {i18n.t("settings.createProfile")}
                       </button>
                       <button
                         onClick={() => setActiveTab("appearance")}
@@ -300,18 +299,18 @@ export function Settings() {
                         style={{ fontSize: "14px", fontWeight: 600 }}
                       >
                         <Palette className="w-4 h-4" />
-                        Customize Theme
+                        {i18n.t("settings.customizeTheme")}
                       </button>
                     </div>
                     {/* Feature hints */}
                     <div className="grid grid-cols-3 gap-4 mt-10 pt-8 border-t border-slate-100 dark:border-slate-800 w-full max-w-sm">
                       {[
-                        { icon: Camera, label: "Avatar" },
-                        { icon: Globe, label: "Public Bio" },
-                        { icon: Shield, label: "Verified" },
-                      ].map(({ icon: Icon, label }) => (
+                        { icon: Camera, labelKey: "settings.avatar" },
+                        { icon: Globe, labelKey: "settings.publicBio" },
+                        { icon: Shield, labelKey: "settings.verified" },
+                      ].map(({ icon: Icon, labelKey }) => (
                         <div
-                          key={label}
+                          key={labelKey}
                           className="flex flex-col items-center gap-1.5"
                         >
                           <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
@@ -321,7 +320,7 @@ export function Settings() {
                             className="text-slate-400 dark:text-slate-500"
                             style={{ fontSize: "11px", fontWeight: 600 }}
                           >
-                            {label}
+                            {i18n.t(labelKey)}
                           </span>
                         </div>
                       ))}
@@ -336,7 +335,7 @@ export function Settings() {
                     className="text-slate-900 dark:text-white mb-6"
                     style={{ fontSize: "16px", fontWeight: 700 }}
                   >
-                    Profile Information
+                    {i18n.t("settings.profileInformation")}
                   </h2>
 
                   {/* Avatar */}
@@ -393,7 +392,9 @@ export function Settings() {
                           style={{ fontSize: "12px", fontWeight: 600 }}
                         >
                           <Camera className="w-3.5 h-3.5 inline mr-1.5" />
-                          {avatarPreview ? "Change Photo" : "Upload Photo"}
+                          {avatarPreview
+                            ? i18n.t("settings.changePhoto")
+                            : i18n.t("settings.uploadPhoto")}
                         </button>
                         {avatarPreview && (
                           <button
@@ -415,7 +416,7 @@ export function Settings() {
                           className="text-emerald-500 mt-2"
                           style={{ fontSize: "11px", fontWeight: 600 }}
                         >
-                          New photo ready to upload — save to apply
+                          {i18n.t("settings.newPhotoReady")}
                         </p>
                       )}
                     </div>
@@ -428,7 +429,8 @@ export function Settings() {
                         className="block mb-1.5 text-slate-700 dark:text-slate-300"
                         style={{ fontSize: "13px", fontWeight: 600 }}
                       >
-                        Full Name <span className="text-red-500">*</span>
+                        {i18n.t("settings.fullName")}{" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -446,14 +448,14 @@ export function Settings() {
                         className="block mb-1.5 text-slate-700 dark:text-slate-300"
                         style={{ fontSize: "13px", fontWeight: 600 }}
                       >
-                        Bio
+                        {i18n.t("settings.bio")}
                       </label>
                       <textarea
                         value={profile.bio}
                         onChange={(e) =>
                           setProfile((p) => ({ ...p, bio: e.target.value }))
                         }
-                        placeholder="Tell us a little about yourself..."
+                        placeholder={i18n.t("settings.bioPlaceholder")}
                         rows={3}
                         maxLength={200}
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all placeholder-slate-400 resize-none"
@@ -463,7 +465,9 @@ export function Settings() {
                         className="text-slate-400 mt-1"
                         style={{ fontSize: "11px" }}
                       >
-                        {profile.bio.length}/200 characters
+                        {i18n.t("settings.bioCount", {
+                          count: profile.bio.length,
+                        })}
                       </p>
                     </div>
                   </div>
@@ -479,7 +483,7 @@ export function Settings() {
                           textTransform: "uppercase",
                         }}
                       >
-                        Email Address
+                        {i18n.t("settings.emailAddress")}
                       </p>
                       <p
                         className="text-slate-900 dark:text-white mt-0.5"
@@ -497,7 +501,7 @@ export function Settings() {
                           textTransform: "uppercase",
                         }}
                       >
-                        Organization
+                        {i18n.t("settings.organization")}
                       </p>
                       <p
                         className="text-slate-900 dark:text-white mt-0.5"
@@ -515,7 +519,7 @@ export function Settings() {
                           textTransform: "uppercase",
                         }}
                       >
-                        Role
+                        {i18n.t("settings.role")}
                       </p>
                       <p
                         className="text-slate-900 dark:text-white mt-0.5"
@@ -532,7 +536,7 @@ export function Settings() {
                     style={{ fontSize: "14px", fontWeight: 700 }}
                   >
                     <Save className="w-4 h-4" />
-                    Save Changes
+                    {i18n.t("settings.saveChanges")}
                   </button>
                 </div>
               )}
@@ -544,10 +548,10 @@ export function Settings() {
                     className="text-slate-900 dark:text-white mb-6"
                     style={{ fontSize: "16px", fontWeight: 700 }}
                   >
-                    Notification Preferences
+                    {i18n.t("settings.notificationPreferences")}
                   </h2>
                   <div className="space-y-4">
-                    {notifOptions.map(({ key, label, desc }) => (
+                    {notifOptions.map(({ key, labelKey, descKey }) => (
                       <div
                         key={key}
                         className="flex items-start justify-between gap-4 p-4 rounded-xl border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
@@ -557,20 +561,23 @@ export function Settings() {
                             className="text-slate-900 dark:text-slate-200"
                             style={{ fontSize: "14px", fontWeight: 600 }}
                           >
-                            {label}
+                            {i18n.t(labelKey)}
                           </p>
                           <p
                             className="text-slate-500 dark:text-slate-400 mt-0.5"
                             style={{ fontSize: "13px" }}
                           >
-                            {desc}
+                            {i18n.t(descKey)}
                           </p>
                         </div>
                         <button
                           onClick={() => {
                             setNotifs((n) => ({ ...n, [key]: !n[key] }));
                             toast.success(
-                              `${label} notifications ${notifs[key] ? "disabled" : "enabled"}`,
+                              i18n.t("errors.api.notificationsToggled", {
+                                label: i18n.t(labelKey),
+                                state: notifs[key] ? "disabled" : "enabled",
+                              }),
                             );
                           }}
                           className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 mt-0.5 ${notifs[key] ? "bg-[#2563EB]" : "bg-slate-200 dark:bg-slate-700"}`}
@@ -587,20 +594,36 @@ export function Settings() {
                       className="text-slate-500 dark:text-slate-400 mb-3"
                       style={{ fontSize: "13px", fontWeight: 600 }}
                     >
-                      Notification Channels
+                      {i18n.t("settings.notificationChannels")}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {[
-                        "Email",
-                        "In-App",
-                        "Slack (soon)",
-                        "Webhook (soon)",
-                      ].map((ch) => (
+                        {
+                          key: "email",
+                          labelKey: "settings.channelEmail",
+                          soon: false,
+                        },
+                        {
+                          key: "inapp",
+                          labelKey: "settings.channelInApp",
+                          soon: false,
+                        },
+                        {
+                          key: "slack",
+                          labelKey: "settings.channelSlack",
+                          soon: true,
+                        },
+                        {
+                          key: "webhook",
+                          labelKey: "settings.channelWebhook",
+                          soon: true,
+                        },
+                      ].map(({ key, labelKey, soon }) => (
                         <span
-                          key={ch}
-                          className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${ch.includes("soon") ? "border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-600" : "border-[#2563EB]/30 bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE]"}`}
+                          key={key}
+                          className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${soon ? "border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-600" : "border-[#2563EB]/30 bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE]"}`}
                         >
-                          {ch}
+                          {i18n.t(labelKey)}
                         </span>
                       ))}
                     </div>
@@ -616,20 +639,26 @@ export function Settings() {
                       className="text-slate-900 dark:text-white mb-5"
                       style={{ fontSize: "16px", fontWeight: 700 }}
                     >
-                      Change Password
+                      {i18n.t("settings.changePassword")}
                     </h2>
                     <div className="space-y-4 mb-5">
                       {[
-                        "Current Password",
-                        "New Password",
-                        "Confirm New Password",
-                      ].map((label) => (
-                        <div key={label}>
+                        {
+                          key: "current",
+                          labelKey: "settings.currentPassword",
+                        },
+                        { key: "new", labelKey: "settings.newPassword" },
+                        {
+                          key: "confirm",
+                          labelKey: "settings.confirmNewPassword",
+                        },
+                      ].map(({ key, labelKey }) => (
+                        <div key={key}>
                           <label
                             className="block mb-1.5 text-slate-700 dark:text-slate-300"
                             style={{ fontSize: "13px", fontWeight: 600 }}
                           >
-                            {label}
+                            {i18n.t(labelKey)}
                           </label>
                           <input
                             type="password"
@@ -642,13 +671,13 @@ export function Settings() {
                     </div>
                     <button
                       onClick={() =>
-                        toast.success("Password updated successfully!")
+                        toast.success(i18n.t("errors.api.passwordUpdated"))
                       }
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
                       style={{ fontSize: "14px", fontWeight: 700 }}
                     >
                       <Shield className="w-4 h-4" />
-                      Update Password
+                      {i18n.t("settings.updatePassword")}
                     </button>
                   </div>
 
@@ -657,13 +686,13 @@ export function Settings() {
                       className="text-slate-900 dark:text-white mb-1"
                       style={{ fontSize: "16px", fontWeight: 700 }}
                     >
-                      Two-Factor Authentication
+                      {i18n.t("settings.twoFactorAuth")}
                     </h2>
                     <p
                       className="text-slate-500 dark:text-slate-400 mb-5"
                       style={{ fontSize: "13px" }}
                     >
-                      Add an extra layer of security to your account.
+                      {i18n.t("settings.twoFactorDesc")}
                     </p>
                     <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                       <div className="flex items-center gap-3">
@@ -675,22 +704,24 @@ export function Settings() {
                             className="text-slate-900 dark:text-slate-200"
                             style={{ fontSize: "14px", fontWeight: 600 }}
                           >
-                            2FA Enabled
+                            {i18n.t("settings.twoFactorEnabled")}
                           </p>
                           <p
                             className="text-slate-500 dark:text-slate-400"
                             style={{ fontSize: "12px" }}
                           >
-                            Authenticator app configured
+                            {i18n.t("settings.authenticatorApp")}
                           </p>
                         </div>
                       </div>
                       <button
-                        onClick={() => toast.info("2FA management coming soon")}
+                        onClick={() =>
+                          toast.info(i18n.t("errors.api.twoFaComingSoon"))
+                        }
                         className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                         style={{ fontSize: "12px", fontWeight: 600 }}
                       >
-                        Manage
+                        {i18n.t("settings.manage")}
                       </button>
                     </div>
                   </div>
@@ -700,25 +731,24 @@ export function Settings() {
                       className="text-red-500 mb-1"
                       style={{ fontSize: "16px", fontWeight: 700 }}
                     >
-                      Danger Zone
+                      {i18n.t("settings.dangerZone")}
                     </h2>
                     <p
                       className="text-slate-500 dark:text-slate-400 mb-4"
                       style={{ fontSize: "13px" }}
                     >
-                      These actions are irreversible. Please proceed with
-                      caution.
+                      {i18n.t("settings.dangerZoneDesc")}
                     </p>
                     <button
                       onClick={() =>
                         toast.error(
-                          "Account deletion requires email confirmation",
+                          i18n.t("errors.api.accountDeletionRequiresEmail"),
                         )
                       }
                       className="px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
                       style={{ fontSize: "13px", fontWeight: 700 }}
                     >
-                      Delete Account
+                      {i18n.t("settings.deleteAccount")}
                     </button>
                   </div>
                 </div>
@@ -732,76 +762,82 @@ export function Settings() {
                       className="text-slate-900 dark:text-white mb-5"
                       style={{ fontSize: "16px", fontWeight: 700 }}
                     >
-                      Theme
+                      {i18n.t("settings.themeTitle")}
                     </h2>
                     <div className="grid sm:grid-cols-3 gap-3">
                       {[
                         {
                           id: "light",
-                          label: "Light",
+                          labelKey: "settings.light",
                           icon: Sun,
-                          desc: "Clean white interface",
+                          descKey: "settings.lightDesc",
                           preview: "bg-white border-slate-200",
                         },
                         {
                           id: "dark",
-                          label: "Dark",
+                          labelKey: "settings.dark",
                           icon: Moon,
-                          desc: "Easy on the eyes",
+                          descKey: "settings.darkDesc",
                           preview: "bg-slate-900 border-slate-700",
                         },
                         {
                           id: "system",
-                          label: "System",
+                          labelKey: "settings.system",
                           icon: Monitor,
-                          desc: "Follows OS setting",
+                          descKey: "settings.systemDesc",
                           preview:
                             "bg-gradient-to-r from-white to-slate-900 border-slate-400",
                         },
-                      ].map(({ id, label, icon: Icon, desc, preview }) => (
-                        <button
-                          key={id}
-                          onClick={() => {
-                            if (id === "light" && theme === "dark")
-                              toggleTheme();
-                            else if (id === "dark" && theme === "light")
-                              toggleTheme();
-                            toast.success(`Switched to ${label} mode`);
-                          }}
-                          className={`p-4 rounded-xl border-2 text-left transition-all ${
-                            id === theme || (id === "system" && false)
-                              ? "border-[#2563EB] bg-[#2563EB]/5"
-                              : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
-                          }`}
-                        >
-                          <div
-                            className={`h-12 rounded-lg border mb-3 ${preview}`}
-                          />
-                          <div className="flex items-center gap-2 mb-1">
-                            <Icon className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                            <span
-                              className="text-slate-900 dark:text-white"
-                              style={{ fontSize: "14px", fontWeight: 700 }}
-                            >
-                              {label}
-                            </span>
-                            {id === theme && (
-                              <span
-                                className="ml-auto px-2 py-0.5 rounded-md bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE]"
-                                style={{ fontSize: "10px", fontWeight: 700 }}
-                              >
-                                Active
-                              </span>
-                            )}
-                          </div>
-                          <p
-                            className="text-slate-500 dark:text-slate-400"
-                            style={{ fontSize: "12px" }}
+                      ].map(
+                        ({ id, labelKey, icon: Icon, descKey, preview }) => (
+                          <button
+                            key={id}
+                            onClick={() => {
+                              if (id === "light" && theme === "dark")
+                                toggleTheme();
+                              else if (id === "dark" && theme === "light")
+                                toggleTheme();
+                              toast.success(
+                                i18n.t("errors.api.switchedToMode", {
+                                  label: i18n.t(labelKey),
+                                }),
+                              );
+                            }}
+                            className={`p-4 rounded-xl border-2 text-left transition-all ${
+                              id === theme || (id === "system" && false)
+                                ? "border-[#2563EB] bg-[#2563EB]/5"
+                                : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                            }`}
                           >
-                            {desc}
-                          </p>
-                        </button>
-                      ))}
+                            <div
+                              className={`h-12 rounded-lg border mb-3 ${preview}`}
+                            />
+                            <div className="flex items-center gap-2 mb-1">
+                              <Icon className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                              <span
+                                className="text-slate-900 dark:text-white"
+                                style={{ fontSize: "14px", fontWeight: 700 }}
+                              >
+                                {i18n.t(labelKey)}
+                              </span>
+                              {id === theme && (
+                                <span
+                                  className="ml-auto px-2 py-0.5 rounded-md bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE]"
+                                  style={{ fontSize: "10px", fontWeight: 700 }}
+                                >
+                                  {i18n.t("settings.active")}
+                                </span>
+                              )}
+                            </div>
+                            <p
+                              className="text-slate-500 dark:text-slate-400"
+                              style={{ fontSize: "12px" }}
+                            >
+                              {i18n.t(descKey)}
+                            </p>
+                          </button>
+                        ),
+                      )}
                     </div>
                   </div>
 
@@ -810,34 +846,44 @@ export function Settings() {
                       className="text-slate-900 dark:text-white mb-1"
                       style={{ fontSize: "16px", fontWeight: 700 }}
                     >
-                      Accent Color
+                      {i18n.t("settings.accentColor")}
                     </h2>
                     <p
                       className="text-slate-500 dark:text-slate-400 mb-4"
                       style={{ fontSize: "13px" }}
                     >
-                      Choose the highlight color for buttons and active states.
+                      {i18n.t("settings.accentColorDesc")}
                     </p>
                     <div className="flex gap-3">
                       {[
                         {
                           color: "#2563EB",
-                          label: "Electric Blue",
+                          labelKey: "settings.electricBlue",
                           active: true,
                         },
-                        { color: "#7C3AED", label: "Violet" },
-                        { color: "#059669", label: "Emerald" },
-                        { color: "#DC2626", label: "Red" },
-                        { color: "#D97706", label: "Amber" },
-                      ].map(({ color, label, active }) => (
+                        {
+                          color: "#7C3AED",
+                          labelKey: "settings.violet",
+                        },
+                        {
+                          color: "#059669",
+                          labelKey: "settings.emerald",
+                        },
+                        { color: "#DC2626", labelKey: "settings.red" },
+                        { color: "#D97706", labelKey: "settings.amber" },
+                      ].map(({ color, labelKey, active }) => (
                         <button
                           key={color}
                           onClick={() =>
-                            toast.info(`${label} accent (demo only)`)
+                            toast.info(
+                              i18n.t("errors.api.accentDemo", {
+                                label: i18n.t(labelKey),
+                              }),
+                            )
                           }
                           className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${active ? "border-slate-900 dark:border-white scale-110" : "border-transparent"}`}
                           style={{ backgroundColor: color }}
-                          title={label}
+                          title={i18n.t(labelKey)}
                         />
                       ))}
                     </div>
@@ -848,25 +894,33 @@ export function Settings() {
                       className="text-slate-900 dark:text-white mb-1"
                       style={{ fontSize: "16px", fontWeight: 700 }}
                     >
-                      Language & Region
+                      {i18n.t("settings.languageRegion")}
                     </h2>
                     <p
                       className="text-slate-500 dark:text-slate-400 mb-4"
                       style={{ fontSize: "13px" }}
                     >
-                      Set your preferred language and date format.
+                      {i18n.t("settings.languageRegionDesc")}
                     </p>
                     <div className="grid sm:grid-cols-2 gap-4">
                       {[
-                        { label: "Language", value: "English (US)" },
-                        { label: "Date Format", value: "MM/DD/YYYY" },
-                      ].map(({ label, value }) => (
-                        <div key={label}>
+                        {
+                          key: "language",
+                          labelKey: "settings.languageLabel",
+                          value: i18n.t("settings.englishUs"),
+                        },
+                        {
+                          key: "date",
+                          labelKey: "settings.dateFormat",
+                          value: "MM/DD/YYYY",
+                        },
+                      ].map(({ key, labelKey, value }) => (
+                        <div key={key}>
                           <label
                             className="block mb-1.5 text-slate-700 dark:text-slate-300"
                             style={{ fontSize: "13px", fontWeight: 600 }}
                           >
-                            {label}
+                            {i18n.t(labelKey)}
                           </label>
                           <div className="relative">
                             <select

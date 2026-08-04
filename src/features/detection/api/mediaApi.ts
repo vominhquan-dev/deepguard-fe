@@ -1,3 +1,4 @@
+import i18n from "../../../shared/i18n/config";
 import { MediaUploadResponse, type UploadProgress } from "../types/media";
 import { AuthError, type ErrorResponse } from "../../auth/types/auth";
 
@@ -40,24 +41,30 @@ export async function uploadMediaFile(
           const data = JSON.parse(xhr.responseText) as MediaUploadResponse;
           resolve(data);
         } catch (error) {
-          reject(new Error("Failed to parse upload response"));
+          reject(new Error(i18n.t("errors.api.parseResponseFailed")));
         }
       } else {
         try {
           const error = JSON.parse(xhr.responseText) as ErrorResponse;
           reject(new AuthError(error.message, error.code, error.timestamp));
         } catch {
-          reject(new Error(`Upload failed with status ${xhr.status}`));
+          reject(
+            new Error(
+              i18n.t("errors.api.uploadFailedStatus", {
+                status: xhr.status,
+              }),
+            ),
+          );
         }
       }
     });
 
     xhr.addEventListener("error", () => {
-      reject(new Error("Upload request failed"));
+      reject(new Error(i18n.t("errors.api.uploadRequestFailed")));
     });
 
     xhr.addEventListener("abort", () => {
-      reject(new Error("Upload cancelled"));
+      reject(new Error(i18n.t("errors.api.uploadCancelled")));
     });
 
     xhr.open("POST", `${API_BASE_URL}/media/upload`);

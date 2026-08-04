@@ -1,13 +1,33 @@
 import { useTranslation } from "react-i18next";
 import { Languages } from "lucide-react";
 
-export function LanguageSwitcher() {
+interface LanguageSwitcherProps {
+  variant?: "full" | "compact";
+}
+
+export function LanguageSwitcher({ variant = "full" }: LanguageSwitcherProps) {
   const { i18n } = useTranslation();
 
   const toggleLanguage = () => {
     const newLang = i18n.language === "vi" ? "en" : "vi";
     i18n.changeLanguage(newLang);
   };
+
+  if (variant === "compact") {
+    return (
+      <button
+        onClick={toggleLanguage}
+        className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-all"
+        title={
+          i18n.language === "vi"
+            ? "Switch to English"
+            : "Chuyển sang tiếng Việt"
+        }
+      >
+        <Languages className="w-3.5 h-3.5" />
+      </button>
+    );
+  }
 
   return (
     <button

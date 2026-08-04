@@ -19,24 +19,25 @@ import {
   FileText,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
+import i18n from "../../../shared/i18n/config";
 import { register } from "../api/authApi";
 import type { RegisterRequest } from "../types/auth";
 
-const benefits = [
+const benefitKeys = [
   {
     icon: BarChart3,
-    title: "Full scan history",
-    desc: "Track every detection with detailed logs and timestamps.",
+    titleKey: "auth.registerPage.benefits.fullHistory",
+    descKey: "auth.registerPage.benefits.fullHistoryDesc",
   },
   {
     icon: FileText,
-    title: "Downloadable PDF reports",
-    desc: "Export litigation-ready reports for any scan result.",
+    titleKey: "auth.registerPage.benefits.pdfReports",
+    descKey: "auth.registerPage.benefits.pdfReportsDesc",
   },
   {
     icon: Star,
-    title: "Priority analysis queue",
-    desc: "Pro users jump the queue for instant results.",
+    titleKey: "auth.registerPage.benefits.priorityQueue",
+    descKey: "auth.registerPage.benefits.priorityQueueDesc",
   },
 ];
 
@@ -60,19 +61,19 @@ export function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.email || !form.username || !form.password) {
-      toast.error("Please fill in all required fields.");
+      toast.error(i18n.t("errors.api.fillRequiredFields"));
       return;
     }
     if (form.password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+      toast.error(i18n.t("errors.api.passwordTooShort"));
       return;
     }
     if (form.password !== form.confirmPassword) {
-      toast.error("Passwords do not match.");
+      toast.error(i18n.t("errors.api.passwordsMismatch"));
       return;
     }
     if (!agreed) {
-      toast.error("Please accept the Terms of Service to continue.");
+      toast.error(i18n.t("errors.api.acceptTerms"));
       return;
     }
     setLoading(true);
@@ -85,7 +86,7 @@ export function Register() {
       const response = await register(payload);
 
       if (response.success) {
-        toast.success("Account created! Check your email to verify.");
+        toast.success(i18n.t("errors.api.accountCreated"));
         setTimeout(() => {
           navigate("/verify-email", {
             state: { email: form.email, password: form.password },
@@ -93,7 +94,7 @@ export function Register() {
         }, 700);
       }
     } catch (error) {
-      let errorMessage = "Registration failed. Please try again.";
+      let errorMessage = i18n.t("errors.api.registrationFailed");
       if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -161,7 +162,7 @@ export function Register() {
                 textTransform: "uppercase",
               }}
             >
-              AI Platform
+              {i18n.t("app.tagline")}
             </span>
           </div>
         </div>
@@ -174,7 +175,7 @@ export function Register() {
               className="text-emerald-400"
               style={{ fontSize: "12px", fontWeight: 600 }}
             >
-              50,000+ active users worldwide
+              {i18n.t("auth.registerPage.activeUsers")}
             </span>
           </div>
 
@@ -187,19 +188,18 @@ export function Register() {
               letterSpacing: "-0.5px",
             }}
           >
-            Join the most advanced deepfake detection platform
+            {i18n.t("auth.registerPage.joinTitle")}
           </h2>
           <p
             className="text-slate-400 mb-10"
             style={{ fontSize: "14px", lineHeight: 1.7 }}
           >
-            Create your free account and start protecting yourself from
-            synthetic media threats in under 60 seconds.
+            {i18n.t("auth.registerPage.joinDesc")}
           </p>
 
           <div className="space-y-5">
-            {benefits.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="flex items-start gap-4">
+            {benefitKeys.map(({ icon: Icon, titleKey, descKey }) => (
+              <div key={titleKey} className="flex items-start gap-4">
                 <div className="w-9 h-9 rounded-xl bg-[#8B5CF6]/15 border border-[#8B5CF6]/20 flex items-center justify-center flex-shrink-0">
                   <Icon className="w-4 h-4 text-[#8B5CF6]" />
                 </div>
@@ -208,13 +208,13 @@ export function Register() {
                     className="text-white mb-0.5"
                     style={{ fontSize: "13px", fontWeight: 600 }}
                   >
-                    {title}
+                    {i18n.t(titleKey)}
                   </p>
                   <p
                     className="text-slate-500"
                     style={{ fontSize: "12px", lineHeight: 1.5 }}
                   >
-                    {desc}
+                    {i18n.t(descKey)}
                   </p>
                 </div>
               </div>
@@ -226,7 +226,7 @@ export function Register() {
         <div className="relative flex items-center gap-2 pt-8 border-t border-slate-800/80">
           <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
           <span className="text-slate-400" style={{ fontSize: "12px" }}>
-            No credit card required for the Free plan
+            {i18n.t("auth.registerPage.noCreditCard")}
           </span>
         </div>
       </div>
@@ -241,7 +241,7 @@ export function Register() {
               className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
               style={{ fontSize: "13px", fontWeight: 500 }}
             >
-              ← Back to home
+              {i18n.t("auth.registerPage.backToHome")}
             </button>
             <button
               onClick={toggleTheme}
@@ -270,19 +270,19 @@ export function Register() {
                   letterSpacing: "-0.5px",
                 }}
               >
-                Create your account
+                {i18n.t("auth.registerPage.createAccountTitle")}
               </h1>
               <p
                 className="text-slate-500 dark:text-slate-400"
                 style={{ fontSize: "14px" }}
               >
-                Already have an account?{" "}
+                {i18n.t("auth.registerPage.alreadyHaveAccount")}{" "}
                 <button
                   onClick={() => navigate("/login")}
                   className="text-[#2563EB] dark:text-[#22D3EE] hover:underline"
                   style={{ fontWeight: 600 }}
                 >
-                  Sign in
+                  {i18n.t("auth.registerPage.signIn")}
                 </button>
               </p>
             </div>
@@ -293,13 +293,13 @@ export function Register() {
                 className="text-slate-900 dark:text-white"
                 style={{ fontSize: "13px", fontWeight: 700 }}
               >
-                Free Plan
+                {i18n.t("auth.registerPage.freePlan")}
               </p>
               <p
                 className="text-slate-400"
                 style={{ fontSize: "11px", marginTop: "2px" }}
               >
-                25 credits
+                {i18n.t("auth.registerPage.credits")}
               </p>
             </div>
 
@@ -311,7 +311,7 @@ export function Register() {
                   className="block mb-1.5 text-slate-700 dark:text-slate-300"
                   style={{ fontSize: "13px", fontWeight: 600 }}
                 >
-                  Username
+                  {i18n.t("auth.registerPage.username")}
                 </label>
                 <div className="relative">
                   <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -332,7 +332,7 @@ export function Register() {
                   className="block mb-1.5 text-slate-700 dark:text-slate-300"
                   style={{ fontSize: "13px", fontWeight: 600 }}
                 >
-                  Email address
+                  {i18n.t("auth.registerPage.emailAddress")}
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -353,7 +353,7 @@ export function Register() {
                   className="block mb-1.5 text-slate-700 dark:text-slate-300"
                   style={{ fontSize: "13px", fontWeight: 600 }}
                 >
-                  Password
+                  {i18n.t("auth.password")}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -361,7 +361,7 @@ export function Register() {
                     type={showPassword ? "text" : "password"}
                     value={form.password}
                     onChange={(e) => update("password", e.target.value)}
-                    placeholder="Min. 8 characters"
+                    placeholder={i18n.t("auth.registerPage.minCharacters")}
                     className="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all"
                     style={{ fontSize: "14px" }}
                   />
@@ -385,7 +385,7 @@ export function Register() {
                   className="block mb-1.5 text-slate-700 dark:text-slate-300"
                   style={{ fontSize: "13px", fontWeight: 600 }}
                 >
-                  Confirm password
+                  {i18n.t("auth.registerPage.confirmPassword")}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -393,7 +393,7 @@ export function Register() {
                     type={showConfirmPassword ? "text" : "password"}
                     value={form.confirmPassword}
                     onChange={(e) => update("confirmPassword", e.target.value)}
-                    placeholder="Repeat your password"
+                    placeholder={i18n.t("auth.registerPage.repeatPassword")}
                     className="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all"
                     style={{ fontSize: "14px" }}
                   />
@@ -423,16 +423,16 @@ export function Register() {
                   className="text-slate-500 dark:text-slate-400"
                   style={{ fontSize: "12px", lineHeight: 1.5 }}
                 >
-                  I agree to the{" "}
+                  {i18n.t("auth.registerPage.agreeTerms")}{" "}
                   <button
                     type="button"
                     onClick={() => navigate("/privacy")}
                     className="text-[#2563EB] dark:text-[#22D3EE] hover:underline"
                     style={{ fontWeight: 600 }}
                   >
-                    Privacy Policy
+                    {i18n.t("footer.privacy")}
                   </button>{" "}
-                  and Terms of Service
+                  {i18n.t("auth.registerPage.andTerms")}
                 </span>
               </label>
 
@@ -455,7 +455,7 @@ export function Register() {
                   />
                 ) : (
                   <>
-                    Create Account
+                    {i18n.t("auth.registerPage.createAccount")}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

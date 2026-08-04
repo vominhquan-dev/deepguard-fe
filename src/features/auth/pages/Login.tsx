@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 import {
   Shield,
-  Mail,
   Lock,
   Eye,
   EyeOff,
@@ -18,6 +17,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
+import i18n from "../../../shared/i18n/config";
 import { login } from "../api/authApi";
 import { useAuth } from "../context/AuthContext";
 import type { LoginRequest } from "../types/auth";
@@ -25,25 +25,34 @@ import type { LoginRequest } from "../types/auth";
 const leftFeatures = [
   {
     icon: Shield,
-    title: "Military-grade encryption",
-    desc: "TLS 1.3 for all transfers, AES-256 at rest",
+    titleKey: "auth.loginPage.features.encryption",
+    descKey: "auth.loginPage.features.encryptionDesc",
   },
   {
     icon: Cpu,
-    title: "Multi-model AI engine",
-    desc: "7 specialized models running in parallel",
+    titleKey: "auth.loginPage.features.multiModel",
+    descKey: "auth.loginPage.features.multiModelDesc",
   },
   {
     icon: Zap,
-    title: "Results in under 30 seconds",
-    desc: "Real-time processing with instant verdict",
+    titleKey: "auth.loginPage.features.fastResults",
+    descKey: "auth.loginPage.features.fastResultsDesc",
   },
 ];
 
 const leftStats = [
-  { value: "98.7%", label: "Accuracy" },
-  { value: "2.4M+", label: "Files Scanned" },
-  { value: "50K+", label: "Users" },
+  {
+    value: "98.7%",
+    labelKey: "auth.loginPage.stats.accuracy",
+  },
+  {
+    value: "2.4M+",
+    labelKey: "auth.loginPage.stats.filesScanned",
+  },
+  {
+    value: "50K+",
+    labelKey: "auth.loginPage.stats.users",
+  },
 ];
 
 export function Login() {
@@ -64,7 +73,7 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
-      toast.error("Please fill in all fields.");
+      toast.error(i18n.t("errors.api.fillAllFields"));
       return;
     }
     setIsLoggingIn(true);
@@ -96,7 +105,7 @@ export function Login() {
           // Redirect based on role
           const redirectPath =
             userInfoData.role === "ADMIN" ? "/dashboard" : "/detect";
-          toast.success("Welcome back! Redirecting...");
+          toast.success(i18n.t("errors.api.welcomeBack"));
 
           setTimeout(() => {
             navigate(redirectPath, { replace: true });
@@ -104,24 +113,24 @@ export function Login() {
         } catch {
           // Fallback: use role from login response if available
           const redirectPath = loginRole === "ADMIN" ? "/dashboard" : "/detect";
-          toast.success("Welcome back! Redirecting...");
+          toast.success(i18n.t("errors.api.welcomeBack"));
           setTimeout(() => {
             navigate(redirectPath, { replace: true });
           }, 500);
         }
       }
     } catch (error) {
-      let errorMessage = "Login failed. Please try again.";
+      let errorMessage = i18n.t("errors.api.loginFailed");
 
       if (error instanceof Error) {
         // Check if it's an AuthError with specific error codes
         const authError = error as any;
         if (authError.code === "INVALID_CREDENTIALS") {
-          errorMessage = "Invalid username or password. Please try again.";
+          errorMessage = i18n.t("errors.api.invalidCredentials");
         } else if (authError.code === "USER_NOT_FOUND") {
-          errorMessage = "User account not found.";
+          errorMessage = i18n.t("errors.api.userNotFound");
         } else if (authError.code === "ACCOUNT_DISABLED") {
-          errorMessage = "This account has been disabled.";
+          errorMessage = i18n.t("errors.api.accountDisabled");
         } else {
           errorMessage = error.message;
         }
@@ -134,7 +143,7 @@ export function Login() {
   };
 
   const handleGuest = () => {
-    toast.info("Continuing as guest — 3 free scans available today.");
+    toast.info(i18n.t("errors.api.guestMode"));
     navigate("/detect");
   };
 
@@ -198,7 +207,7 @@ export function Login() {
                 textTransform: "uppercase",
               }}
             >
-              AI Platform
+              {i18n.t("app.tagline")}
             </span>
           </div>
         </div>
@@ -210,7 +219,7 @@ export function Login() {
               className="px-3 py-1 rounded-full bg-[#22D3EE]/10 border border-[#22D3EE]/20 text-[#22D3EE]"
               style={{ fontSize: "11px", fontWeight: 600 }}
             >
-              Trusted by 50,000+ security professionals
+              {i18n.t("auth.loginPage.trustedBy")}
             </span>
           </div>
           <h2
@@ -222,20 +231,19 @@ export function Login() {
               letterSpacing: "-0.5px",
             }}
           >
-            The AI layer protecting your digital trust
+            {i18n.t("auth.loginPage.aiLayerTitle")}
           </h2>
           <p
             className="text-slate-400 mb-10"
             style={{ fontSize: "14px", lineHeight: 1.7 }}
           >
-            Detect AI-generated images, deepfake videos, and cloned voices —
-            with military-grade accuracy in under 30 seconds.
+            {i18n.t("auth.loginPage.aiLayerDesc")}
           </p>
 
           {/* Features */}
           <div className="space-y-5">
-            {leftFeatures.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="flex items-start gap-4">
+            {leftFeatures.map(({ icon: Icon, titleKey, descKey }) => (
+              <div key={titleKey} className="flex items-start gap-4">
                 <div className="w-9 h-9 rounded-xl bg-[#2563EB]/15 border border-[#2563EB]/20 flex items-center justify-center flex-shrink-0">
                   <Icon className="w-4 h-4 text-[#22D3EE]" />
                 </div>
@@ -244,13 +252,13 @@ export function Login() {
                     className="text-white mb-0.5"
                     style={{ fontSize: "13px", fontWeight: 600 }}
                   >
-                    {title}
+                    {i18n.t(titleKey)}
                   </p>
                   <p
                     className="text-slate-500"
                     style={{ fontSize: "12px", lineHeight: 1.5 }}
                   >
-                    {desc}
+                    {i18n.t(descKey)}
                   </p>
                 </div>
               </div>
@@ -260,8 +268,8 @@ export function Login() {
 
         {/* Stats */}
         <div className="relative grid grid-cols-3 gap-4 pt-8 border-t border-slate-800/80">
-          {leftStats.map(({ value, label }) => (
-            <div key={label} className="text-center">
+          {leftStats.map(({ value, labelKey }) => (
+            <div key={labelKey} className="text-center">
               <div
                 className="text-white"
                 style={{
@@ -276,7 +284,7 @@ export function Login() {
                 className="text-slate-500"
                 style={{ fontSize: "11px", fontWeight: 500, marginTop: "2px" }}
               >
-                {label}
+                {i18n.t(labelKey)}
               </div>
             </div>
           ))}
@@ -293,7 +301,7 @@ export function Login() {
               className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
               style={{ fontSize: "13px", fontWeight: 500 }}
             >
-              ← Back to home
+              {i18n.t("auth.loginPage.backToHome")}
             </button>
             <button
               onClick={toggleTheme}
@@ -322,19 +330,19 @@ export function Login() {
                   letterSpacing: "-0.5px",
                 }}
               >
-                Welcome back
+                {i18n.t("auth.loginPage.welcomeBack")}
               </h1>
               <p
                 className="text-slate-500 dark:text-slate-400"
                 style={{ fontSize: "14px" }}
               >
-                New to DeepGuard?{" "}
+                {i18n.t("auth.loginPage.newToDeepGuard")}{" "}
                 <button
                   onClick={() => navigate("/register")}
                   className="text-[#2563EB] dark:text-[#22D3EE] hover:underline"
                   style={{ fontWeight: 600 }}
                 >
-                  Create a free account
+                  {i18n.t("auth.loginPage.createFreeAccount")}
                 </button>
               </p>
             </div>
@@ -347,7 +355,7 @@ export function Login() {
                   className="block mb-1.5 text-slate-700 dark:text-slate-300"
                   style={{ fontSize: "13px", fontWeight: 600 }}
                 >
-                  Email
+                  {i18n.t("auth.email")}
                 </label>
                 <div className="relative">
                   <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -369,7 +377,7 @@ export function Login() {
                     className="text-slate-700 dark:text-slate-300"
                     style={{ fontSize: "13px", fontWeight: 600 }}
                   >
-                    Password
+                    {i18n.t("auth.password")}
                   </label>
                   <button
                     type="button"
@@ -377,7 +385,7 @@ export function Login() {
                     className="text-[#2563EB] dark:text-[#22D3EE] hover:underline"
                     style={{ fontSize: "12px", fontWeight: 500 }}
                   >
-                    Forgot password?
+                    {i18n.t("auth.loginPage.forgotPassword")}
                   </button>
                 </div>
                 <div className="relative">
@@ -416,7 +424,7 @@ export function Login() {
                   className="text-slate-600 dark:text-slate-400"
                   style={{ fontSize: "13px" }}
                 >
-                  Remember me for 30 days
+                  {i18n.t("auth.loginPage.rememberMe")}
                 </span>
               </label>
 
@@ -439,7 +447,7 @@ export function Login() {
                   />
                 ) : (
                   <>
-                    Sign In
+                    {i18n.t("auth.signIn")}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -453,7 +461,7 @@ export function Login() {
                 className="text-slate-400 text-center"
                 style={{ fontSize: "12px" }}
               >
-                Secured with TLS 1.3 · SOC 2 Type II Certified
+                {i18n.t("auth.loginPage.securedNote")}
               </span>
             </div>
           </motion.div>

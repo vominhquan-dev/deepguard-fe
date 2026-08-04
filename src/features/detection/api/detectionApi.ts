@@ -1,3 +1,5 @@
+import i18n from "../../../shared/i18n/config";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 /**
@@ -75,7 +77,9 @@ export async function getDetectionResultByScanJobId(
 
   if (!response.ok) {
     const error = data as ErrorResponse;
-    throw new Error(error.message || "Failed to fetch detection result");
+    throw new Error(
+      error.message || i18n.t("errors.api.fetchDetectionResultFailed"),
+    );
   }
 
   return data as DetectionResultDetailResponse;
@@ -99,7 +103,9 @@ export async function getUserDetectionResults(
 
   if (!response.ok) {
     const error = data as ErrorResponse;
-    throw new Error(error.message || "Failed to fetch detection results");
+    throw new Error(
+      error.message || i18n.t("errors.api.fetchDetectionResultsFailed"),
+    );
   }
 
   return data as DetectionResultsResponse;

@@ -13,6 +13,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
+import i18n from "../../../shared/i18n/config";
 import { verifyEmail, resendOtp } from "../api/authApi";
 import type { VerifyEmailRequest } from "../types/auth";
 
@@ -60,7 +61,7 @@ export function VerifyEmail() {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp || otp.length < 6) {
-      toast.error("Please enter a valid 6-character OTP.");
+      toast.error(i18n.t("errors.api.invalidOtp"));
       return;
     }
 
@@ -71,14 +72,14 @@ export function VerifyEmail() {
 
       // API may return success=false with code "200" and a success message
       if (response.success || response.code === "200") {
-        toast.success("Email verified successfully! Redirecting to login...");
+        toast.success(i18n.t("errors.api.emailVerified"));
         setTimeout(
           () => navigate("/login", { state: { email, password } }),
           600,
         );
       }
     } catch (error) {
-      let errorMessage = "Email verification failed.";
+      let errorMessage = i18n.t("errors.api.emailVerificationFailed");
       if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -92,11 +93,11 @@ export function VerifyEmail() {
     setResendLoading(true);
     try {
       await resendOtp(email);
-      toast.success("OTP resent to your email. Check your inbox.");
+      toast.success(i18n.t("errors.api.otpResent"));
       setTimeLeft(60);
       setCanResend(false);
     } catch (error) {
-      let errorMessage = "Failed to resend OTP. Please try again.";
+      let errorMessage = i18n.t("errors.api.resendOtpFailed");
       if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -172,13 +173,13 @@ export function VerifyEmail() {
                 className="text-slate-900 dark:text-white mb-2"
                 style={{ fontSize: "28px", fontWeight: 700 }}
               >
-                Verify your email
+                {i18n.t("auth.verifyEmailPage.verifyYourEmail")}
               </h1>
               <p
                 className="text-slate-600 dark:text-slate-400"
                 style={{ fontSize: "14px" }}
               >
-                We've sent a verification code to{" "}
+                {i18n.t("auth.verifyEmailPage.sentCodeTo")}{" "}
                 <span className="font-semibold">{email}</span>
               </p>
             </div>
@@ -190,7 +191,7 @@ export function VerifyEmail() {
                   className="block text-slate-700 dark:text-slate-300 mb-2"
                   style={{ fontSize: "13px", fontWeight: 600 }}
                 >
-                  Verification Code
+                  {i18n.t("auth.verifyEmailPage.verificationCode")}
                 </label>
                 <input
                   type="text"
@@ -217,7 +218,9 @@ export function VerifyEmail() {
                 className="w-full py-2.5 rounded-lg bg-[#2563EB] hover:bg-[#1e4fb5] disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white font-semibold transition-colors flex items-center justify-center gap-2"
                 style={{ fontSize: "14px" }}
               >
-                {loading ? "Verifying..." : "Verify Email"}
+                {loading
+                  ? i18n.t("auth.verifyEmailPage.verifying")
+                  : i18n.t("auth.verifyEmailPage.verifyEmail")}
                 {!loading && <ArrowRight className="w-4 h-4" />}
               </button>
 
@@ -228,15 +231,14 @@ export function VerifyEmail() {
                     className="text-amber-600 dark:text-amber-400"
                     style={{ fontSize: "12px", lineHeight: 1.5 }}
                   >
-                    ⚠️ Didn't receive it? Check your spam/junk folder or try
-                    resending below.
+                    {i18n.t("auth.verifyEmailPage.checkSpam")}
                   </p>
                 </div>
                 <p
                   className="text-slate-600 dark:text-slate-400 mb-2"
                   style={{ fontSize: "13px" }}
                 >
-                  Didn't receive the code?
+                  {i18n.t("auth.verifyEmailPage.didntReceive")}
                 </p>
                 <button
                   type="button"
@@ -246,11 +248,17 @@ export function VerifyEmail() {
                   style={{ fontSize: "13px" }}
                 >
                   {canResend ? (
-                    <>{resendLoading ? "Resending..." : "Resend code"}</>
+                    <>
+                      {resendLoading
+                        ? i18n.t("auth.verifyEmailPage.resending")
+                        : i18n.t("auth.verifyEmailPage.resendCode")}
+                    </>
                   ) : (
                     <>
                       <Clock className="w-3 h-3" />
-                      Resend in {timeLeft}s
+                      {i18n.t("auth.verifyEmailPage.resendIn", {
+                        seconds: timeLeft,
+                      })}
                     </>
                   )}
                 </button>
@@ -265,9 +273,9 @@ export function VerifyEmail() {
           style={{ fontSize: "12px" }}
         >
           <p>
-            Already verified?{" "}
+            {i18n.t("auth.verifyEmailPage.alreadyVerified")}{" "}
             <a href="/login" className="text-[#2563EB] hover:underline">
-              Back to login
+              {i18n.t("auth.verifyEmailPage.backToLogin")}
             </a>
           </p>
         </div>
@@ -280,14 +288,13 @@ export function VerifyEmail() {
             className="text-white mb-6"
             style={{ fontSize: "32px", fontWeight: 700, lineHeight: 1.3 }}
           >
-            Email verified means secure access
+            {i18n.t("auth.verifyEmailPage.heroTitle")}
           </h2>
           <p
             className="text-blue-100 mb-12"
             style={{ fontSize: "15px", lineHeight: 1.6 }}
           >
-            By verifying your email, you're securing your DeepGuard account and
-            enabling all advanced features.
+            {i18n.t("auth.verifyEmailPage.heroDesc")}
           </p>
         </div>
 
@@ -296,20 +303,20 @@ export function VerifyEmail() {
           {[
             {
               icon: CheckCircle2,
-              title: "Instant activation",
-              desc: "Access all features immediately",
+              titleKey: "auth.verifyEmailPage.instantActivation",
+              descKey: "auth.verifyEmailPage.instantActivationDesc",
             },
             {
               icon: Mail,
-              title: "Account recovery",
-              desc: "Reset your password anytime",
+              titleKey: "auth.verifyEmailPage.accountRecovery",
+              descKey: "auth.verifyEmailPage.accountRecoveryDesc",
             },
             {
               icon: Shield,
-              title: "Enhanced security",
-              desc: "Two-factor authentication ready",
+              titleKey: "auth.verifyEmailPage.enhancedSecurity",
+              descKey: "auth.verifyEmailPage.enhancedSecurityDesc",
             },
-          ].map(({ icon: Icon, title, desc }, idx) => (
+          ].map(({ icon: Icon, titleKey, descKey }, idx) => (
             <div key={idx} className="flex gap-3">
               <Icon className="w-5 h-5 text-blue-200 flex-shrink-0 mt-0.5" />
               <div>
@@ -317,10 +324,10 @@ export function VerifyEmail() {
                   className="text-white font-semibold"
                   style={{ fontSize: "13px" }}
                 >
-                  {title}
+                  {i18n.t(titleKey)}
                 </p>
                 <p className="text-blue-100" style={{ fontSize: "12px" }}>
-                  {desc}
+                  {i18n.t(descKey)}
                 </p>
               </div>
             </div>

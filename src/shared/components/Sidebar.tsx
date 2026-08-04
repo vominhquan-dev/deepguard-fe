@@ -18,7 +18,6 @@ import {
 import { useTheme } from "../../app/providers/ThemeProvider";
 import { useAuth } from "../../features/auth/context/AuthContext";
 import { ImageWithFallback } from "./ImageWithFallback";
-import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 
 const navItemConfigs: Array<{
   to: string;
@@ -265,9 +264,6 @@ export function Sidebar() {
             />
           </div>
         </button>
-
-        {/* Language Switcher */}
-        <LanguageSwitcher />
 
         {/* User */}
         <div className="flex items-center gap-3 px-3 py-2">

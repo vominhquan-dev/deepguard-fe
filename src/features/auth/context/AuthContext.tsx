@@ -7,6 +7,7 @@ import React, {
   ReactNode,
 } from "react";
 import { getUserProfile, getUserInfo } from "../api/authApi";
+import i18n from "../../../shared/i18n/config";
 import type { UserProfile, UserInfo } from "../types/auth";
 
 interface AuthContextType {
@@ -85,7 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to load profile";
+        err instanceof Error
+          ? err.message
+          : i18n.t("errors.api.failedToLoadProfile");
       setError(errorMessage);
       throw err;
     } finally {
