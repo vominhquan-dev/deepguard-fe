@@ -1,4 +1,5 @@
 import { NavLink, useNavigate, useLocation } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
   ScanSearch,
@@ -17,80 +18,84 @@ import {
 import { useTheme } from "../../app/providers/ThemeProvider";
 import { useAuth } from "../../features/auth/context/AuthContext";
 import { ImageWithFallback } from "./ImageWithFallback";
+import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 
-const allNavItems = [
-  // ADMIN navigation
+const navItemConfigs: Array<{
+  to: string;
+  labelKey: string;
+  icon: React.ComponentType<{ className?: string }>;
+  requiredRole?: "ADMIN" | "USER";
+}> = [
   {
     to: "/dashboard",
-    label: "Dashboard",
+    labelKey: "nav.dashboard",
     icon: LayoutDashboard,
-    requiredRole: "ADMIN" as const,
+    requiredRole: "ADMIN",
   },
   {
     to: "/admin?tab=scan-jobs",
-    label: "Admin Actions",
+    labelKey: "nav.adminActions",
     icon: Shield,
-    requiredRole: "ADMIN" as const,
+    requiredRole: "ADMIN",
   },
   {
     to: "/admin?tab=users",
-    label: "User Management",
+    labelKey: "nav.userManagement",
     icon: Users,
-    requiredRole: "ADMIN" as const,
+    requiredRole: "ADMIN",
   },
   {
     to: "/admin/analytics",
-    label: "Analytics",
+    labelKey: "nav.analytics",
     icon: BarChart3,
-    requiredRole: "ADMIN" as const,
+    requiredRole: "ADMIN",
   },
   {
     to: "/admin/billing-history",
-    label: "Billing History",
+    labelKey: "nav.billingHistory",
     icon: Receipt,
-    requiredRole: "ADMIN" as const,
+    requiredRole: "ADMIN",
   },
-  // Shared navigation (USER only)
   {
     to: "/plan",
-    label: "Plan & Billing",
+    labelKey: "nav.planBilling",
     icon: CreditCard,
-    requiredRole: "USER" as const,
+    requiredRole: "USER",
   },
-  // USER navigation
   {
     to: "/detect",
-    label: "Detect Media",
+    labelKey: "nav.detectMedia",
     icon: ScanSearch,
-    requiredRole: "USER" as const,
+    requiredRole: "USER",
   },
   {
     to: "/realtime",
-    label: "Realtime Monitor",
+    labelKey: "nav.realtimeMonitor",
     icon: Radio,
-    requiredRole: "USER" as const,
+    requiredRole: "USER",
   },
   {
     to: "/history",
-    label: "History",
+    labelKey: "nav.history",
     icon: History,
-    requiredRole: "USER" as const,
+    requiredRole: "USER",
   },
 ];
 
 export function Sidebar() {
+  const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, role, logout } = useAuth();
 
   // Filter nav items based on user role
-  const navItems = allNavItems.filter((item) => {
-    if (!item.requiredRole) return true; // Show to all users
+  const navItems = navItemConfigs.filter((item) => {
+    if (!item.requiredRole) return true;
     const requiredRoles = Array.isArray(item.requiredRole)
       ? item.requiredRole
       : [item.requiredRole];
-    return role && requiredRoles.includes(role); // Show if user's role matches
+    return role && requiredRoles.includes(role);
   });
 
   // Helper to check if a nav item is active including search params
@@ -100,7 +105,6 @@ export function Sidebar() {
     if (!search) return true;
     const itemParams = new URLSearchParams(search);
     const currentParams = new URLSearchParams(location.search);
-    // All params of the nav item must match the current URL's params
     for (const [key, value] of itemParams) {
       if (currentParams.get(key) !== value) return false;
     }
@@ -137,7 +141,7 @@ export function Sidebar() {
               textTransform: "uppercase",
             }}
           >
-            AI Platform
+            {t("app.tagline")}
           </span>
         </div>
       </div>
@@ -153,13 +157,13 @@ export function Sidebar() {
             textTransform: "uppercase",
           }}
         >
-          Main Menu
+          {t("nav.mainMenu")}
         </p>
-        {navItems.map(({ to, label, icon: Icon }) => {
+        {navItems.map(({ to, labelKey, icon: Icon }) => {
           const active = isNavItemActive(to);
           return (
             <button
-              key={label}
+              key={labelKey}
               onClick={() => navigate(to)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group text-left ${
                 active
@@ -170,12 +174,14 @@ export function Sidebar() {
               <Icon
                 className={`w-4 h-4 flex-shrink-0 ${active ? "text-[#2563EB] dark:text-[#22D3EE]" : ""}`}
               />
-              <span style={{ fontSize: "14px", fontWeight: 500 }}>{label}</span>
+              <span style={{ fontSize: "14px", fontWeight: 500 }}>
+                {t(labelKey)}
+              </span>
               {active && (
                 <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
               )}
               {/* Live badge for Realtime Monitor */}
-              {!active && label === "Realtime Monitor" && (
+              {!active && labelKey === "nav.realtimeMonitor" && (
                 <span
                   className="ml-auto px-1 py-0.5 rounded"
                   style={{
@@ -186,7 +192,7 @@ export function Sidebar() {
                     letterSpacing: "0.06em",
                   }}
                 >
-                  LIVE
+                  {t("nav.live")}
                 </span>
               )}
             </button>
@@ -203,7 +209,7 @@ export function Sidebar() {
               textTransform: "uppercase",
             }}
           >
-            System
+            {t("nav.system")}
           </p>
           <NavLink
             to="/settings"
@@ -220,7 +226,7 @@ export function Sidebar() {
               <>
                 <Settings className="w-4 h-4 flex-shrink-0" />
                 <span style={{ fontSize: "14px", fontWeight: 500 }}>
-                  Settings
+                  {t("nav.settings")}
                 </span>
                 {isActive && (
                   <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
@@ -248,7 +254,7 @@ export function Sidebar() {
               className="text-slate-600 dark:text-slate-300"
               style={{ fontSize: "13px", fontWeight: 500 }}
             >
-              {theme === "dark" ? "Dark Mode" : "Light Mode"}
+              {theme === "dark" ? t("theme.dark") : t("theme.light")}
             </span>
           </div>
           <div
@@ -259,6 +265,9 @@ export function Sidebar() {
             />
           </div>
         </button>
+
+        {/* Language Switcher */}
+        <LanguageSwitcher />
 
         {/* User */}
         <div className="flex items-center gap-3 px-3 py-2">
@@ -290,13 +299,13 @@ export function Sidebar() {
                 <span className="inline-flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                   <span className="text-amber-500 font-medium">
-                    Chưa tạo profile
+                    {t("user.noProfile")}
                   </span>
                 </span>
               ) : profile?.bio ? (
                 profile.bio
               ) : (
-                "No bio"
+                t("user.noBio")
               )}
             </p>
           </div>
@@ -305,7 +314,7 @@ export function Sidebar() {
               logout();
               navigate("/login");
             }}
-            title="Logout"
+            title={t("user.logout")}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />

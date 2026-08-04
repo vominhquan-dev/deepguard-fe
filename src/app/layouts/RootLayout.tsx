@@ -4,6 +4,7 @@ import { ThemeProvider } from "../providers/ThemeProvider";
 import { AuthProvider } from "../../features/auth/context/AuthContext";
 import { useAuthInit } from "../../features/auth/hooks/useAuthInit";
 import { PageTransition } from "../../shared/components/PageTransition";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 
 function RootLayoutContent() {
   const location = useLocation();
@@ -26,9 +27,11 @@ function RootLayoutContent() {
 export function RootLayout() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <RootLayoutContent />
-      </AuthProvider>
+      <I18nProvider>
+        <AuthProvider>
+          <RootLayoutContent />
+        </AuthProvider>
+      </I18nProvider>
     </ThemeProvider>
   );
 }

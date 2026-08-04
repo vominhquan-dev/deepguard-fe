@@ -1,0 +1,99 @@
+{
+  "app": {
+    "name": "DeepGuard",
+    "tagline": "AI Platform"
+  },
+  "nav": {
+    "mainMenu": "Main Menu",
+    "system": "System",
+    "settings": "Settings",
+    "dashboard": "Dashboard",
+    "adminActions": "Admin Actions",
+    "userManagement": "User Management",
+    "analytics": "Analytics",
+    "billingHistory": "Billing History",
+    "planBilling": "Plan & Billing",
+    "detectMedia": "Detect Media",
+    "realtimeMonitor": "Realtime Monitor",
+    "history": "History",
+    "live": "LIVE"
+  },
+  "theme": {
+    "dark": "Dark Mode",
+    "light": "Light Mode"
+  },
+  "user": {
+    "noProfile": "No profile",
+    "noBio": "No bio",
+    "logout": "Logout"
+  },
+  "landing": {
+    "heroTitle": "Welcome to DeepGuard",
+    "heroSubtitle": "Advanced AI-powered deepfake detection platform",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot Password",
+    "verifyEmail": "Verify Email",
+    "createProfile": "Create Profile",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "signUp": "Sign Up",
+    "signIn": "Sign In"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "filter": "Filter",
+    "noData": "No data available",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "language": "Language"
+  },
+  "detection": {
+    "title": "Media Detection",
+    "upload": "Upload Media",
+    "analyzing": "Analyzing...",
+    "results": "Detection Results",
+    "fake": "Fake",
+    "real": "Real",
+    "confidence": "Confidence",
+    "processing": "Processing your media..."
+  },
+  "history": {
+    "title": "Scan History",
+    "noHistory": "No scan history found",
+    "date": "Date",
+    "type": "Type",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "notifications": "Notifications",
+    "profile": "Profile"
+  },
+  "footer": {
+    "rights": "All rights reserved",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "contact": "Contact"
+  }
+}
