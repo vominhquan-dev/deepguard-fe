@@ -72,7 +72,7 @@ const plans: PlanConfig[] = [
   },
   {
     id: "premium-3m",
-    pricingPlanId: "  ",
+    pricingPlanId: "PRO",
     name: "Pro",
     badge: "3 Months",
     price: "539.000",
@@ -91,7 +91,7 @@ const plans: PlanConfig[] = [
   },
   {
     id: "premium-6m",
-    pricingPlanId: "PREMIUM_6M",
+    pricingPlanId: "PREMIUM",
     name: "Premium",
     badge: "6 Months",
     price: "1.019.000",
