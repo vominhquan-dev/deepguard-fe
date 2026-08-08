@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useAuth } from "../../auth/context/AuthContext";
-import { useState } from "react";
+import { getCurrentSubscription, type CurrentSubscriptionData } from "../api/subscriptionApi";
+import { useCallback, useEffect, useState } from "react";
 
 interface PlanConfig {
   id: string;
@@ -112,12 +113,60 @@ const plans: PlanConfig[] = [
 
 export function Plan() {
   const navigate = useNavigate();
-  const currentPlan = "free";
-  const { profile } = useAuth();
+  const { accessToken } = useAuth();
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
+  const [currentSubscription, setCurrentSubscription] =
+    useState<CurrentSubscriptionData | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+
+  const loadCurrentSubscription = useCallback(async () => {
+    if (!accessToken) {
+      setSubscriptionError("You must be logged in to view your plan");
+      setLoadingSubscription(false);
+      return;
+    }
+
+    setLoadingSubscription(true);
+    setSubscriptionError(null);
+    try {
+      setCurrentSubscription(await getCurrentSubscription(accessToken));
+    } catch (error) {
+      setSubscriptionError(
+        error instanceof Error ? error.message : "Unable to load your current plan",
+      );
+    } finally {
+      setLoadingSubscription(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    loadCurrentSubscription();
+  }, [loadCurrentSubscription]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        loadCurrentSubscription();
+      }
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => document.removeEventListener("visibilitychange", refreshWhenVisible);
+  }, [loadCurrentSubscription]);
+
+  const activePricingPlanId = currentSubscription?.pricingPlanId;
+  const currentPlan = plans.find(
+    (plan) => plan.pricingPlanId === activePricingPlanId,
+  );
+  const currentPlanName = currentPlan?.name ?? currentSubscription?.pricingPlanName ?? "—";
 
   const handleUpgrade = async (plan: PlanConfig) => {
-    if (plan.id === "free") {
+    if (loadingSubscription || subscriptionError) {
+      toast.error(subscriptionError || "Your current plan is still loading");
+      return;
+    }
+
+    if (plan.pricingPlanId === activePricingPlanId) {
       toast.info("You are already on this plan");
       return;
     }
@@ -177,7 +226,7 @@ export function Plan() {
               >
                 You are currently on the{" "}
                 <span className="text-slate-900 dark:text-white font-semibold">
-                  Free Tier
+                  {loadingSubscription ? "Loading…" : currentPlanName}
                 </span>
               </p>
             </div>
@@ -186,7 +235,11 @@ export function Plan() {
                 className="text-emerald-500"
                 style={{ fontSize: "12px", fontWeight: 700 }}
               >
-                Active
+                {loadingSubscription
+                  ? "Checking"
+                  : subscriptionError
+                    ? "Unavailable"
+                    : "Active"}
               </p>
             </div>
           </div>
@@ -269,7 +322,7 @@ export function Plan() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {plans.map((plan) => {
               const Icon = plan.icon;
-              const isCurrent = currentPlan === plan.id;
+              const isCurrent = plan.pricingPlanId === activePricingPlanId;
               return (
                 <div
                   key={plan.id}
@@ -388,16 +441,27 @@ export function Plan() {
                   <button
                     onClick={() => handleUpgrade(plan)}
                     className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all ${
-                      isCurrent
+                      loadingSubscription || subscriptionError
+                        ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                        : isCurrent
                         ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                         : plan.popular
                           ? "bg-[#2563EB] hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25"
                           : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                     }`}
-                    disabled={isCurrent || upgradingPlan === plan.id}
+                    disabled={
+                      isCurrent ||
+                      loadingSubscription ||
+                      !!subscriptionError ||
+                      upgradingPlan === plan.id
+                    }
                   >
                     {isCurrent ? (
                       "Current Plan"
+                    ) : loadingSubscription ? (
+                      "Checking plan..."
+                    ) : subscriptionError ? (
+                      "Plan unavailable"
                     ) : upgradingPlan === plan.id ? (
                       <span className="flex items-center justify-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
