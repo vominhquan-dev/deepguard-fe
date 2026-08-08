@@ -2,12 +2,16 @@
  * Media API Types
  */
 
-export interface AiDetectData {
-  fakeProbability: number;
+export interface DetectionData {
   prediction: string;
-  realProbability: number;
-  imageUrl: string | null;
-  message: string | null;
+  confidence: number;
+  aiGeneratedScore: number;
+  notAiGeneratedScore: number;
+  deepfakeScore: number;
+  aiGeneratedAudioScore: number;
+  notAiGeneratedAudioScore: number;
+  attributedGenerator: string | null;
+  isVideo: boolean;
 }
 
 export interface MediaUploadData {
@@ -18,7 +22,7 @@ export interface MediaUploadData {
   fileType: string;
   fileSize: number;
   uploadedAt: string;
-  aiDetect?: AiDetectData;
+  detection?: DetectionData;
 }
 
 export interface MediaUploadResponse {

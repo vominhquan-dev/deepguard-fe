@@ -109,10 +109,9 @@ export function useScanHistory(): UseScanHistoryReturn {
           );
           const fileSize = matchingJob ? 0 : 0; // Size not available from API yet
 
-          // Use only aiDetect nested format
-          const prediction = dr.aiDetect?.prediction || "REAL";
-          const fakeProb = dr.aiDetect?.fakeProbability ?? 0;
-          const realProb = dr.aiDetect?.realProbability ?? 1;
+          const prediction = dr.resultLabel || "REAL";
+          const fakeProb = dr.fakeScore ?? 0;
+          const realProb = dr.confidence ?? 1;
 
           return {
             id: dr.detectionResultId,

@@ -3,7 +3,7 @@ import { uploadMediaFile } from "../api/mediaApi";
 import type {
   MediaUploadData,
   UploadProgress,
-  AiDetectData,
+  DetectionData,
 } from "../types/media";
 
 interface UseMediaUploadState {
@@ -12,7 +12,7 @@ interface UseMediaUploadState {
   progress: UploadProgress | null;
   error: string | null;
   data: MediaUploadData | null;
-  aiDetect: AiDetectData | null;
+  detection: DetectionData | null;
 }
 
 export function useMediaUpload() {
@@ -22,7 +22,7 @@ export function useMediaUpload() {
     progress: null,
     error: null,
     data: null,
-    aiDetect: null,
+    detection: null,
   });
 
   const upload = useCallback(async (file: File, token: string) => {
@@ -32,7 +32,7 @@ export function useMediaUpload() {
       uploading: true,
       error: null,
       data: null,
-      aiDetect: null,
+      detection: null,
     }));
 
     try {
@@ -48,7 +48,7 @@ export function useMediaUpload() {
           ...prev,
           uploading: false,
           data: response.data,
-          aiDetect: response.data.aiDetect ?? null,
+          detection: response.data.detection ?? null,
           progress: { loaded: 100, total: 100, percentage: 100 },
         }));
         return response.data;
@@ -73,7 +73,7 @@ export function useMediaUpload() {
       progress: null,
       error: null,
       data: null,
-      aiDetect: null,
+      detection: null,
     });
   }, []);
 

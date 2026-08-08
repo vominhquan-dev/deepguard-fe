@@ -1081,9 +1081,9 @@ function DetectionResultsTable() {
             </thead>
             <tbody>
               {data.map((item) => {
-                const prediction = item.aiDetect?.prediction ?? "UNKNOWN";
-                const fakeProbability = item.aiDetect?.fakeProbability ?? 0;
-                const realProbability = item.aiDetect?.realProbability ?? 0;
+                const prediction = item.resultLabel ?? "UNKNOWN";
+                const fakeProbability = item.fakeScore ?? 0;
+                const realProbability = item.confidence ?? 0;
                 const cfg = resultLabelConfig[prediction] || {
                   icon: AlertTriangle,
                   label: prediction,

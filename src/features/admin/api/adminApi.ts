@@ -151,13 +151,9 @@ export interface DetectionResultItem {
   mediaId: string;
   fileName: string;
   originalUrl: string;
-  aiDetect?: {
-    prediction: string;
-    fakeProbability: number;
-    realProbability: number;
-    imageUrl: string | null;
-    message: string | null;
-  };
+  fakeScore: number;
+  confidence: number;
+  resultLabel: string;
   modelVersion: string;
   processedAt: string;
 }

@@ -116,7 +116,7 @@ export function Dashboard() {
     uploading,
     progress,
     error: uploadError,
-    aiDetect,
+    detection,
     data,
   } = useMediaUpload();
   const { results: recentResults, loading: resultsLoading } =
@@ -149,15 +149,22 @@ export function Dashboard() {
     "Generating risk report...",
   ];
 
-  // Safely extract detection info from aiDetect nested format
-  const getDetectionPrediction = (r: { aiDetect?: { prediction?: string } }) =>
-    r.aiDetect?.prediction || "REAL";
-  const getDetectionFakeProb = (r: {
-    aiDetect?: { fakeProbability?: number };
-  }): number => r.aiDetect?.fakeProbability ?? 0;
-  const getDetectionRealProb = (r: {
-    aiDetect?: { realProbability?: number };
-  }): number => r.aiDetect?.realProbability ?? 1;
+  const getDetectionPrediction = (r: { resultLabel?: string }) =>
+    r.resultLabel || "REAL";
+  const getDetectionFakeProb = (r: { fakeScore?: number }): number =>
+    r.fakeScore ?? 0;
+  const getDetectionRealProb = (r: { confidence?: number }): number =>
+    r.confidence ?? 1;
+
+  const getRiskScore = (result: NonNullable<typeof detection>) =>
+    Math.max(
+      result.aiGeneratedScore ?? 0,
+      result.deepfakeScore ?? 0,
+      result.aiGeneratedAudioScore ?? 0,
+    );
+
+  const getAuthenticScore = (result: NonNullable<typeof detection>) =>
+    result.notAiGeneratedScore ?? result.confidence ?? 0;
 
   const triggerError = (type: ErrorType) => {
     setErrorType(type);
@@ -217,10 +224,16 @@ export function Dashboard() {
         const uploadData = await upload(file, token);
 
         // Store AI detection result for Results page
-        if (uploadData?.aiDetect) {
+        if (uploadData?.detection) {
+          const result = uploadData.detection;
           localStorage.setItem(
             "lastDetection",
-            JSON.stringify(uploadData.aiDetect),
+            JSON.stringify({
+              prediction: result.prediction,
+              fakeProbability: getRiskScore(result),
+              realProbability: getAuthenticScore(result),
+              imageUrl: uploadData.originalUrl,
+            }),
           );
           localStorage.setItem("lastUploadData", JSON.stringify(uploadData));
         }
@@ -284,16 +297,16 @@ export function Dashboard() {
   };
 
   const handleDownloadReport = () => {
-    if (!data || !aiDetect) return;
+    if (!data || !detection) return;
     const report = {
       fileName: selectedFile?.name || data.fileName,
       fileType: data.fileType,
       fileSize: data.fileSize,
       uploadedAt: data.uploadedAt,
       analysis: {
-        prediction: aiDetect.prediction,
-        fakeProbability: aiDetect.fakeProbability,
-        realProbability: aiDetect.realProbability,
+        prediction: detection.prediction,
+        fakeProbability: getRiskScore(detection),
+        realProbability: getAuthenticScore(detection),
       },
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -329,7 +342,10 @@ export function Dashboard() {
     },
   ];
 
-  const isFakePrediction = (prediction: string) => prediction === "FAKE";
+  const isFakePrediction = (prediction: string) =>
+    ["AI_GENERATED", "AI_GENERATED_AND_DEEPFAKE", "AI_GENERATED_AUDIO", "DEEPFAKE"].includes(
+      prediction,
+    );
 
   const getVerdictColor = (prediction: string) => {
     if (isFakePrediction(prediction)) {
@@ -878,7 +894,7 @@ export function Dashboard() {
 
                     {/* ── Results Card ── */}
                     {uploadState === "done" &&
-                      aiDetect &&
+                      detection &&
                       data &&
                       selectedFile && (
                         <motion.div
@@ -949,24 +965,24 @@ export function Dashboard() {
                           {/* AI Verdict Message */}
                           <div
                             className={`flex items-start gap-3 p-4 rounded-xl mb-5 ${
-                              aiDetect.prediction === "FAKE"
+                              isFakePrediction(detection.prediction)
                                 ? "bg-red-500/5 border border-red-500/20"
                                 : "bg-emerald-500/5 border border-emerald-500/20"
                             }`}
                           >
-                            {aiDetect.prediction === "FAKE" ? (
+                            {isFakePrediction(detection.prediction) ? (
                               <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                             ) : (
                               <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                             )}
                             <p
                               className={`text-sm ${
-                                aiDetect.prediction === "FAKE"
+                                isFakePrediction(detection.prediction)
                                   ? "text-red-600 dark:text-red-300"
                                   : "text-emerald-600 dark:text-emerald-300"
                               }`}
                             >
-                              {aiDetect.prediction === "FAKE"
+                              {isFakePrediction(detection.prediction)
                                 ? "Deepfake or AI-generated content detected in this media."
                                 : "This media appears to be authentic."}
                             </p>
@@ -986,15 +1002,12 @@ export function Dashboard() {
                           {/* Main verdict card */}
                           {(() => {
                             const verdict = getVerdictColor(
-                              aiDetect.prediction,
+                              detection.prediction,
                             );
                             const VerdictIcon = getVerdictIcon(
-                              aiDetect.prediction,
+                              detection.prediction,
                             );
-                            const riskScore =
-                              aiDetect.prediction === "FAKE"
-                                ? Math.round(aiDetect.fakeProbability * 100)
-                                : Math.round(aiDetect.realProbability * 100);
+                            const riskScore = Math.round(getRiskScore(detection) * 100);
 
                             return (
                               <div
@@ -1010,7 +1023,7 @@ export function Dashboard() {
                                     <p
                                       className={`font-bold text-lg ${verdict.text}`}
                                     >
-                                      {isFakePrediction(aiDetect.prediction)
+                                      {isFakePrediction(detection.prediction)
                                         ? "⚠ DEEPFAKE DETECTED"
                                         : "✓ AUTHENTIC CONTENT"}
                                     </p>
@@ -1029,7 +1042,7 @@ export function Dashboard() {
                                     <p
                                       className={`font-bold text-sm ${verdict.text}`}
                                     >
-                                      {aiDetect.prediction}
+                                      {detection.prediction}
                                     </p>
                                   </div>
                                   <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
@@ -1037,7 +1050,7 @@ export function Dashboard() {
                                       Fake Prob.
                                     </p>
                                     <p className="font-bold text-sm text-red-500">
-                                      {(aiDetect.fakeProbability * 100).toFixed(
+                                      {(getRiskScore(detection) * 100).toFixed(
                                         2,
                                       )}
                                       %
@@ -1048,7 +1061,7 @@ export function Dashboard() {
                                       Real Prob.
                                     </p>
                                     <p className="font-bold text-sm text-emerald-500">
-                                      {(aiDetect.realProbability * 100).toFixed(
+                                      {(getAuthenticScore(detection) * 100).toFixed(
                                         2,
                                       )}
                                       %
@@ -1068,7 +1081,7 @@ export function Dashboard() {
                         </motion.div>
                       )}
 
-                    {uploadState === "done" && !aiDetect && (
+                    {uploadState === "done" && !detection && (
                       <div className="p-8 flex flex-col items-center justify-center gap-3">
                         <CheckCircle2 className="w-12 h-12 text-emerald-400" />
                         <p className="text-slate-900 dark:text-white font-semibold text-sm">
