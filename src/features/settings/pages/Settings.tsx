@@ -11,7 +11,6 @@ import {
   Save,
   Eye,
   EyeOff,
-  Copy,
   RefreshCw,
   Moon,
   Sun,
@@ -30,10 +29,10 @@ import { createUserProfile } from "../../../features/auth/api/userProfilesApi";
 type Tab = "profile" | "notifications" | "security" | "appearance";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "security", label: "Security", icon: Shield },
-  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "profile", label: "Hồ sơ", icon: User },
+  { id: "notifications", label: "Thông báo", icon: Bell },
+  { id: "security", label: "Bảo mật", icon: Shield },
+  { id: "appearance", label: "Giao diện", icon: Palette },
 ];
 
 const notifOptions = [
@@ -88,7 +87,6 @@ export function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const fakeApiKey = "dg_sk_live_7fK3mP9qZ2nA8rXv1cE6yB4wT5uN0jQ";
 
   // Sync profile form fields when auth context data loads
   useEffect(() => {
@@ -187,14 +185,6 @@ export function Settings() {
     }
   };
 
-  const handleCopyKey = () => {
-    navigator.clipboard.writeText(fakeApiKey).catch(() => {});
-    toast.success("API key copied to clipboard");
-  };
-
-  const handleRegenerateKey = () => {
-    toast.info("Generating new API key... (demo only)");
-  };
 
   return (
     <DashboardLayout>
@@ -616,7 +606,7 @@ export function Settings() {
                       className="text-slate-900 dark:text-white mb-5"
                       style={{ fontSize: "16px", fontWeight: 700 }}
                     >
-                      Change Password
+                      Đổi mật khẩu
                     </h2>
                     <div className="space-y-4 mb-5">
                       {[
@@ -642,13 +632,13 @@ export function Settings() {
                     </div>
                     <button
                       onClick={() =>
-                        toast.success("Password updated successfully!")
+                        toast.info("Tính năng đổi mật khẩu đang được hoàn thiện. Vui lòng dùng luồng quên mật khẩu nếu cần ngay.")
                       }
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
                       style={{ fontSize: "14px", fontWeight: 700 }}
                     >
                       <Shield className="w-4 h-4" />
-                      Update Password
+                      Chưa khả dụng
                     </button>
                   </div>
 
@@ -657,13 +647,13 @@ export function Settings() {
                       className="text-slate-900 dark:text-white mb-1"
                       style={{ fontSize: "16px", fontWeight: 700 }}
                     >
-                      Two-Factor Authentication
+                      Xác thực hai lớp
                     </h2>
                     <p
                       className="text-slate-500 dark:text-slate-400 mb-5"
                       style={{ fontSize: "13px" }}
                     >
-                      Add an extra layer of security to your account.
+                      Tính năng này sẽ được kết nối với API trước khi cho phép kích hoạt.
                     </p>
                     <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                       <div className="flex items-center gap-3">
@@ -675,22 +665,22 @@ export function Settings() {
                             className="text-slate-900 dark:text-slate-200"
                             style={{ fontSize: "14px", fontWeight: 600 }}
                           >
-                            2FA Enabled
+                            Chưa kích hoạt
                           </p>
                           <p
                             className="text-slate-500 dark:text-slate-400"
                             style={{ fontSize: "12px" }}
                           >
-                            Authenticator app configured
+                            Chưa có phương thức xác thực nào được cấu hình.
                           </p>
                         </div>
                       </div>
                       <button
-                        onClick={() => toast.info("2FA management coming soon")}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        disabled
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                         style={{ fontSize: "12px", fontWeight: 600 }}
                       >
-                        Manage
+                        Sắp có
                       </button>
                     </div>
                   </div>
@@ -700,25 +690,24 @@ export function Settings() {
                       className="text-red-500 mb-1"
                       style={{ fontSize: "16px", fontWeight: 700 }}
                     >
-                      Danger Zone
+                      Vùng cần lưu ý
                     </h2>
                     <p
                       className="text-slate-500 dark:text-slate-400 mb-4"
                       style={{ fontSize: "13px" }}
                     >
-                      These actions are irreversible. Please proceed with
-                      caution.
+                      Yêu cầu xoá tài khoản cần được xác minh qua email để bảo vệ dữ liệu của bạn.
                     </p>
                     <button
                       onClick={() =>
                         toast.error(
-                          "Account deletion requires email confirmation",
+                          "Tính năng yêu cầu xoá tài khoản sẽ được kết nối với quy trình xác minh email.",
                         )
                       }
                       className="px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
                       style={{ fontSize: "13px", fontWeight: 700 }}
                     >
-                      Delete Account
+                      Yêu cầu xoá tài khoản
                     </button>
                   </div>
                 </div>

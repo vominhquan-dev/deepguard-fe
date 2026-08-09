@@ -1043,7 +1043,7 @@ export function RealtimeMonitor() {
                   letterSpacing: "-0.5px",
                 }}
               >
-                Realtime Deepfake Monitor
+                Giám sát trực tiếp
               </h1>
               {isMonitoring && !warmup && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20">
@@ -1065,8 +1065,7 @@ export function RealtimeMonitor() {
               className="text-slate-500 dark:text-slate-400"
               style={{ fontSize: "14px" }}
             >
-              Analyze live video calls and screen content to detect potential
-              deepfake threats.
+              Theo dõi video, màn hình hoặc âm thanh theo thời gian thực để nhận biết tín hiệu rủi ro.
             </p>
           </div>
 
@@ -1074,7 +1073,8 @@ export function RealtimeMonitor() {
             <button
               onClick={() => setSoundEnabled((v) => !v)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title={soundEnabled ? "Mute alerts" : "Enable sound"}
+              title={soundEnabled ? "Tắt âm báo" : "Bật âm báo"}
+              aria-label={soundEnabled ? "Tắt âm báo" : "Bật âm báo"}
             >
               {soundEnabled ? (
                 <Volume2 className="w-4 h-4 text-[#2563EB] dark:text-[#22D3EE]" />
@@ -1085,7 +1085,7 @@ export function RealtimeMonitor() {
                 className="text-slate-600 dark:text-slate-300 hidden sm:block"
                 style={{ fontSize: "12px", fontWeight: 500 }}
               >
-                {soundEnabled ? "Sound On" : "Muted"}
+                {soundEnabled ? "Âm báo bật" : "Đã tắt âm"}
               </span>
             </button>
 

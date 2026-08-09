@@ -1,29 +1,26 @@
-import { ReactNode, useState, useRef, useEffect } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { Toaster } from "sonner";
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  ChevronRight,
+  Coins,
+  HelpCircle,
+  Info,
+  LogOut,
+  Menu,
+  ScanSearch,
+  Settings,
+  Shield,
+  X,
+} from "lucide-react";
 import { Sidebar } from "../../shared/components/Sidebar";
 import { ImageWithFallback } from "../../shared/components/ImageWithFallback";
 import { useAuth } from "../../features/auth/context/AuthContext";
-import {
-  Shield,
-  Menu,
-  X,
-  Bell,
-  ScanSearch,
-  AlertTriangle,
-  CheckCircle2,
-  Info,
-  ChevronRight,
-  User,
-  Settings,
-  LogOut,
-  HelpCircle,
-  Sun,
-  Moon,
-  Coins,
-} from "lucide-react";
 import { useTheme } from "../providers/ThemeProvider";
 import { useCredits } from "../../features/billing/hooks/useCredits";
-import { Toaster } from "sonner";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -34,274 +31,257 @@ const notifications = [
     id: 1,
     type: "danger",
     icon: AlertTriangle,
-    title: "High-risk deepfake detected",
-    desc: "interview_clip.mp4 scored 87% risk",
-    time: "2m ago",
+    title: "Phát hiện nội dung có rủi ro cao",
+    desc: "interview_clip.mp4 có mức rủi ro 87%.",
+    time: "2 phút trước",
     read: false,
   },
   {
     id: 2,
     type: "info",
     icon: Info,
-    title: "Weekly report ready",
-    desc: "Your scan summary for this week is available",
-    time: "1h ago",
+    title: "Báo cáo tuần đã sẵn sàng",
+    desc: "Bạn có thể xem tổng hợp lượt kiểm tra trong tuần.",
+    time: "1 giờ trước",
     read: false,
   },
   {
     id: 3,
     type: "warning",
     icon: AlertTriangle,
-    title: "Suspicious audio flagged",
-    desc: "voice_message.mp3 needs manual review",
-    time: "3h ago",
+    title: "Âm thanh cần được xem lại",
+    desc: "voice_message.mp3 nên được kiểm tra thủ công.",
+    time: "3 giờ trước",
     read: false,
   },
   {
     id: 4,
     type: "success",
     icon: CheckCircle2,
-    title: "Scan complete",
-    desc: "headshot.png analyzed — Authentic (8%)",
-    time: "Yesterday",
+    title: "Đã hoàn tất kiểm tra",
+    desc: "headshot.png được đánh giá là đáng tin cậy.",
+    time: "Hôm qua",
     read: true,
   },
 ];
 
-const notifColors: Record<string, string> = {
-  danger: "text-red-500",
-  warning: "text-amber-500",
-  info: "text-[#2563EB] dark:text-[#22D3EE]",
-  success: "text-emerald-500",
-};
-
-const notifBg: Record<string, string> = {
-  danger: "bg-red-500/10",
-  warning: "bg-amber-500/10",
-  info: "bg-blue-500/10",
-  success: "bg-emerald-500/10",
+const notificationIconStyles: Record<string, string> = {
+  danger: "bg-red-500/10 text-red-600 dark:text-red-400",
+  warning: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  info: "bg-primary/10 text-primary",
+  success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
 };
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifList, setNotifList] = useState(notifications);
-  const { theme, toggleTheme } = useTheme();
-  const { profile } = useAuth();
+  const [notificationList, setNotificationList] = useState(notifications);
+  const { theme } = useTheme();
+  const { profile, logout } = useAuth();
   const { credits, loading: creditsLoading } = useCredits();
   const navigate = useNavigate();
-  const notifRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
+  const desktopNotificationsRef = useRef<HTMLDivElement>(null);
+  const mobileNotificationsRef = useRef<HTMLDivElement>(null);
+  const desktopProfileRef = useRef<HTMLDivElement>(null);
   const mobileProfileRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifList.filter((n) => !n.read).length;
+  const unreadCount = notificationList.filter((item) => !item.read).length;
+  const initials = profile?.fullName?.charAt(0).toUpperCase() || "U";
 
-  // Close dropdowns on outside click
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setNotifOpen(false);
-      }
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const isInNotifications = [
+        desktopNotificationsRef.current,
+        mobileNotificationsRef.current,
+      ].some((element) => element?.contains(target));
+      const isInProfile = [desktopProfileRef.current, mobileProfileRef.current].some(
+        (element) => element?.contains(target),
+      );
 
-      // Only close profile dropdown if click is outside BOTH profile refs
-      // (desktop and mobile — only one is visible at a time)
-      const isOutsideDesktop =
-        profileRef.current && !profileRef.current.contains(e.target as Node);
-      const isOutsideMobile =
-        mobileProfileRef.current &&
-        !mobileProfileRef.current.contains(e.target as Node);
+      if (!isInNotifications) setNotificationsOpen(false);
+      if (!isInProfile) setProfileOpen(false);
+    };
 
-      if (isOutsideDesktop && isOutsideMobile) {
-        setProfileOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const markAllRead = () =>
-    setNotifList((ns) => ns.map((n) => ({ ...n, read: true })));
+    setNotificationList((items) => items.map((item) => ({ ...item, read: true })));
   const markRead = (id: number) =>
-    setNotifList((ns) =>
-      ns.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    setNotificationList((items) =>
+      items.map((item) => (item.id === id ? { ...item, read: true } : item)),
     );
 
-  // ----- Shared credit badge snippet -----
+  const signOut = () => {
+    logout();
+    navigate("/login");
+  };
+
   const CreditBadge = () => {
-    if (creditsLoading) {
-      return (
-        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 w-fit">
-          <div className="w-2 h-2 rounded-full border border-slate-400 border-t-transparent animate-spin" />
-          <span
-            className="text-slate-400 dark:text-slate-500"
-            style={{ fontSize: "10px", fontWeight: 700 }}
-          >
-            ...
-          </span>
-        </div>
-      );
-    }
-    if (credits) {
-      return (
-        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 w-fit">
-          <Coins className="w-2.5 h-2.5 text-emerald-500" />
-          <span
-            className="text-emerald-500"
-            style={{ fontSize: "10px", fontWeight: 700 }}
-          >
-            {credits.remainingCredits}
-          </span>
-        </div>
-      );
-    }
+    const value = creditsLoading ? "..." : credits ? credits.remainingCredits : "–";
     return (
-      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 w-fit">
-        <span
-          className="text-slate-400 dark:text-slate-500"
-          style={{ fontSize: "10px", fontWeight: 700 }}
-        >
-          ---
-        </span>
-      </div>
+      <span
+        className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400"
+        aria-label={creditsLoading ? "Đang tải số tín dụng" : `${value} tín dụng còn lại`}
+      >
+        <Coins className="h-3 w-3" aria-hidden="true" />
+        {value}
+      </span>
     );
   };
 
-  // ----- Avatar button (shared by mobile & desktop) -----
-  const AvatarButton = () => {
-    return profile?.avatarUrl ? (
+  const Avatar = ({ size = "h-8 w-8" }: { size?: string }) =>
+    profile?.avatarUrl ? (
       <ImageWithFallback
         src={profile.avatarUrl}
         alt={profile.fullName}
-        className="w-8 h-8 object-cover"
+        className={`${size} rounded-full object-cover`}
       />
     ) : (
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center">
-        <span
-          className="text-white"
-          style={{ fontSize: "11px", fontWeight: 700 }}
-        >
-          {profile?.fullName?.charAt(0).toUpperCase() || "A"}
-        </span>
-      </div>
+      <span
+        className={`${size} inline-flex items-center justify-center rounded-full bg-primary text-[12px] font-bold text-primary-foreground`}
+        aria-hidden="true"
+      >
+        {initials}
+      </span>
     );
-  };
 
-  // ----- Profile Dropdown (shared) -----
-  const ProfileDropdown = () => (
-    <div className="absolute right-0 top-10 w-56 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-900/20 z-50">
-      {/* User info */}
-      <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-3">
-          {profile?.avatarUrl ? (
-            <ImageWithFallback
-              src={profile.avatarUrl}
-              alt={profile.fullName}
-              className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-            />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
-              <span
-                className="text-white"
-                style={{ fontSize: "13px", fontWeight: 800 }}
-              >
-                {profile?.fullName?.charAt(0).toUpperCase() || "A"}
-              </span>
-            </div>
-          )}
-          <div className="min-w-0">
-            <p
-              className="text-slate-900 dark:text-white truncate"
-              style={{ fontSize: "13px", fontWeight: 700 }}
-            >
-              {profile?.fullName || "User"}
-            </p>
-            <p className="text-slate-400 truncate" style={{ fontSize: "11px" }}>
-              {profile?.bio || "Loading..."}
-            </p>
-          </div>
-        </div>
-        <div className="mt-2 flex items-center gap-2">
-          <div className="px-1 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 w-fit">
-            <span
-              className="text-slate-500 dark:text-slate-400"
-              style={{ fontSize: "10px", fontWeight: 700 }}
-            >
-              Basic
+  const NotificationPanel = () => (
+    <div className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-slate-900/10 dark:shadow-black/25">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-slate-500" />
+          <span className="text-[14px] font-bold text-slate-900 dark:text-white">
+            Thông báo
+          </span>
+          {unreadCount > 0 && (
+            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+              {unreadCount}
             </span>
-          </div>
-          <CreditBadge />
+          )}
         </div>
+        {unreadCount > 0 && (
+          <button
+            type="button"
+            onClick={markAllRead}
+            className="text-[11px] font-semibold text-primary hover:underline"
+          >
+            Đọc tất cả
+          </button>
+        )}
       </div>
 
-      {/* Menu items */}
-      <div className="py-1.5">
-        {[
-          {
-            icon: User,
-            label: "Profile",
-            action: () => {
-              navigate("/settings");
-              setProfileOpen(false);
-            },
-          },
-          {
-            icon: Settings,
-            label: "Settings",
-            action: () => {
-              navigate("/settings");
-              setProfileOpen(false);
-            },
-          },
-          {
-            icon: HelpCircle,
-            label: "Help & Support",
-            action: () => {
-              navigate("/contact");
-              setProfileOpen(false);
-            },
-          },
-        ].map(({ icon: Icon, label, action }) => (
+      <div className="max-h-80 overflow-y-auto">
+        {notificationList.map(({ id, type, icon: Icon, title, desc, time, read }) => (
           <button
-            key={label}
-            onClick={action}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white transition-colors"
-            style={{ fontSize: "13px", fontWeight: 500 }}
+            key={id}
+            type="button"
+            onClick={() => markRead(id)}
+            className={`flex w-full gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-0 hover:bg-muted/60 ${!read ? "bg-primary/[0.035]" : ""}`}
           >
-            <Icon className="w-4 h-4" />
-            {label}
+            <span
+              className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg ${notificationIconStyles[type]}`}
+            >
+              <Icon className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[12px] font-semibold text-slate-800 dark:text-slate-100">
+                {title}
+              </span>
+              <span className="mt-0.5 block text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                {desc}
+              </span>
+              <span className="mt-1 block text-[10px] text-slate-400">{time}</span>
+            </span>
+            {!read && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />}
           </button>
         ))}
       </div>
 
-      {/* Divider + Logout */}
-      <div className="border-t border-slate-200 dark:border-slate-700 py-1.5">
+      <div className="border-t border-border bg-muted/40 p-3">
         <button
+          type="button"
           onClick={() => {
-            navigate("/");
-            setProfileOpen(false);
+            setNotificationsOpen(false);
+            navigate("/history");
           }}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-          style={{ fontSize: "13px", fontWeight: 600 }}
+          className="flex w-full items-center justify-center gap-1 text-[12px] font-semibold text-primary hover:underline"
         >
-          <LogOut className="w-4 h-4" />
-          Sign Out
+          Xem trong lịch sử <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const ProfileMenu = () => (
+    <div className="absolute right-0 top-11 z-50 w-64 overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-slate-900/10 dark:shadow-black/25">
+      <div className="border-b border-border px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Avatar size="h-9 w-9" />
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-bold text-slate-900 dark:text-white">
+              {profile?.fullName || "Người dùng"}
+            </p>
+            <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+              {profile?.email || "Tài khoản DeepGuard"}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <span className="rounded-md bg-secondary px-2 py-1 text-[10px] font-bold text-secondary-foreground">
+            Tài khoản
+          </span>
+          <CreditBadge />
+        </div>
+      </div>
+
+      <div className="p-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            setProfileOpen(false);
+            navigate("/settings");
+          }}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-muted hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+        >
+          <Settings className="h-4 w-4" /> Cài đặt tài khoản
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setProfileOpen(false);
+            navigate("/contact");
+          }}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-muted hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+        >
+          <HelpCircle className="h-4 w-4" /> Hỗ trợ
+        </button>
+      </div>
+      <div className="border-t border-border p-1.5">
+        <button
+          type="button"
+          onClick={signOut}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+        >
+          <LogOut className="h-4 w-4" /> Đăng xuất
         </button>
       </div>
     </div>
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-[#0F172A]">
+    <div className="flex min-h-screen bg-background">
       <Toaster
         theme={theme}
         position="top-right"
         toastOptions={{
           style: {
-            background: theme === "dark" ? "#1E293B" : "#fff",
-            border:
-              theme === "dark" ? "1px solid #334155" : "1px solid #e2e8f0",
-            color: theme === "dark" ? "#e2e8f0" : "#0f172a",
+            background: theme === "dark" ? "#1b2a40" : "#ffffff",
+            border: theme === "dark" ? "1px solid #30425d" : "1px solid #dce3ee",
+            color: theme === "dark" ? "#edf3fc" : "#16243a",
             borderRadius: "12px",
             fontFamily: "'Inter', sans-serif",
             fontSize: "13px",
@@ -309,246 +289,135 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         }}
       />
 
-      {/* Desktop sidebar */}
       <div className="hidden lg:block">
         <Sidebar />
       </div>
 
-      {/* Mobile sidebar overlay */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default bg-slate-950/25"
             onClick={() => setMobileOpen(false)}
+            aria-label="Đóng điều hướng"
           />
-          <div className="relative z-10">
-            <Sidebar />
+          <div className="relative z-10 shadow-xl shadow-slate-900/15">
+            <Sidebar mobile />
           </div>
           <button
+            type="button"
             onClick={() => setMobileOpen(false)}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center z-20"
+            className="absolute left-[17rem] top-4 z-20 grid h-9 w-9 place-items-center rounded-lg border border-border bg-card text-slate-600 shadow-sm dark:text-slate-300"
+            aria-label="Đóng điều hướng"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {/* Main content */}
-      <main className="flex-1 lg:ml-60 min-h-screen flex flex-col">
-        {/* Mobile top bar */}
-        <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 h-14 bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-slate-800">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400"
-          >
-            <Menu className="w-4 h-4" />
-          </button>
-
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-[#2563EB] flex items-center justify-center">
-              <Shield className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span
-              className="text-slate-900 dark:text-white"
-              style={{ fontWeight: 700, fontSize: "15px" }}
-            >
-              Deep<span className="text-[#22D3EE]">Guard</span>
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate("/detect")}
-              className="w-9 h-9 rounded-lg bg-[#2563EB] flex items-center justify-center text-white"
-            >
-              <ScanSearch className="w-4 h-4" />
-            </button>
-            <button className="relative w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400">
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
-              )}
-            </button>
-
-            {/* Mobile User Avatar + Credit Badge */}
-            <div ref={mobileProfileRef} className="relative">
-              <button
-                onClick={() => {
-                  setProfileOpen((v) => !v);
-                  setNotifOpen(false);
-                }}
-                className="flex items-center gap-1.5 rounded-full hover:ring-2 hover:ring-[#2563EB]/40 transition-all"
-              >
-                <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center">
-                  <AvatarButton />
-                </div>
-                <CreditBadge />
-              </button>
-
-              {profileOpen && <ProfileDropdown />}
-            </div>
-          </div>
-        </header>
-
-        {/* Desktop topbar */}
-        <header className="hidden lg:flex sticky top-0 z-30 items-center justify-between px-8 h-14 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-sm border-b border-slate-200/60 dark:border-slate-800/60">
-          <div />
+      <main className="flex min-h-screen flex-1 flex-col lg:ml-64">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-white/90 px-4 backdrop-blur-sm dark:bg-[#111b2e]/90 lg:px-8">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/detect")}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#2563EB]/10 hover:bg-[#2563EB]/20 text-[#2563EB] dark:text-[#22D3EE] transition-colors"
-              style={{ fontSize: "12px", fontWeight: 700 }}
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="grid h-9 w-9 place-items-center rounded-lg border border-border text-slate-600 transition-colors hover:bg-muted dark:text-slate-300 lg:hidden"
+              aria-label="Mở điều hướng"
             >
-              <ScanSearch className="w-3.5 h-3.5" />
-              New Scan
+              <Menu className="h-4 w-4" />
             </button>
+            <div className="flex items-center gap-2 lg:hidden">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-primary-foreground">
+                <Shield className="h-4 w-4" />
+              </span>
+              <span className="text-[15px] font-bold tracking-[-0.03em] text-slate-900 dark:text-white">
+                Deep<span className="text-primary">Guard</span>
+              </span>
+            </div>
+          </div>
 
-            {/* Dark mode toggle */}
+          <div className="flex items-center gap-2.5">
             <button
-              onClick={toggleTheme}
-              className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-all"
-              title={
-                theme === "dark"
-                  ? "Switch to light mode"
-                  : "Switch to dark mode"
-              }
+              type="button"
+              onClick={() => navigate("/detect")}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3 text-[12px] font-bold text-primary-foreground shadow-sm shadow-blue-500/25 transition-colors hover:bg-[#406dcc]"
             >
-              {theme === "dark" ? (
-                <Sun className="w-3.5 h-3.5" />
-              ) : (
-                <Moon className="w-3.5 h-3.5" />
-              )}
+              <ScanSearch className="h-4 w-4" />
+              <span className="hidden sm:inline">Kiểm tra mới</span>
+              <span className="sr-only sm:hidden">Kiểm tra mới</span>
             </button>
 
-            {/* Notification Bell */}
-            <div ref={notifRef} className="relative">
+            <div ref={mobileNotificationsRef} className="relative lg:hidden">
               <button
+                type="button"
                 onClick={() => {
-                  setNotifOpen((v) => !v);
+                  setNotificationsOpen((value) => !value);
                   setProfileOpen(false);
                 }}
-                className="relative w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="relative grid h-9 w-9 place-items-center rounded-lg border border-border text-slate-600 transition-colors hover:bg-muted dark:text-slate-300"
+                aria-label={`Thông báo${unreadCount ? `, ${unreadCount} chưa đọc` : ""}`}
+                aria-expanded={notificationsOpen}
               >
-                <Bell className="w-3.5 h-3.5" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 border border-white dark:border-[#0F172A]" />
-                )}
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border border-white bg-red-500 dark:border-[#111b2e]" />}
               </button>
-
-              {/* Notification Dropdown */}
-              {notifOpen && (
-                <div className="absolute right-0 top-10 w-80 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-900/20 overflow-hidden z-50">
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-3.5 h-3.5 text-slate-400" />
-                      <span
-                        className="text-slate-900 dark:text-white"
-                        style={{ fontSize: "13px", fontWeight: 700 }}
-                      >
-                        Notifications
-                      </span>
-                      {unreadCount > 0 && (
-                        <span
-                          className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-white"
-                          style={{ fontSize: "10px", fontWeight: 800 }}
-                        >
-                          {unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={markAllRead}
-                        className="text-[#2563EB] dark:text-[#22D3EE] hover:underline"
-                        style={{ fontSize: "11px", fontWeight: 600 }}
-                      >
-                        Mark all read
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Notification list */}
-                  <div className="max-h-72 overflow-y-auto">
-                    {notifList.map(
-                      ({ id, type, icon: Icon, title, desc, time, read }) => (
-                        <button
-                          key={id}
-                          onClick={() => markRead(id)}
-                          className={`w-full flex gap-3 px-4 py-3 text-left border-b border-slate-100 dark:border-slate-700/60 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${!read ? "bg-blue-50/40 dark:bg-blue-900/10" : ""}`}
-                        >
-                          <div
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${notifBg[type]}`}
-                          >
-                            <Icon className={`w-4 h-4 ${notifColors[type]}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className="text-slate-900 dark:text-slate-200"
-                              style={{ fontSize: "12px", fontWeight: 600 }}
-                            >
-                              {title}
-                            </p>
-                            <p
-                              className="text-slate-500 dark:text-slate-400 mt-0.5"
-                              style={{ fontSize: "11px", lineHeight: 1.4 }}
-                            >
-                              {desc}
-                            </p>
-                            <p
-                              className="text-slate-400 mt-1"
-                              style={{ fontSize: "10px" }}
-                            >
-                              {time}
-                            </p>
-                          </div>
-                          {!read && (
-                            <div className="w-2 h-2 rounded-full bg-[#2563EB] flex-shrink-0 mt-2" />
-                          )}
-                        </button>
-                      ),
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40">
-                    <button
-                      onClick={() => {
-                        setNotifOpen(false);
-                        navigate("/history");
-                      }}
-                      className="w-full flex items-center justify-center gap-1.5 text-[#2563EB] dark:text-[#22D3EE] hover:underline"
-                      style={{ fontSize: "12px", fontWeight: 600 }}
-                    >
-                      View all in History
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
+              {notificationsOpen && <NotificationPanel />}
             </div>
 
-            {/* Desktop User Avatar + Credit Badge */}
-            <div ref={profileRef} className="relative">
+            <div ref={desktopNotificationsRef} className="relative hidden lg:block">
               <button
+                type="button"
                 onClick={() => {
-                  setProfileOpen((v) => !v);
-                  setNotifOpen(false);
+                  setNotificationsOpen((value) => !value);
+                  setProfileOpen(false);
                 }}
-                className="flex items-center gap-1.5 rounded-full hover:ring-2 hover:ring-[#2563EB]/40 transition-all"
+                className="relative grid h-9 w-9 place-items-center rounded-lg border border-border text-slate-600 transition-colors hover:bg-muted dark:text-slate-300"
+                aria-label={`Thông báo${unreadCount ? `, ${unreadCount} chưa đọc` : ""}`}
+                aria-expanded={notificationsOpen}
               >
-                <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center">
-                  <AvatarButton />
-                </div>
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border border-white bg-red-500 dark:border-[#111b2e]" />}
+              </button>
+              {notificationsOpen && <NotificationPanel />}
+            </div>
+
+            <div ref={mobileProfileRef} className="relative lg:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileOpen((value) => !value);
+                  setNotificationsOpen(false);
+                }}
+                className="flex items-center gap-1.5 rounded-full p-0.5 transition-shadow hover:ring-2 hover:ring-primary/30"
+                aria-label="Mở menu tài khoản"
+                aria-expanded={profileOpen}
+              >
+                <Avatar />
                 <CreditBadge />
               </button>
+              {profileOpen && <ProfileMenu />}
+            </div>
 
-              {profileOpen && <ProfileDropdown />}
+            <div ref={desktopProfileRef} className="relative hidden lg:block">
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileOpen((value) => !value);
+                  setNotificationsOpen(false);
+                }}
+                className="flex items-center gap-2 rounded-full p-0.5 transition-shadow hover:ring-2 hover:ring-primary/30"
+                aria-label="Mở menu tài khoản"
+                aria-expanded={profileOpen}
+              >
+                <Avatar />
+                <CreditBadge />
+              </button>
+              {profileOpen && <ProfileMenu />}
             </div>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
       </main>
     </div>
   );
