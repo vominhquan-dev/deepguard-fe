@@ -313,13 +313,16 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
         {/* File Info */}
         {detection.fileName && (
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 mb-6">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-slate-400" />
-              <span className="text-slate-600 dark:text-slate-300 text-sm">
+            <div className="flex min-w-0 items-center gap-2">
+              <FileText className="w-4 h-4 shrink-0 text-slate-400" />
+              <span
+                className="min-w-0 flex-1 truncate text-sm text-slate-600 dark:text-slate-300"
+                title={detection.fileName}
+              >
                 {detection.fileName}
               </span>
               {detection.fileSize && (
-                <span className="text-slate-400 text-xs ml-auto">
+                <span className="ml-auto shrink-0 text-right text-xs text-slate-400">
                   {(detection.fileSize / 1024).toFixed(1)} KB
                 </span>
               )}
@@ -1019,7 +1022,7 @@ export function Results() {
                   Detection Results
                 </h1>
               </div>
-              <p className="text-slate-500 dark:text-slate-400 ml-3 text-sm">
+              <p className="ml-3 max-w-full truncate text-sm text-slate-500 dark:text-slate-400" title={detection?.fileName}>
                 {detection?.fileName
                   ? `Analysis complete for ${detection.fileName}`
                   : "Analysis complete"}
@@ -1162,13 +1165,16 @@ export function Results() {
               <div
                 className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-700/50 ${isVideoResult ? "mt-4" : ""}`}
               >
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-600 dark:text-slate-300 text-sm">
+                <div className="flex min-w-0 items-center gap-2">
+                  <FileText className="w-4 h-4 shrink-0 text-slate-400" />
+                  <span
+                    className="min-w-0 flex-1 truncate text-sm text-slate-600 dark:text-slate-300"
+                    title={detection.fileName}
+                  >
                     {detection.fileName}
                   </span>
                   {detection.fileSize && (
-                    <span className="text-slate-400 text-xs ml-auto">
+                    <span className="ml-auto shrink-0 text-right text-xs text-slate-400">
                       {(detection.fileSize / 1024).toFixed(1)} KB
                     </span>
                   )}
