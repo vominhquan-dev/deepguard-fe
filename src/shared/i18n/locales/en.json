@@ -310,6 +310,7 @@
     "languageLabel": "Language",
     "dateFormat": "Date Format",
     "englishUs": "English (US)",
+    "vietnamese": "Vietnamese",
     "notifOptions": {
       "deepfakeAlert": "Deepfake Detected",
       "deepfakeAlertDesc": "Alert when a scan returns a high-risk verdict",

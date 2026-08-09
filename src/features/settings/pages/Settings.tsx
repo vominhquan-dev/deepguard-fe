@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "../../../app/providers/ThemeProvider";
 import i18n from "../../../shared/i18n/config";
+import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import { updateUserProfile } from "../../../features/auth/api/userProfilesApi";
@@ -66,6 +67,7 @@ const notifOptions = [
 
 export function Settings() {
   const { theme, toggleTheme } = useTheme();
+  const { i18n: runtimeI18n } = useTranslation();
   const {
     profile: authProfile,
     userInfo,
@@ -903,37 +905,48 @@ export function Settings() {
                       {i18n.t("settings.languageRegionDesc")}
                     </p>
                     <div className="grid sm:grid-cols-2 gap-4">
-                      {[
-                        {
-                          key: "language",
-                          labelKey: "settings.languageLabel",
-                          value: i18n.t("settings.englishUs"),
-                        },
-                        {
-                          key: "date",
-                          labelKey: "settings.dateFormat",
-                          value: "MM/DD/YYYY",
-                        },
-                      ].map(({ key, labelKey, value }) => (
-                        <div key={key}>
-                          <label
-                            className="block mb-1.5 text-slate-700 dark:text-slate-300"
-                            style={{ fontSize: "13px", fontWeight: 600 }}
+                      <div>
+                        <label
+                          className="block mb-1.5 text-slate-700 dark:text-slate-300"
+                          style={{ fontSize: "13px", fontWeight: 600 }}
+                        >
+                          {i18n.t("settings.languageLabel")}
+                        </label>
+                        <div className="relative">
+                          <select
+                            className="w-full appearance-none px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all cursor-pointer"
+                            style={{ fontSize: "14px" }}
+                            value={runtimeI18n.resolvedLanguage === "vi" ? "vi" : "en"}
+                            onChange={(event) => {
+                              void runtimeI18n.changeLanguage(event.target.value);
+                            }}
+                            aria-label={i18n.t("settings.languageLabel")}
                           >
-                            {i18n.t(labelKey)}
-                          </label>
-                          <div className="relative">
-                            <select
-                              className="w-full appearance-none px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all cursor-pointer"
-                              style={{ fontSize: "14px" }}
-                              defaultValue={value}
-                            >
-                              <option>{value}</option>
-                            </select>
-                            <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                          </div>
+                            <option value="vi">{i18n.t("settings.vietnamese")}</option>
+                            <option value="en">{i18n.t("settings.englishUs")}</option>
+                          </select>
+                          <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                         </div>
-                      ))}
+                      </div>
+
+                      <div>
+                        <label
+                          className="block mb-1.5 text-slate-700 dark:text-slate-300"
+                          style={{ fontSize: "13px", fontWeight: 600 }}
+                        >
+                          {i18n.t("settings.dateFormat")}
+                        </label>
+                        <div className="relative">
+                          <select
+                            className="w-full appearance-none px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all cursor-pointer"
+                            style={{ fontSize: "14px" }}
+                            defaultValue="MM/DD/YYYY"
+                          >
+                            <option>MM/DD/YYYY</option>
+                          </select>
+                          <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

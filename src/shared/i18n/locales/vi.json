@@ -310,6 +310,7 @@
     "languageLabel": "Ngôn ngữ",
     "dateFormat": "Định dạng ngày",
     "englishUs": "Tiếng Anh (Mỹ)",
+    "vietnamese": "Tiếng Việt",
     "notifOptions": {
       "deepfakeAlert": "Phát Hiện Deepfake",
       "deepfakeAlertDesc": "Cảnh báo khi kết quả quét có mức rủi ro cao",

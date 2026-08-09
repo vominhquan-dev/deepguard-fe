@@ -7,9 +7,10 @@ interface LanguageSwitcherProps {
 
 export function LanguageSwitcher({ variant = "full" }: LanguageSwitcherProps) {
   const { i18n } = useTranslation();
+  const currentLanguage = i18n.resolvedLanguage === "vi" ? "vi" : "en";
 
   const toggleLanguage = () => {
-    const newLang = i18n.language === "vi" ? "en" : "vi";
+    const newLang = currentLanguage === "vi" ? "en" : "vi";
     i18n.changeLanguage(newLang);
   };
 
@@ -19,7 +20,7 @@ export function LanguageSwitcher({ variant = "full" }: LanguageSwitcherProps) {
         onClick={toggleLanguage}
         className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-all"
         title={
-          i18n.language === "vi"
+          currentLanguage === "vi"
             ? "Switch to English"
             : "Chuyển sang tiếng Việt"
         }
@@ -34,7 +35,7 @@ export function LanguageSwitcher({ variant = "full" }: LanguageSwitcherProps) {
       onClick={toggleLanguage}
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150"
       title={
-        i18n.language === "vi" ? "Switch to English" : "Chuyển sang tiếng Việt"
+        currentLanguage === "vi" ? "Switch to English" : "Chuyển sang tiếng Việt"
       }
     >
       <div className="flex items-center gap-3">
@@ -43,7 +44,7 @@ export function LanguageSwitcher({ variant = "full" }: LanguageSwitcherProps) {
           className="text-slate-600 dark:text-slate-300"
           style={{ fontSize: "13px", fontWeight: 500 }}
         >
-          {i18n.language === "vi" ? "English" : "Tiếng Việt"}
+          {currentLanguage === "vi" ? "English" : "Tiếng Việt"}
         </span>
       </div>
       <div
@@ -52,7 +53,7 @@ export function LanguageSwitcher({ variant = "full" }: LanguageSwitcherProps) {
       >
         <span
           className={
-            i18n.language === "en"
+            currentLanguage === "en"
               ? "text-[#2563EB] dark:text-[#22D3EE]"
               : "text-slate-400"
           }
@@ -62,7 +63,7 @@ export function LanguageSwitcher({ variant = "full" }: LanguageSwitcherProps) {
         <span className="text-slate-300 dark:text-slate-600">|</span>
         <span
           className={
-            i18n.language === "vi"
+            currentLanguage === "vi"
               ? "text-[#2563EB] dark:text-[#22D3EE]"
               : "text-slate-400"
           }
