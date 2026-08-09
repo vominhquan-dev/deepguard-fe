@@ -1,4 +1,5 @@
 import i18n from "../../../shared/i18n/config";
+import type { HiveFrameData } from "../types/media";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -14,6 +15,14 @@ export interface DetectionResultDetail {
   originalUrl: string;
   fakeScore: number;
   confidence: number;
+  aiGeneratedScore?: number;
+  notAiGeneratedScore?: number;
+  deepfakeScore?: number;
+  aiGeneratedAudioScore?: number;
+  notAiGeneratedAudioScore?: number;
+  attributedGenerator?: string | null;
+  video: boolean;
+  frames: HiveFrameData[];
   resultLabel: string;
   modelVersion?: string;
   processedAt: string;
@@ -36,6 +45,14 @@ export interface DetectionResultData {
   originalUrl: string;
   fakeScore: number;
   confidence: number;
+  aiGeneratedScore?: number;
+  notAiGeneratedScore?: number;
+  deepfakeScore?: number;
+  aiGeneratedAudioScore?: number;
+  notAiGeneratedAudioScore?: number;
+  attributedGenerator?: string | null;
+  video: boolean;
+  frames: HiveFrameData[];
   resultLabel: string;
   modelVersion?: string;
   processedAt: string;

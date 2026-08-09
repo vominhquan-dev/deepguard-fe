@@ -230,7 +230,7 @@ export function Dashboard() {
 
         const prefix = userInfo?.email || userInfo?.id || "anonymous";
 
-        // Store AI detection result (for images/audio)
+        // Store the normalized image/audio result for the full-report route.
         if (uploadData?.aiDetect) {
           localStorage.setItem(
             `lastDetection_${prefix}`,
@@ -240,11 +240,12 @@ export function Dashboard() {
               realProbability: uploadData.aiDetect.realProbability,
               imageUrl: uploadData.aiDetect.imageUrl ?? null,
               message: uploadData.aiDetect.message ?? null,
+              scanJobId: uploadData.scanJobId,
             }),
           );
         }
 
-        // Store Hive detection result (for videos)
+        // Store the normalized video result, including frame-level analysis.
         if (uploadData?.hiveDetect) {
           localStorage.setItem(
             `lastDetectionHive_${prefix}`,
@@ -263,6 +264,7 @@ export function Dashboard() {
               taskId: uploadData.hiveDetect.taskId,
               mediaUrl: uploadData.hiveDetect.mediaUrl,
               video: uploadData.hiveDetect.video,
+              scanJobId: uploadData.scanJobId,
             }),
           );
         }
@@ -1003,7 +1005,7 @@ export function Dashboard() {
                                     uploadedAt: data.uploadedAt,
                                     mediaId: data.id,
                                     originalUrl: data.originalUrl,
-                                    scanJobId: null, // not available yet from fresh upload
+                                    scanJobId: data.scanJobId,
                                   },
                                 });
                               }}
@@ -1214,7 +1216,7 @@ export function Dashboard() {
                                     uploadedAt: data.uploadedAt,
                                     mediaId: data.id,
                                     originalUrl: data.originalUrl,
-                                    scanJobId: null,
+                                    scanJobId: data.scanJobId,
                                     _videoHive: hiveDetect, // pass full hive data
                                   },
                                 });
@@ -1326,7 +1328,7 @@ export function Dashboard() {
                                         : "⚠ DEEPFAKE DETECTED"}
                                     </p>
                                     <p className="text-slate-500 dark:text-slate-400 text-xs">
-                                      Hive AI Verdict · Confidence: {confidence}
+                                      Analysis confidence: {confidence}
                                       %
                                     </p>
                                   </div>

@@ -5,6 +5,7 @@ import type {
   UploadProgress,
   AiDetectData,
   HiveDetectData,
+  MediaDetectionData,
 } from "../types/media";
 
 interface UseMediaUploadState {
@@ -48,15 +49,21 @@ export function useMediaUpload() {
       });
 
       if (response.success) {
+        const detection = response.data.detection ?? null;
+        const normalizedData: MediaUploadData = {
+          ...response.data,
+          aiDetect: toImageDetection(detection, response.data.originalUrl),
+          hiveDetect: toVideoDetection(detection, response.data.originalUrl),
+        };
         setState((prev) => ({
           ...prev,
           uploading: false,
-          data: response.data,
-          aiDetect: response.data.aiDetect ?? null,
-          hiveDetect: response.data.hiveDetect ?? null,
+          data: normalizedData,
+          aiDetect: normalizedData.aiDetect ?? null,
+          hiveDetect: normalizedData.hiveDetect ?? null,
           progress: { loaded: 100, total: 100, percentage: 100 },
         }));
-        return response.data;
+        return normalizedData;
       } else {
         throw new Error(response.message || "Upload failed");
       }
@@ -87,5 +94,47 @@ export function useMediaUpload() {
     ...state,
     upload,
     reset,
+  };
+}
+
+function toImageDetection(
+  detection: MediaDetectionData | null,
+  originalUrl: string,
+): AiDetectData | null {
+  if (!detection || detection.isVideo) return null;
+
+  return {
+    prediction:
+      detection.prediction === "NOT_AI_GENERATED" ? "REAL" : detection.prediction,
+    fakeProbability: Math.max(
+      detection.aiGeneratedScore ?? 0,
+      detection.deepfakeScore ?? 0,
+      detection.aiGeneratedAudioScore ?? 0,
+    ),
+    realProbability: detection.notAiGeneratedScore ?? detection.confidence ?? 0,
+    imageUrl: originalUrl,
+    message: null,
+  };
+}
+
+function toVideoDetection(
+  detection: MediaDetectionData | null,
+  originalUrl: string,
+): HiveDetectData | null {
+  if (!detection || !detection.isVideo) return null;
+
+  return {
+    prediction: detection.prediction,
+    confidence: detection.confidence ?? 0,
+    aiGeneratedScore: detection.aiGeneratedScore ?? 0,
+    notAiGeneratedScore: detection.notAiGeneratedScore ?? 0,
+    deepfakeScore: detection.deepfakeScore ?? 0,
+    aiGeneratedAudioScore: detection.aiGeneratedAudioScore ?? 0,
+    notAiGeneratedAudioScore: detection.notAiGeneratedAudioScore ?? 0,
+    attributedGenerator: detection.attributedGenerator ?? "",
+    frames: detection.frames ?? [],
+    taskId: "",
+    mediaUrl: originalUrl,
+    video: true,
   };
 }

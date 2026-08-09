@@ -20,6 +20,10 @@ import { useAuth } from "../../auth/context/AuthContext";
 import { useCredits } from "../hooks/useCredits";
 import { useState, useEffect, useCallback } from "react";
 import { getMyPayments, type PaymentListItem } from "../api/paymentsApi";
+import {
+  getCurrentSubscription,
+  type CurrentSubscriptionData,
+} from "../api/subscriptionApi";
 
 interface PlanConfig {
   id: string;
@@ -119,10 +123,13 @@ const plans: PlanConfig[] = [
 
 export function Plan() {
   const navigate = useNavigate();
-  const currentPlan = "free";
   const { profile, accessToken } = useAuth();
   const { credits, loading: creditsLoading } = useCredits();
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
+  const [currentSubscription, setCurrentSubscription] =
+    useState<CurrentSubscriptionData | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   const dailyLimit = 5;
   const usedToday = credits?.usedCredits ?? 0;
@@ -149,8 +156,47 @@ export function Plan() {
     fetchPayments();
   }, [fetchPayments]);
 
+  const fetchCurrentSubscription = useCallback(async () => {
+    if (!accessToken) {
+      setSubscriptionError("Please log in again to view your plan");
+      setSubscriptionLoading(false);
+      return;
+    }
+    setSubscriptionLoading(true);
+    setSubscriptionError(null);
+    try {
+      setCurrentSubscription(await getCurrentSubscription(accessToken));
+    } catch (error) {
+      setSubscriptionError(
+        error instanceof Error ? error.message : "Unable to load your current plan",
+      );
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    fetchCurrentSubscription();
+  }, [fetchCurrentSubscription]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") fetchCurrentSubscription();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => document.removeEventListener("visibilitychange", refreshWhenVisible);
+  }, [fetchCurrentSubscription]);
+
+  const activePricingPlanId = currentSubscription?.pricingPlanId;
+  const activePlan = plans.find((plan) => plan.pricingPlanId === activePricingPlanId);
+  const activePlanName = activePlan?.name ?? currentSubscription?.pricingPlanName ?? "—";
+
   const handleUpgrade = async (plan: PlanConfig) => {
-    if (plan.id === "free") {
+    if (subscriptionLoading || subscriptionError) {
+      toast.error(subscriptionError || "Your current plan is still loading");
+      return;
+    }
+    if (plan.pricingPlanId === activePricingPlanId) {
       toast.info("You are already on this plan");
       return;
     }
@@ -269,7 +315,7 @@ export function Plan() {
               >
                 You are currently on the{" "}
                 <span className="text-slate-900 dark:text-white font-semibold">
-                  Free Tier
+                  {subscriptionLoading ? "Loading…" : activePlanName}
                 </span>
               </p>
             </div>
@@ -335,9 +381,9 @@ export function Plan() {
           </p>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plans.map((plan) => {
+              {plans.map((plan) => {
               const Icon = plan.icon;
-              const isCurrent = currentPlan === plan.id;
+              const isCurrent = plan.pricingPlanId === activePricingPlanId;
               return (
                 <div
                   key={plan.id}
@@ -456,15 +502,24 @@ export function Plan() {
                   <button
                     onClick={() => handleUpgrade(plan)}
                     className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all ${
-                      isCurrent
+                      subscriptionLoading || subscriptionError || isCurrent
                         ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                         : plan.popular
                           ? "bg-[#2563EB] hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25"
                           : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                     }`}
-                    disabled={isCurrent || upgradingPlan === plan.id}
+                    disabled={
+                      subscriptionLoading ||
+                      !!subscriptionError ||
+                      isCurrent ||
+                      upgradingPlan === plan.id
+                    }
                   >
-                    {isCurrent ? (
+                    {subscriptionLoading ? (
+                      "Checking plan..."
+                    ) : subscriptionError ? (
+                      "Plan unavailable"
+                    ) : isCurrent ? (
                       "Current Plan"
                     ) : upgradingPlan === plan.id ? (
                       <span className="flex items-center justify-center gap-2">

@@ -842,6 +842,22 @@ export function Results() {
               modelVersion: d.modelVersion,
               processedAt: d.processedAt,
             });
+            if (d.video) {
+              setHiveDetection({
+                prediction,
+                confidence: d.confidence ?? 0,
+                aiGeneratedScore: d.aiGeneratedScore ?? d.fakeScore ?? 0,
+                notAiGeneratedScore: d.notAiGeneratedScore ?? 0,
+                deepfakeScore: d.deepfakeScore ?? 0,
+                aiGeneratedAudioScore: d.aiGeneratedAudioScore ?? 0,
+                notAiGeneratedAudioScore: d.notAiGeneratedAudioScore ?? 0,
+                attributedGenerator: d.attributedGenerator ?? "",
+                frames: d.frames ?? [],
+                taskId: "",
+                mediaUrl: d.originalUrl,
+                video: true,
+              });
+            }
           }
         })
         .catch((err) => {

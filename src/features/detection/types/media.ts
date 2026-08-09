@@ -42,14 +42,34 @@ export interface HiveDetectData {
   video: boolean;
 }
 
+/**
+ * Canonical analysis payload returned by the backend for every media type.
+ * The provider is intentionally not part of the user-facing contract.
+ */
+export interface MediaDetectionData {
+  prediction: string;
+  confidence: number;
+  aiGeneratedScore: number;
+  notAiGeneratedScore: number;
+  deepfakeScore: number;
+  aiGeneratedAudioScore: number;
+  notAiGeneratedAudioScore: number;
+  attributedGenerator: string | null;
+  isVideo: boolean;
+  frames: HiveFrameData[];
+}
+
 export interface MediaUploadData {
   id: string;
+  scanJobId: string;
   userId: string;
   fileName: string;
   originalUrl: string;
   fileType: string;
   fileSize: number;
   uploadedAt: string;
+  detection?: MediaDetectionData | null;
+  /** Internal UI adapters; never sent by the backend. */
   aiDetect?: AiDetectData | null;
   hiveDetect?: HiveDetectData | null;
 }
