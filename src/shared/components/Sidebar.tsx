@@ -1,4 +1,5 @@
-import { useNavigate, useLocation } from "react-router";
+import { NavLink, useNavigate, useLocation } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
   ScanSearch,
@@ -12,223 +13,307 @@ import {
   Radio,
   CreditCard,
   Users,
+  Receipt,
 } from "lucide-react";
 import { useTheme } from "../../app/providers/ThemeProvider";
 import { useAuth } from "../../features/auth/context/AuthContext";
 import { ImageWithFallback } from "./ImageWithFallback";
 
-const allNavItems = [
+const navItemConfigs: Array<{
+  to: string;
+  labelKey: string;
+  icon: React.ComponentType<{ className?: string }>;
+  requiredRole?: "ADMIN" | "USER";
+}> = [
   {
     to: "/dashboard",
-    label: "Tổng quan",
+    labelKey: "nav.dashboard",
     icon: LayoutDashboard,
-    requiredRole: "ADMIN" as const,
+    requiredRole: "ADMIN",
   },
   {
     to: "/admin?tab=scan-jobs",
-    label: "Kiểm duyệt",
+    labelKey: "nav.adminActions",
     icon: Shield,
-    requiredRole: "ADMIN" as const,
+    requiredRole: "ADMIN",
   },
   {
     to: "/admin?tab=users",
-    label: "Người dùng",
+    labelKey: "nav.userManagement",
     icon: Users,
-    requiredRole: "ADMIN" as const,
+    requiredRole: "ADMIN",
   },
   {
     to: "/admin/analytics",
-    label: "Phân tích",
+    labelKey: "nav.analytics",
     icon: BarChart3,
-    requiredRole: "ADMIN" as const,
+    requiredRole: "ADMIN",
+  },
+  {
+    to: "/admin/billing-history",
+    labelKey: "nav.billingHistory",
+    icon: Receipt,
+    requiredRole: "ADMIN",
   },
   {
     to: "/plan",
-    label: "Gói & thanh toán",
+    labelKey: "nav.planBilling",
     icon: CreditCard,
-    requiredRole: "USER" as const,
+    requiredRole: "USER",
   },
   {
     to: "/detect",
-    label: "Kiểm tra nội dung",
+    labelKey: "nav.detectMedia",
     icon: ScanSearch,
-    requiredRole: "USER" as const,
+    requiredRole: "USER",
   },
   {
     to: "/realtime",
-    label: "Giám sát trực tiếp",
+    labelKey: "nav.realtimeMonitor",
     icon: Radio,
-    requiredRole: "USER" as const,
-    live: true,
+    requiredRole: "USER",
   },
   {
     to: "/history",
-    label: "Lịch sử kiểm tra",
+    labelKey: "nav.history",
     icon: History,
-    requiredRole: "USER" as const,
+    requiredRole: "USER",
   },
 ];
 
-interface SidebarProps {
-  mobile?: boolean;
-}
-
-export function Sidebar({ mobile = false }: SidebarProps) {
+export function Sidebar() {
+  const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, role, logout } = useAuth();
 
-  const navItems = allNavItems.filter((item) => item.requiredRole === role);
+  // Filter nav items based on user role
+  const navItems = navItemConfigs.filter((item) => {
+    if (!item.requiredRole) return true;
+    const requiredRoles = Array.isArray(item.requiredRole)
+      ? item.requiredRole
+      : [item.requiredRole];
+    return role && requiredRoles.includes(role);
+  });
+
+  // Helper to check if a nav item is active including search params
   const isNavItemActive = (to: string) => {
     const [pathname, search] = to.split("?");
     if (location.pathname !== pathname) return false;
     if (!search) return true;
-
     const itemParams = new URLSearchParams(search);
     const currentParams = new URLSearchParams(location.search);
-    return Array.from(itemParams).every(
-      ([key, value]) => currentParams.get(key) === value,
-    );
+    for (const [key, value] of itemParams) {
+      if (currentParams.get(key) !== value) return false;
+    }
+    return true;
   };
 
-  const initials = profile?.fullName?.charAt(0).toUpperCase() || "U";
-
   return (
-    <aside
-      className={`${mobile ? "relative" : "fixed left-0 top-0"} z-40 flex h-dvh w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground`}
-      aria-label="Điều hướng chính"
-    >
-      <div className="flex items-center gap-3 border-b border-sidebar-border px-5 py-5">
-        <button
-          type="button"
+    <aside className="fixed left-0 top-0 h-screen w-60 flex flex-col bg-white dark:bg-[#0F172A] border-r border-slate-200 dark:border-slate-800 z-40">
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-200 dark:border-slate-800">
+        <div
+          className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center shadow-lg shadow-blue-500/30 cursor-pointer"
           onClick={() => navigate("/")}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-blue-500/30 transition-transform hover:scale-[1.03]"
-          aria-label="Về trang chủ DeepGuard"
         >
-          <Shield className="h-4.5 w-4.5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="text-left leading-none"
-        >
-          <span className="block text-[17px] font-bold tracking-[-0.03em] text-slate-900 dark:text-white">
-            Deep<span className="text-primary">Guard</span>
+          <Shield className="w-4 h-4 text-white" />
+        </div>
+        <div>
+          <span
+            className="text-slate-900 dark:text-white cursor-pointer"
+            style={{
+              fontWeight: 700,
+              fontSize: "15px",
+              letterSpacing: "-0.3px",
+            }}
+            onClick={() => navigate("/")}
+          >
+            Deep<span className="text-[#22D3EE]">Guard</span>
           </span>
-          <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-400 dark:text-slate-500">
-            Bảo vệ nội dung số
+          <span
+            className="block text-slate-400 dark:text-slate-500"
+            style={{
+              fontSize: "10px",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            {t("app.tagline")}
           </span>
-        </button>
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-5">
-        <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-          {role === "ADMIN" ? "Quản trị" : "Không gian làm việc"}
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+        <p
+          className="px-3 mb-3 text-slate-400 dark:text-slate-600"
+          style={{
+            fontSize: "10px",
+            fontWeight: 600,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+          }}
+        >
+          {t("nav.mainMenu")}
         </p>
-        <div className="space-y-1">
-          {navItems.map(({ to, label, icon: Icon, live }) => {
-            const active = isNavItemActive(to);
-            return (
-              <button
-                key={to}
-                type="button"
-                onClick={() => navigate(to)}
-                aria-current={active ? "page" : undefined}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium transition-colors duration-150 ${
-                  active
-                    ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(79,127,226,0.12)] dark:bg-primary/15"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white"
-                }`}
-              >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
-                <span className="min-w-0 flex-1">{label}</span>
-                {live && (
-                  <span className="rounded-md bg-red-500/10 px-1.5 py-0.5 text-[9px] font-bold tracking-[0.08em] text-red-600 dark:text-red-400">
-                    LIVE
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {navItems.map(({ to, labelKey, icon: Icon }) => {
+          const active = isNavItemActive(to);
+          return (
+            <button
+              key={labelKey}
+              onClick={() => navigate(to)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group text-left ${
+                active
+                  ? "bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE] dark:bg-[#2563EB]/10"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <Icon
+                className={`w-4 h-4 flex-shrink-0 ${active ? "text-[#2563EB] dark:text-[#22D3EE]" : ""}`}
+              />
+              <span style={{ fontSize: "14px", fontWeight: 500 }}>
+                {t(labelKey)}
+              </span>
+              {active && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
+              )}
+              {/* Live badge for Realtime Monitor */}
+              {!active && labelKey === "nav.realtimeMonitor" && (
+                <span
+                  className="ml-auto px-1 py-0.5 rounded"
+                  style={{
+                    fontSize: "8px",
+                    fontWeight: 800,
+                    backgroundColor: "rgba(239,68,68,0.15)",
+                    color: "#EF4444",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {t("nav.live")}
+                </span>
+              )}
+            </button>
+          );
+        })}
 
-        <div className="mt-5 border-t border-sidebar-border pt-4">
-          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-            Tài khoản
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate("/settings")}
-            aria-current={location.pathname === "/settings" ? "page" : undefined}
-            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium transition-colors duration-150 ${
-              location.pathname === "/settings"
-                ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(79,127,226,0.12)] dark:bg-primary/15"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white"
-            }`}
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 mt-4 space-y-1">
+          <p
+            className="px-3 mb-3 text-slate-400 dark:text-slate-600"
+            style={{
+              fontSize: "10px",
+              fontWeight: 600,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+            }}
           >
-            <Settings className="h-4.5 w-4.5 shrink-0" />
-            Cài đặt
-          </button>
+            {t("nav.system")}
+          </p>
+          <NavLink
+            to="/settings"
+            end
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 ${
+                isActive
+                  ? "bg-[#2563EB]/10 text-[#2563EB] dark:text-[#22D3EE]"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Settings className="w-4 h-4 flex-shrink-0" />
+                <span style={{ fontSize: "14px", fontWeight: 500 }}>
+                  {t("nav.settings")}
+                </span>
+                {isActive && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
+                )}
+              </>
+            )}
+          </NavLink>
         </div>
       </nav>
 
-      <div className="space-y-3 border-t border-sidebar-border px-3 py-4">
+      {/* Bottom */}
+      <div className="px-3 py-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
+        {/* Dark mode toggle */}
         <button
-          type="button"
           onClick={toggleTheme}
-          className="flex w-full items-center justify-between rounded-xl bg-secondary px-3 py-2.5 text-secondary-foreground transition-colors hover:bg-accent"
-          aria-label={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
+          className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150"
         >
-          <span className="flex items-center gap-3 text-[13px] font-semibold">
+          <div className="flex items-center gap-3">
             {theme === "dark" ? (
-              <Moon className="h-4 w-4 text-primary" />
+              <Moon className="w-4 h-4 text-[#22D3EE]" />
             ) : (
-              <Sun className="h-4 w-4 text-primary" />
+              <Sun className="w-4 h-4 text-[#2563EB]" />
             )}
-            {theme === "dark" ? "Giao diện tối" : "Giao diện sáng"}
-          </span>
-          <span
-            className={`relative h-5 w-9 rounded-full transition-colors ${theme === "dark" ? "bg-primary" : "bg-slate-300"}`}
-            aria-hidden="true"
-          >
             <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${theme === "dark" ? "translate-x-4.5" : "translate-x-0.5"}`}
+              className="text-slate-600 dark:text-slate-300"
+              style={{ fontSize: "13px", fontWeight: 500 }}
+            >
+              {theme === "dark" ? t("theme.dark") : t("theme.light")}
+            </span>
+          </div>
+          <div
+            className={`w-8 h-4 rounded-full relative transition-colors duration-300 ${theme === "dark" ? "bg-[#2563EB]" : "bg-slate-300"}`}
+          >
+            <div
+              className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all duration-300 ${theme === "dark" ? "left-4" : "left-0.5"}`}
             />
-          </span>
+          </div>
         </button>
 
-        <div className="flex items-center gap-3 px-2">
+        {/* User */}
+        <div className="flex items-center gap-3 px-3 py-2">
           {profile?.avatarUrl ? (
             <ImageWithFallback
               src={profile.avatarUrl}
               alt={profile.fullName}
-              className="h-8 w-8 shrink-0 rounded-full object-cover"
+              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
             />
           ) : (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[12px] font-bold text-primary-foreground">
-              {initials}
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center flex-shrink-0">
+              <span
+                className="text-white"
+                style={{ fontSize: "11px", fontWeight: 700 }}
+              >
+                {profile?.fullName?.charAt(0).toUpperCase() || "U"}
+              </span>
             </div>
           )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-slate-800 dark:text-slate-100">
-              {profile?.fullName || "Người dùng"}
+          <div className="flex-1 min-w-0">
+            <p
+              className="text-slate-900 dark:text-slate-200 truncate"
+              style={{ fontSize: "12px", fontWeight: 600 }}
+            >
+              {profile?.fullName || "User"}
             </p>
-            <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
-              {profile?.bio || "Tài khoản DeepGuard"}
+            <p className="text-slate-400 truncate" style={{ fontSize: "11px" }}>
+              {profile === null ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="text-amber-500 font-medium">
+                    {t("user.noProfile")}
+                  </span>
+                </span>
+              ) : profile?.bio ? (
+                profile.bio
+              ) : (
+                t("user.noBio")
+              )}
             </p>
           </div>
           <button
-            type="button"
             onClick={() => {
               logout();
               navigate("/login");
             }}
-            className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-300"
-            aria-label="Đăng xuất"
-            title="Đăng xuất"
+            title={t("user.logout")}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

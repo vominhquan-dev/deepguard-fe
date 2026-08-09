@@ -34,17 +34,17 @@ interface UseScanHistoryReturn {
  * Maps detection result label to a display verdict
  */
 function mapVerdict(label: string): string {
-  const normalized = label?.toLowerCase() || "";
-  if (
-    ["fake", "deepfake", "ai_generated", "ai_generated_and_deepfake", "ai_generated_audio"].includes(
-      normalized,
-    )
-  ) {
-    return "Deepfake";
+  switch (label?.toLowerCase()) {
+    case "fake":
+    case "deepfake":
+      return "Deepfake";
+    case "suspicious":
+      return "Suspicious";
+    case "authentic":
+    case "real":
+    default:
+      return "Authentic";
   }
-  if (normalized === "suspicious") return "Suspicious";
-  if (["authentic", "real", "human"].includes(normalized)) return "Authentic";
-  return "Suspicious";
 }
 
 /**
@@ -104,8 +104,10 @@ export function useScanHistory(): UseScanHistoryReturn {
       // Merge: use detection results as primary, fall back to scan jobs
       if (detectionResults.length > 0) {
         const merged: HistoryItem[] = detectionResults.map((dr) => {
-          // The API does not currently expose a result file size. Avoid showing a misleading "0 B".
-          const fileSize: number | undefined = undefined;
+          const matchingJob = scanJobs.find(
+            (sj) => sj.scanJobId === dr.scanJobId,
+          );
+          const fileSize = matchingJob ? 0 : 0; // Size not available from API yet
 
           // Use flat API response fields
           const prediction = dr.resultLabel || "REAL";
@@ -122,7 +124,7 @@ export function useScanHistory(): UseScanHistoryReturn {
             date: dr.processedAt
               ? dr.processedAt.split("T")[0]
               : new Date().toISOString().split("T")[0],
-            size: fileSize == null ? "Không có dữ liệu" : formatFileSize(fileSize),
+            size: formatFileSize(fileSize),
             status: "Completed",
             originalUrl: dr.originalUrl,
             confidence: Math.round(confidence * 100),
