@@ -25,6 +25,7 @@ import { useTheme } from "../providers/ThemeProvider";
 import { useCredits } from "../../features/billing/hooks/useCredits";
 import { LanguageSwitcher } from "../../shared/i18n/LanguageSwitcher";
 import { Toaster } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -35,36 +36,36 @@ const notifications = [
     id: 1,
     type: "danger",
     icon: AlertTriangle,
-    title: "High-risk deepfake detected",
-    desc: "interview_clip.mp4 scored 87% risk",
-    time: "2m ago",
+    titleKey: "riskTitle",
+    descKey: "riskDesc",
+    timeKey: "twoMinutes",
     read: false,
   },
   {
     id: 2,
     type: "info",
     icon: Info,
-    title: "Weekly report ready",
-    desc: "Your scan summary for this week is available",
-    time: "1h ago",
+    titleKey: "weeklyTitle",
+    descKey: "weeklyDesc",
+    timeKey: "oneHour",
     read: false,
   },
   {
     id: 3,
     type: "warning",
     icon: AlertTriangle,
-    title: "Suspicious audio flagged",
-    desc: "voice_message.mp3 needs manual review",
-    time: "3h ago",
+    titleKey: "audioTitle",
+    descKey: "audioDesc",
+    timeKey: "threeHours",
     read: false,
   },
   {
     id: 4,
     type: "success",
     icon: CheckCircle2,
-    title: "Scan complete",
-    desc: "headshot.png analyzed — Authentic (8%)",
-    time: "Yesterday",
+    titleKey: "completeTitle",
+    descKey: "completeDesc",
+    timeKey: "yesterday",
     read: true,
   },
 ];
@@ -84,6 +85,7 @@ const notifBg: Record<string, string> = {
 };
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -240,7 +242,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {[
           {
             icon: User,
-            label: "Profile",
+            label: t("settings.profile"),
             action: () => {
               navigate("/settings");
               setProfileOpen(false);
@@ -248,7 +250,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           },
           {
             icon: Settings,
-            label: "Settings",
+            label: t("nav.settings"),
             action: () => {
               navigate("/settings");
               setProfileOpen(false);
@@ -256,7 +258,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           },
           {
             icon: HelpCircle,
-            label: "Help & Support",
+            label: t("workspace.topbar.helpSupport"),
             action: () => {
               navigate("/contact");
               setProfileOpen(false);
@@ -402,7 +404,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               style={{ fontSize: "12px", fontWeight: 700 }}
             >
               <ScanSearch className="w-3.5 h-3.5" />
-              New Scan
+              {t("workspace.topbar.newScan")}
             </button>
 
             {/* Language switcher */}
@@ -414,8 +416,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-all"
               title={
                 theme === "dark"
-                  ? "Switch to light mode"
-                  : "Switch to dark mode"
+                  ? t("workspace.topbar.switchToLight")
+                  : t("workspace.topbar.switchToDark")
               }
             >
               {theme === "dark" ? (
@@ -451,7 +453,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                         className="text-slate-900 dark:text-white"
                         style={{ fontSize: "13px", fontWeight: 700 }}
                       >
-                        Notifications
+                        {t("workspace.topbar.notifications")}
                       </span>
                       {unreadCount > 0 && (
                         <span
@@ -468,7 +470,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                         className="text-[#2563EB] dark:text-[#22D3EE] hover:underline"
                         style={{ fontSize: "11px", fontWeight: 600 }}
                       >
-                        Mark all read
+                        {t("workspace.topbar.markAllRead")}
                       </button>
                     )}
                   </div>
@@ -476,7 +478,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   {/* Notification list */}
                   <div className="max-h-72 overflow-y-auto">
                     {notifList.map(
-                      ({ id, type, icon: Icon, title, desc, time, read }) => (
+                      ({ id, type, icon: Icon, titleKey, descKey, timeKey, read }) => (
                         <button
                           key={id}
                           onClick={() => markRead(id)}
@@ -492,19 +494,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                               className="text-slate-900 dark:text-slate-200"
                               style={{ fontSize: "12px", fontWeight: 600 }}
                             >
-                              {title}
+                              {t(`workspace.notifications.${titleKey}`)}
                             </p>
                             <p
                               className="text-slate-500 dark:text-slate-400 mt-0.5"
                               style={{ fontSize: "11px", lineHeight: 1.4 }}
                             >
-                              {desc}
+                              {t(`workspace.notifications.${descKey}`)}
                             </p>
                             <p
                               className="text-slate-400 mt-1"
                               style={{ fontSize: "10px" }}
                             >
-                              {time}
+                              {t(`workspace.notifications.${timeKey}`)}
                             </p>
                           </div>
                           {!read && (
@@ -525,7 +527,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       className="w-full flex items-center justify-center gap-1.5 text-[#2563EB] dark:text-[#22D3EE] hover:underline"
                       style={{ fontSize: "12px", fontWeight: 600 }}
                     >
-                      View all in History
+                      {t("workspace.topbar.viewAll")}
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>

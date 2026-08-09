@@ -10,7 +10,6 @@ import {
   Sun,
   Moon,
   LogOut,
-  Radio,
   CreditCard,
   Users,
   Receipt,
@@ -65,12 +64,6 @@ const navItemConfigs: Array<{
     to: "/detect",
     labelKey: "nav.detectMedia",
     icon: ScanSearch,
-    requiredRole: "USER",
-  },
-  {
-    to: "/realtime",
-    labelKey: "nav.realtimeMonitor",
-    icon: Radio,
     requiredRole: "USER",
   },
   {
@@ -162,14 +155,6 @@ export function Sidebar() {
               </span>
               {active && (
                 <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-              )}
-              {/* Live badge for Realtime Monitor */}
-              {!active && labelKey === "nav.realtimeMonitor" && (
-                <span
-                  className="rounded-md bg-red-500/10 px-1.5 py-0.5 text-[9px] font-bold tracking-[0.08em] text-red-600 dark:text-red-400"
-                >
-                  {t("nav.live")}
-                </span>
               )}
             </button>
           );

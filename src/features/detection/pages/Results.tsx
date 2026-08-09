@@ -35,6 +35,7 @@ import {
   type DetectionResultDetail,
 } from "../api/detectionApi";
 import type { HiveFrameData } from "../types/media";
+import { useTranslation } from "react-i18next";
 
 interface DetectionData {
   detectionResultId?: string;
@@ -178,6 +179,7 @@ function ReportModal({
   detection: DetectionData;
   onClose: () => void;
 }) {
+  const { t, i18n: activeI18n } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -227,10 +229,10 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
           </div>
           <div>
             <h2 className="text-slate-900 dark:text-white text-lg font-bold">
-              Detection Report
+              {t("workspace.results.reportTitle")}
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Generated on {new Date().toLocaleDateString()}
+              {t("workspace.results.generatedOn", { date: new Date().toLocaleDateString(activeI18n.resolvedLanguage === "vi" ? "vi-VN" : "en-US") })}
             </p>
           </div>
         </div>
@@ -263,11 +265,11 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
                 detection.prediction?.toUpperCase() === "AUTHENTIC" ||
                 detection.prediction?.toUpperCase() === "HUMAN" ||
                 detection.prediction?.toUpperCase() === "NOT_AI_GENERATED"
-                  ? "AUTHENTIC CONTENT"
-                  : "AI-GENERATED / MANIPULATED"}
+                  ? t("workspace.results.authenticContent")
+                  : t("workspace.results.aiGenerated")}
               </p>
               <p className="text-slate-500 dark:text-slate-400 text-sm">
-                AI Verdict
+                {t("workspace.results.aiVerdict")}
               </p>
             </div>
           </div>
@@ -277,7 +279,7 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
         <div className="flex gap-3 mb-6">
           <div className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
             <p className="text-slate-500 dark:text-slate-400 text-xs font-medium mb-1">
-              Prediction
+              {t("workspace.results.prediction")}
             </p>
             <p
               className={`text-base font-black ${
@@ -294,7 +296,7 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
           </div>
           <div className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
             <p className="text-slate-500 dark:text-slate-400 text-xs font-medium mb-1">
-              Fake Prob.
+              {t("workspace.results.fakeProbability")}
             </p>
             <p className="text-red-500 text-base font-black">
               {(detection.fakeProbability * 100).toFixed(2)}%
@@ -302,7 +304,7 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
           </div>
           <div className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
             <p className="text-slate-500 dark:text-slate-400 text-xs font-medium mb-1">
-              Real Prob.
+              {t("workspace.results.realProbability")}
             </p>
             <p className="text-emerald-500 text-base font-black">
               {(detection.realProbability * 100).toFixed(2)}%
@@ -345,14 +347,14 @@ Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleSt
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-sm font-semibold"
           >
             <Copy className="w-4 h-4" />
-            Copy Report
+            {t("workspace.results.copyReport")}
           </button>
           <button
             onClick={handlePrint}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-sm font-semibold"
           >
             <Printer className="w-4 h-4" />
-            Print
+            {t("workspace.results.print")}
           </button>
         </div>
       </motion.div>
@@ -370,6 +372,7 @@ function FrameRow({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useTranslation();
   const isAIGenerated = frame.aiGeneratedScore > 0.5;
 
   return (
@@ -381,7 +384,7 @@ function FrameRow({
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <Film className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
           <span className="text-slate-700 dark:text-slate-300 text-sm font-medium">
-            Frame {frame.frameIndex}
+            {t("workspace.results.frame", { index: frame.frameIndex })}
           </span>
           <span className="text-slate-400 text-xs">@ {frame.timestamp}s</span>
         </div>
@@ -420,7 +423,7 @@ function FrameRow({
         >
           <div className="grid grid-cols-2 gap-3">
             <ScoreBar
-              label="AI Generated"
+              label={t("workspace.results.aiGenerated")}
               score={frame.aiGeneratedScore}
               color={
                 frame.aiGeneratedScore > 0.5
@@ -429,7 +432,7 @@ function FrameRow({
               }
             />
             <ScoreBar
-              label="Not AI Generated"
+              label={t("workspace.results.notAiGeneratedScore")}
               score={frame.notAiGeneratedScore}
               color={
                 frame.notAiGeneratedScore > 0.5
@@ -440,14 +443,14 @@ function FrameRow({
           </div>
           {frame.deepfakeScore > 0 && (
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-400">Deepfake Score:</span>
+              <span className="text-slate-400">{t("workspace.results.deepfakeScore")}:</span>
               <span className="font-bold text-red-500">
                 {(frame.deepfakeScore * 100).toFixed(2)}%
               </span>
             </div>
           )}
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-400">Attributed Generator:</span>
+            <span className="text-slate-400">{t("workspace.results.attributedGenerator")}:</span>
             <span className="font-medium text-slate-600 dark:text-slate-300">
               {frame.attributedGenerator || "N/A"}
             </span>
@@ -456,11 +459,11 @@ function FrameRow({
             <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60">
               <p className="text-xs font-medium text-slate-500 mb-2">
                 <AudioWaveform className="w-3 h-3 inline mr-1" />
-                Audio Analysis
+                {t("workspace.results.audioAnalysis")}
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <ScoreBar
-                  label="AI Audio"
+                  label={t("workspace.results.aiAudio")}
                   score={frame.aiGeneratedAudioScore}
                   color={
                     frame.aiGeneratedAudioScore > 0.5
@@ -469,7 +472,7 @@ function FrameRow({
                   }
                 />
                 <ScoreBar
-                  label="Natural Audio"
+                  label={t("workspace.results.naturalAudio")}
                   score={frame.notAiGeneratedAudioScore}
                   color={
                     frame.notAiGeneratedAudioScore > 0.5
@@ -488,6 +491,7 @@ function FrameRow({
 
 // ── Video Detection View ──
 function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
+  const { t } = useTranslation();
   const [expandedFrames, setExpandedFrames] = useState<Set<number>>(new Set());
   const [showAllFrames, setShowAllFrames] = useState(false);
 
@@ -520,7 +524,7 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
             className="w-full max-h-80 object-contain"
             poster={hive.mediaUrl}
           >
-            Your browser does not support the video tag.
+            {t("workspace.results.browserVideoUnsupported")}
           </video>
         </div>
       )}
@@ -545,10 +549,10 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
                 isReal ? "text-emerald-500" : "text-red-500"
               }`}
             >
-              {isReal ? "AUTHENTIC VIDEO" : "AI-GENERATED / MANIPULATED"}
+              {isReal ? t("workspace.results.authenticContent") : t("workspace.results.aiGenerated")}
             </p>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Confidence: {(hive.confidence * 100).toFixed(2)}%
+              {t("detection.confidence")}: {(hive.confidence * 100).toFixed(2)}%
             </p>
           </div>
         </div>
@@ -556,14 +560,14 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
         {/* Score bars */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <ScoreBar
-            label="AI Generated Score"
+            label={t("workspace.results.aiGenerated")}
             score={hive.aiGeneratedScore}
             color={
               hive.aiGeneratedScore > 0.5 ? "text-red-500" : "text-emerald-500"
             }
           />
           <ScoreBar
-            label="Not AI Generated Score"
+            label={t("workspace.results.notAiGeneratedScore")}
             score={hive.notAiGeneratedScore}
             color={
               hive.notAiGeneratedScore > 0.5
@@ -576,7 +580,7 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
         {hive.deepfakeScore > 0 && (
           <div className="mb-4">
             <ScoreBar
-              label="Deepfake Score"
+              label={t("workspace.results.deepfakeScore")}
               score={hive.deepfakeScore}
               color="text-red-500"
             />
@@ -589,11 +593,11 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
           <div className="pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <AudioWaveform className="w-3.5 h-3.5" />
-              Audio Analysis
+              {t("workspace.results.audioAnalysis")}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ScoreBar
-                label="AI Generated Audio"
+                label={t("workspace.results.aiAudio")}
                 score={hive.aiGeneratedAudioScore}
                 color={
                   hive.aiGeneratedAudioScore > 0.5
@@ -602,7 +606,7 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
                 }
               />
               <ScoreBar
-                label="Natural Audio"
+                label={t("workspace.results.naturalAudio")}
                 score={hive.notAiGeneratedAudioScore}
                 color={
                   hive.notAiGeneratedAudioScore > 0.5
@@ -616,7 +620,7 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
 
         {/* Attributed Generator */}
         <div className="flex items-center gap-2 text-xs mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-          <span className="text-slate-400">Attributed Generator:</span>
+          <span className="text-slate-400">{t("workspace.results.attributedGenerator")}:</span>
           <span className="font-semibold text-slate-700 dark:text-slate-300">
             {hive.attributedGenerator || "N/A"}
           </span>
@@ -629,10 +633,10 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
           <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
             <Layers className="w-4 h-4 text-[#2563EB]" />
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Frame-by-Frame Analysis
+              {t("workspace.results.frameByFrame")}
             </h3>
             <span className="text-xs text-slate-400 ml-auto">
-              {hive.frames.length} frames
+              {t("workspace.results.frames", { count: hive.frames.length })}
             </span>
           </div>
 
@@ -651,8 +655,8 @@ function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
               className="w-full py-3 text-center text-sm font-semibold text-[#2563EB] dark:text-[#22D3EE] hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
             >
               {showAllFrames
-                ? "Show Less"
-                : `Show All ${hive.frames.length} Frames`}
+                ? t("workspace.results.showLess")
+                : t("workspace.results.showAllFrames", { count: hive.frames.length })}
             </button>
           )}
         </div>
@@ -703,6 +707,7 @@ function isVideoFile(detection: DetectionData): boolean {
 // ── Main Results Page ──
 export function Results() {
   const navigate = useNavigate();
+  const { t, i18n: activeI18n } = useTranslation();
   const location = useLocation();
   const { accessToken, userInfo } = useAuth();
   const [detection, setDetection] = useState<DetectionData | null>(null);
@@ -972,7 +977,7 @@ export function Results() {
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <RefreshCw className="w-8 h-8 text-[#22D3EE] animate-spin" />
-            <p className="text-slate-400">Loading detection results...</p>
+            <p className="text-slate-400">{t("workspace.results.loading")}</p>
           </div>
         </div>
       </DashboardLayout>
@@ -988,16 +993,16 @@ export function Results() {
               <Eye className="w-8 h-8 text-slate-400" />
             </div>
             <h2 className="text-slate-900 dark:text-white text-xl font-bold">
-              No Detection Results
+              {t("workspace.results.noneTitle")}
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Please upload a media file to see detection results here.
+              {t("workspace.results.noneSubtitle")}
             </p>
             <button
               onClick={() => navigate("/detect")}
               className="px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all text-sm font-bold"
             >
-              Go to Detection
+              {t("workspace.results.goToDetection")}
             </button>
           </div>
         </div>
@@ -1019,13 +1024,13 @@ export function Results() {
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-1 h-6 rounded-full bg-[#22D3EE]" />
                 <h1 className="text-slate-900 dark:text-white text-2xl font-black tracking-tight">
-                  Detection Results
+                  {t("detection.results")}
                 </h1>
               </div>
               <p className="ml-3 max-w-full truncate text-sm text-slate-500 dark:text-slate-400" title={detection?.fileName}>
                 {detection?.fileName
-                  ? `Analysis complete for ${detection.fileName}`
-                  : "Analysis complete"}
+                  ? t("workspace.results.analysisCompleteFor", { fileName: detection.fileName })
+                  : t("workspace.results.analysisComplete")}
               </p>
             </div>
             <div className="flex gap-2">
@@ -1033,7 +1038,7 @@ export function Results() {
                 onClick={() => navigate("/detect")}
                 className="px-4 py-2 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25 text-sm font-bold"
               >
-                Scan Another
+                {t("workspace.results.scanAnother")}
               </button>
             </div>
           </motion.div>
@@ -1084,7 +1089,7 @@ export function Results() {
                       className="w-full max-h-80 object-contain"
                       preload="metadata"
                     >
-                      Your browser does not support the video tag.
+                      {t("workspace.results.browserVideoUnsupported")}
                     </video>
                   </div>
                 )}
@@ -1092,7 +1097,7 @@ export function Results() {
                 {/* Stats Cards */}
                 <div className="flex gap-3 mb-6">
                   <StatCard
-                    label="Prediction"
+                    label={t("workspace.results.prediction")}
                     value={detection?.prediction || "REAL"}
                     color={
                       detection?.prediction?.toUpperCase() === "REAL" ||
@@ -1103,12 +1108,12 @@ export function Results() {
                     }
                   />
                   <StatCard
-                    label="Fake Probability"
+                    label={t("workspace.results.fakeProbability")}
                     value={`${((detection?.fakeProbability ?? 0) * 100).toFixed(2)}%`}
                     color="text-red-500"
                   />
                   <StatCard
-                    label="Real Probability"
+                    label={t("workspace.results.realProbability")}
                     value={`${((detection?.realProbability ?? 1) * 100).toFixed(2)}%`}
                     color="text-emerald-500"
                   />
@@ -1139,11 +1144,11 @@ export function Results() {
                         {detection?.prediction?.toUpperCase() === "REAL" ||
                         detection?.prediction?.toUpperCase() === "AUTHENTIC" ||
                         detection?.prediction?.toUpperCase() === "HUMAN"
-                          ? "AUTHENTIC CONTENT"
-                          : "AI-GENERATED / MANIPULATED"}
+                          ? t("workspace.results.authenticContent")
+                          : t("workspace.results.aiGenerated")}
                       </p>
                       <p className="text-slate-500 dark:text-slate-400 text-sm">
-                        AI Verdict
+                        {t("workspace.results.aiVerdict")}
                       </p>
                     </div>
                   </div>
@@ -1190,7 +1195,7 @@ export function Results() {
                   <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                     <Video className="w-3.5 h-3.5 text-slate-400" />
                     <span className="text-xs font-medium text-slate-500">
-                      Original Media
+                      {t("workspace.results.originalMedia")}
                     </span>
                   </div>
                   <img
@@ -1210,7 +1215,7 @@ export function Results() {
                   <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                     <Video className="w-3.5 h-3.5 text-slate-400" />
                     <span className="text-xs font-medium text-slate-500">
-                      Original Media
+                      {t("workspace.results.originalMedia")}
                     </span>
                   </div>
                   <video
@@ -1219,7 +1224,7 @@ export function Results() {
                     className="w-full max-h-80 object-contain"
                     preload="metadata"
                   >
-                    Your browser does not support the video tag.
+                    {t("workspace.results.browserVideoUnsupported")}
                   </video>
                 </div>
               )}
@@ -1237,7 +1242,7 @@ export function Results() {
                 <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                   <Layers className="w-4 h-4 text-[#2563EB]" />
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Technical Details
+                    {t("workspace.results.technicalDetails")}
                   </h3>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
@@ -1254,7 +1259,7 @@ export function Results() {
                   {detection?.modelVersion && (
                     <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
                       <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                        Model Version
+                        {t("workspace.results.modelVersion")}
                       </span>
                       <span
                         className="text-slate-700 dark:text-slate-200 text-xs font-mono text-right ml-4 break-all max-w-[260px]"
@@ -1268,11 +1273,11 @@ export function Results() {
                   {detection?.processedAt && (
                     <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
                       <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                        Processed At
+                        {t("workspace.results.processedAt")}
                       </span>
                       <span className="text-slate-700 dark:text-slate-200 text-xs font-semibold text-right ml-4">
                         {new Date(detection.processedAt).toLocaleString(
-                          "en-US",
+                          activeI18n.resolvedLanguage === "vi" ? "vi-VN" : "en-US",
                           {
                             year: "numeric",
                             month: "short",
@@ -1306,14 +1311,9 @@ export function Results() {
               </div>
               <p className="text-slate-600 dark:text-slate-300 text-sm">
                 <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  Remaining Credits
+                  {t("workspace.results.remainingCredits")}
                 </span>{" "}
-                — you have{" "}
-                <span className="font-bold text-[#2563EB]">
-                  {credits.remainingCredits}
-                </span>{" "}
-                detection
-                {credits.remainingCredits !== 1 ? "s" : ""} left
+                — {t("workspace.results.remainingCreditsDetail", { count: credits.remainingCredits, unit: credits.remainingCredits !== 1 ? t("workspace.results.detections") : t("workspace.results.detection") })}
               </p>
             </motion.div>
           )}
@@ -1330,7 +1330,7 @@ export function Results() {
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-sm font-semibold"
             >
               <Info className="w-4 h-4" />
-              View Full Report
+              {t("workspace.results.viewFullReport")}
             </button>
             <button
               onClick={handleDownloadPdf}
@@ -1338,7 +1338,7 @@ export function Results() {
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all text-sm font-semibold disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
-              {downloadingPdf ? "Downloading..." : "Download Report"}
+              {downloadingPdf ? t("workspace.results.downloading") : t("workspace.results.downloadReport")}
             </button>
           </motion.div>
         </div>

@@ -29,10 +29,11 @@ import { triggerCreditsRefetch } from "../../billing/hooks/useCredits";
 import { downloadScanReportPdf } from "../../detection/api/reportApi";
 import { useAuth } from "../../auth/context/AuthContext";
 import i18n from "../../../shared/i18n/config";
+import { useTranslation } from "react-i18next";
 
 type UploadState = "idle" | "selected" | "scanning" | "done" | "error";
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024;
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const SUPPORTED_FORMATS = [
   "JPG",
   "PNG",
@@ -66,18 +67,18 @@ function formatFileSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function formatRelativeTime(value: string) {
+function formatRelativeTime(value: string, language: string) {
   const normalizedValue = value.endsWith("Z") ? value : `${value}Z`;
   const date = new Date(normalizedValue);
   const difference = Date.now() - date.getTime();
   const minutes = Math.max(0, Math.floor(difference / 60_000));
 
-  if (minutes < 1) return "Vừa xong";
-  if (minutes < 60) return `${minutes} phút trước`;
+  if (minutes < 1) return language === "vi" ? "Vừa xong" : "Just now";
+  if (minutes < 60) return language === "vi" ? `${minutes} phút trước` : `${minutes}m ago`;
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} giờ trước`;
-  return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+  if (hours < 24) return language === "vi" ? `${hours} giờ trước` : `${hours}h ago`;
+  return date.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { day: "2-digit", month: "2-digit" });
 }
 
 function FileTypeIcon({
@@ -107,6 +108,7 @@ function FileTypeIcon({
  */
 export function Dashboard() {
   const navigate = useNavigate();
+  const { t, i18n: activeI18n } = useTranslation();
   const {
     upload,
     reset,
@@ -168,13 +170,13 @@ export function Dashboard() {
 
   const selectFile = useCallback((file: File) => {
     if (file.size > MAX_FILE_SIZE) {
-      setLocalError("Tệp lớn hơn giới hạn 500 MB. Hãy nén hoặc cắt ngắn tệp trước khi thử lại.");
+      setLocalError(t("workspace.detect.fileTooLarge"));
       setUploadState("error");
       return;
     }
 
     if (!/(image|video|audio)\//.test(file.type)) {
-      setLocalError("Định dạng này chưa được hỗ trợ. Hãy chọn ảnh, video hoặc âm thanh hợp lệ.");
+      setLocalError(t("workspace.detect.unsupportedFormat"));
       setUploadState("error");
       return;
     }
@@ -183,7 +185,7 @@ export function Dashboard() {
     setLocalError(null);
     setProgressDisplay(0);
     setUploadState("selected");
-  }, []);
+  }, [t]);
 
   const openFilePicker = useCallback((accept = "image/*,video/*,audio/*") => {
     if (!fileInputRef.current) return;
@@ -204,8 +206,8 @@ export function Dashboard() {
     setUploadState("scanning");
     setLocalError(null);
     setProgressDisplay(0);
-    setScanPhase("Đang tải tệp an toàn…");
-    toast.info(`Đang tải ${selectedFile.name}…`, { duration: 2_000 });
+    setScanPhase(t("workspace.detect.uploading"));
+    toast.info(t("workspace.detect.uploadingFile", { fileName: selectedFile.name }), { duration: 2_000 });
 
     try {
       // Keep the established FE → BE contract. The backend owns Hive/provider calls.
@@ -255,9 +257,9 @@ export function Dashboard() {
       localStorage.setItem(`lastUploadData_${prefix}`, JSON.stringify(uploadData));
 
       const phases = [
-        "Đang kiểm tra đặc trưng nội dung…",
-        "Đang đối chiếu kết quả phân tích…",
-        "Đang hoàn thiện báo cáo…",
+        t("workspace.detect.uploading"),
+        t("detection.processing"),
+        t("workspace.detect.analyzing"),
       ];
       let phaseIndex = 0;
       setScanPhase(phases[phaseIndex]);
@@ -276,7 +278,7 @@ export function Dashboard() {
           if (next === 100) {
             window.clearInterval(interval);
             setUploadState("done");
-            toast.success("Đã hoàn tất kiểm tra nội dung.");
+            toast.success(t("workspace.detect.scanComplete"));
           }
           return next;
         });
@@ -288,7 +290,7 @@ export function Dashboard() {
       setUploadState("error");
       toast.error(message);
     }
-  }, [accessToken, refetchResults, selectedFile, upload, userInfo]);
+  }, [accessToken, refetchResults, selectedFile, t, upload, userInfo]);
 
   const downloadReport = useCallback(async () => {
     const token = accessToken || localStorage.getItem("accessToken");
@@ -404,13 +406,13 @@ export function Dashboard() {
         <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
           <header className="mb-8 max-w-2xl">
             <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.12em] text-primary">
-              DeepGuard kiểm tra nội dung
+              {t("workspace.detect.eyebrow")}
             </p>
             <h1 className="text-3xl font-bold tracking-[-0.035em] text-slate-900 dark:text-white">
-              Kiểm tra ảnh, video hoặc âm thanh
+              {t("workspace.detect.title")}
             </h1>
             <p className="mt-2 text-[15px] leading-6 text-slate-600 dark:text-slate-300">
-              Nhận một kết luận rõ ràng để bạn quyết định có nên tiếp tục sử dụng nội dung đó hay không.
+              {t("workspace.detect.subtitle")}
             </p>
           </header>
 
@@ -421,10 +423,10 @@ export function Dashboard() {
             >
               <div className="border-b border-border px-5 py-4 sm:px-6">
                 <h2 id="upload-title" className="text-[16px] font-bold text-slate-900 dark:text-white">
-                  Tải tệp cần kiểm tra
+                  {t("workspace.detect.uploadTitle")}
                 </h2>
                 <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">
-                  Một lượt kiểm tra sẽ được trừ sau khi tệp được gửi thành công.
+                  {t("workspace.detect.creditNote")}
                 </p>
               </div>
 
@@ -469,7 +471,7 @@ export function Dashboard() {
                           ? "border-primary/40 bg-primary/[0.035]"
                           : "border-slate-300 bg-slate-50/70 hover:border-primary/60 hover:bg-primary/[0.025] dark:border-slate-600 dark:bg-slate-800/30"
                     }`}
-                    aria-label="Khu vực tải tệp"
+                    aria-label={t("workspace.detect.dropArea")}
                   >
                     {uploadState === "idle" ? (
                       <div className="flex min-h-[250px] flex-col items-center justify-center">
@@ -477,10 +479,10 @@ export function Dashboard() {
                           <Upload className="h-7 w-7" />
                         </span>
                         <h3 className="mt-5 text-[18px] font-bold text-slate-900 dark:text-white">
-                          Kéo thả tệp vào đây
+                          {t("workspace.detect.dropTitle")}
                         </h3>
                         <p className="mt-1 text-[14px] text-slate-500 dark:text-slate-400">
-                          hoặc nhấn để chọn tệp từ thiết bị của bạn
+                          {t("workspace.detect.dropHint")}
                         </p>
                         <div className="mt-5 flex flex-wrap justify-center gap-2">
                           {SUPPORTED_FORMATS.map((format) => (
@@ -492,7 +494,7 @@ export function Dashboard() {
                             </span>
                           ))}
                         </div>
-                        <p className="mt-5 text-[12px] text-slate-400">Dung lượng tối đa 500 MB</p>
+                        <p className="mt-5 text-[12px] text-slate-400">{t("workspace.detect.maxFile")}</p>
                       </div>
                     ) : (
                       <div className="flex min-h-[250px] flex-col items-center justify-center">
@@ -511,7 +513,7 @@ export function Dashboard() {
                           {selectedFile?.name}
                         </p>
                         <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">
-                          {selectedFile && formatFileSize(selectedFile.size)} · Sẵn sàng kiểm tra
+                          {selectedFile && formatFileSize(selectedFile.size)} · {t("workspace.detect.selectedReady")}
                         </p>
                         <div className="mt-6 flex flex-wrap justify-center gap-3">
                           <button
@@ -522,7 +524,7 @@ export function Dashboard() {
                             }}
                             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-bold text-primary-foreground shadow-sm shadow-blue-500/25 transition-colors hover:bg-[#406dcc]"
                           >
-                            <ScanSearch className="h-4 w-4" /> Bắt đầu kiểm tra
+                            <ScanSearch className="h-4 w-4" /> {t("workspace.detect.start")}
                           </button>
                           <button
                             type="button"
@@ -532,7 +534,7 @@ export function Dashboard() {
                             }}
                             className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-muted dark:text-slate-300"
                           >
-                            <X className="h-4 w-4" /> Chọn lại
+                            <X className="h-4 w-4" /> {t("workspace.detect.chooseAgain")}
                           </button>
                         </div>
                       </div>
@@ -546,10 +548,10 @@ export function Dashboard() {
                       <LoaderCircle className="h-7 w-7 animate-spin" />
                     </span>
                     <h3 className="mt-5 text-[18px] font-bold text-slate-900 dark:text-white">
-                      {uploading ? "Đang tải tệp an toàn" : "Đang phân tích nội dung"}
+                      {uploading ? t("workspace.detect.uploading") : t("workspace.detect.analyzing")}
                     </h3>
                     <p className="mt-1 max-w-sm text-[14px] leading-6 text-slate-500 dark:text-slate-400">
-                      {scanPhase || "Bạn có thể ở lại trang này. Kết quả sẽ xuất hiện ngay khi sẵn sàng."}
+                      {scanPhase || t("workspace.detect.waitForResult")}
                     </p>
                     <div className="mt-6 w-full max-w-sm">
                       <div className="flex justify-between gap-4 text-[12px] font-semibold text-slate-600 dark:text-slate-300">
@@ -586,16 +588,16 @@ export function Dashboard() {
                         <AlertCircle className="h-5 w-5" />
                       </span>
                       <div>
-                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-white">Chưa thể hiển thị kết quả</h3>
+                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-white">{t("workspace.detect.unableToShow")}</h3>
                         <p className="mt-1 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
-                          Tệp đã được gửi thành công. Bạn có thể mở lịch sử để xem kết quả vừa xử lý.
+                          {t("workspace.detect.uploadedCanViewHistory")}
                         </p>
                         <div className="mt-4 flex flex-wrap gap-2">
                           <button type="button" onClick={() => navigate("/history")} className="rounded-lg bg-primary px-3 py-2 text-[12px] font-bold text-primary-foreground hover:bg-[#406dcc]">
-                            Mở lịch sử kiểm tra
+                            {t("workspace.detect.openHistory")}
                           </button>
                           <button type="button" onClick={resetUpload} className="rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-semibold text-slate-600 hover:bg-muted dark:text-slate-300">
-                            Kiểm tra tệp khác
+                            {t("workspace.detect.checkAnother")}
                           </button>
                         </div>
                       </div>
@@ -610,16 +612,16 @@ export function Dashboard() {
                         <AlertCircle className="h-5 w-5" />
                       </span>
                       <div>
-                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-white">Không thể xử lý tệp này</h3>
+                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-white">{t("workspace.detect.unableToProcess")}</h3>
                         <p className="mt-1 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
-                          {localError || "Đã có lỗi xảy ra trong khi gửi tệp. Hãy thử lại sau ít phút."}
+                          {localError || t("workspace.detect.genericUploadError")}
                         </p>
                         <div className="mt-4 flex flex-wrap gap-2">
                           <button type="button" onClick={resetUpload} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-[12px] font-bold text-primary-foreground hover:bg-[#406dcc]">
-                            <RefreshCw className="h-3.5 w-3.5" /> Thử lại
+                            <RefreshCw className="h-3.5 w-3.5" /> {t("workspace.detect.retry")}
                           </button>
                           <button type="button" onClick={() => navigate("/contact")} className="rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-semibold text-slate-600 hover:bg-muted dark:text-slate-300">
-                            Liên hệ hỗ trợ
+                            {t("workspace.detect.contactSupport")}
                           </button>
                         </div>
                       </div>
@@ -630,9 +632,9 @@ export function Dashboard() {
                 {uploadState === "idle" && (
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
                     {[
-                      { label: "Chọn ảnh", formats: "JPG, PNG, WEBP", icon: ImageIcon, accept: "image/*" },
-                      { label: "Chọn video", formats: "MP4, MOV, AVI", icon: Video, accept: "video/*" },
-                      { label: "Chọn âm thanh", formats: "MP3, WAV, M4A", icon: Mic, accept: "audio/*" },
+                      { label: t("workspace.detect.chooseImage"), formats: "JPG, PNG, WEBP", icon: ImageIcon, accept: "image/*" },
+                      { label: t("workspace.detect.chooseVideo"), formats: "MP4, MOV, AVI", icon: Video, accept: "video/*" },
+                      { label: t("workspace.detect.chooseAudio"), formats: "MP3, WAV, M4A", icon: Mic, accept: "audio/*" },
                     ].map(({ label, formats, icon: Icon, accept }) => (
                       <button
                         key={label}
@@ -654,22 +656,22 @@ export function Dashboard() {
               <section className="rounded-xl border border-border bg-card p-5 shadow-sm shadow-slate-900/[0.03]" aria-labelledby="tips-title">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-primary" />
-                  <h2 id="tips-title" className="text-[16px] font-bold text-slate-900 dark:text-white">Lưu ý khi kiểm tra</h2>
+                  <h2 id="tips-title" className="text-[16px] font-bold text-slate-900 dark:text-white">{t("workspace.detect.tipsTitle")}</h2>
                 </div>
                 <ul className="mt-4 space-y-3 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
-                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Tệp tối đa 500 MB; hỗ trợ ảnh, video và âm thanh.</li>
-                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Ảnh hoặc video rõ nét giúp kết quả đáng tin cậy hơn.</li>
-                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Kết quả là tín hiệu hỗ trợ, không thay thế việc đối chiếu nguồn gốc.</li>
+                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{t("workspace.detect.tipMaxFile")}</li>
+                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{t("workspace.detect.tipQuality")}</li>
+                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{t("workspace.detect.tipAdvisory")}</li>
                 </ul>
               </section>
 
               <section className="rounded-xl border border-border bg-card p-5 shadow-sm shadow-slate-900/[0.03]" aria-labelledby="recent-title">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 id="recent-title" className="text-[16px] font-bold text-slate-900 dark:text-white">Kiểm tra gần đây</h2>
-                    <p className="mt-1 text-[12px] text-slate-500 dark:text-slate-400">Mở lại một kết quả để xem chi tiết.</p>
+                    <h2 id="recent-title" className="text-[16px] font-bold text-slate-900 dark:text-white">{t("workspace.detect.recentTitle")}</h2>
+                    <p className="mt-1 text-[12px] text-slate-500 dark:text-slate-400">{t("workspace.detect.recentSubtitle")}</p>
                   </div>
-                  <button type="button" onClick={() => navigate("/history")} className="text-[12px] font-bold text-primary hover:underline">Tất cả</button>
+                  <button type="button" onClick={() => navigate("/history")} className="text-[12px] font-bold text-primary hover:underline">{t("workspace.topbar.viewAll")}</button>
                 </div>
 
                 {recentLoading ? (
@@ -679,7 +681,7 @@ export function Dashboard() {
                 ) : recentResults.length === 0 ? (
                   <div className="mt-5 rounded-xl bg-muted/60 p-4 text-center">
                     <FileImage className="mx-auto h-5 w-5 text-slate-400" />
-                    <p className="mt-2 text-[12px] text-slate-500 dark:text-slate-400">Kết quả gần đây sẽ xuất hiện tại đây.</p>
+                    <p className="mt-2 text-[12px] text-slate-500 dark:text-slate-400">{t("workspace.detect.noRecent")}</p>
                   </div>
                 ) : (
                   <div className="mt-4 divide-y divide-border">
@@ -699,7 +701,7 @@ export function Dashboard() {
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[12px] font-semibold text-slate-800 dark:text-slate-100">{result.fileName}</span>
                             <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                              {risky ? "Cần xem lại" : "Có vẻ đáng tin cậy"} <Clock className="h-3 w-3" /> {formatRelativeTime(result.processedAt)}
+                              {risky ? t("workspace.history.suspicious") : t("workspace.history.authentic")} <Clock className="h-3 w-3" /> {formatRelativeTime(result.processedAt, activeI18n.resolvedLanguage || "vi")}
                             </span>
                           </span>
                           <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
@@ -736,6 +738,7 @@ function ResultSummary({
   onReset: () => void;
   onDownload: () => void;
 }) {
+  const { t } = useTranslation();
   const tone = risky
     ? "border-red-200 bg-red-50/65 dark:border-red-500/25 dark:bg-red-500/[0.08]"
     : trusted
@@ -756,33 +759,33 @@ function ResultSummary({
           </span>
           <div>
             <p className="text-[15px] font-bold text-slate-900 dark:text-white">
-              {risky ? "Có dấu hiệu nội dung nhân tạo" : trusted ? "Nội dung có vẻ đáng tin cậy" : "Cần xem lại nội dung"}
+              {risky ? t("workspace.detect.riskyContent") : trusted ? t("workspace.detect.trustedContent") : t("workspace.detect.reviewContent")}
             </p>
             <p className="mt-1 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
               {risky
-                ? `Hệ thống ghi nhận mức rủi ro ${riskScore}%. Hãy kiểm tra kỹ trước khi đăng hoặc chia sẻ.`
+                ? t("workspace.detect.riskySummary", { score: riskScore })
                 : trusted
-                  ? "Hệ thống chưa phát hiện dấu hiệu can thiệp đáng kể trong lần kiểm tra này."
-                  : "Kết quả chưa đủ chắc chắn. Hãy đối chiếu thêm với nguồn nội dung gốc."}
+                  ? t("workspace.detect.trustedSummary")
+                  : t("workspace.detect.reviewSummary")}
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={onOpen} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-bold text-primary-foreground hover:bg-[#406dcc]">
-            Xem kết quả <ChevronRight className="h-4 w-4" />
+            {t("workspace.detect.viewResult")} <ChevronRight className="h-4 w-4" />
           </button>
           <button type="button" onClick={onDownload} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-semibold text-slate-600 hover:bg-muted dark:text-slate-300">
-            <Download className="h-3.5 w-3.5" /> Tải báo cáo
+            <Download className="h-3.5 w-3.5" /> {t("workspace.detect.downloadReport")}
           </button>
           <button type="button" onClick={onReset} className="rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-semibold text-slate-600 hover:bg-muted dark:text-slate-300">
-            Kiểm tra tệp khác
+            {t("workspace.detect.checkAnother")}
           </button>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.06] pt-4 text-[12px] text-slate-500 dark:border-white/[0.08] dark:text-slate-400">
         <span className="inline-flex items-center gap-1.5"><FileCheck2 className="h-3.5 w-3.5" /> {fileName}</span>
-        <span>Rủi ro phát hiện: {riskScore}%</span>
-        <span>Độ tin cậy: {Math.round(confidence * 100)}%</span>
+        <span>{t("workspace.detect.riskDetected", { score: riskScore })}</span>
+        <span>{t("workspace.detect.confidence", { score: Math.round(confidence * 100) })}</span>
       </div>
     </div>
   );
