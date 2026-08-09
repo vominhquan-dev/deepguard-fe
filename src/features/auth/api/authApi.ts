@@ -58,13 +58,17 @@ export async function refreshToken(token: string): Promise<LoginResponse> {
 /**
  * Logout user
  */
-export async function logout(token: string): Promise<void> {
+export async function logout(
+  accessToken: string,
+  refreshToken: string,
+): Promise<void> {
   await fetch(`${API_BASE_URL}/auth/logout`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${accessToken}`,
     },
+    body: JSON.stringify({ refreshToken }),
   });
 }
 
