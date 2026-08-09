@@ -39,6 +39,16 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
 /**
  * Refresh access token using refresh token
  */
+export class RefreshTokenError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "RefreshTokenError";
+  }
+}
+
 export async function refreshToken(token: string): Promise<LoginResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: "POST",
@@ -48,11 +58,17 @@ export async function refreshToken(token: string): Promise<LoginResponse> {
     body: JSON.stringify({ refreshToken: token }),
   });
 
+  const data = await response.json().catch(() => null);
+
   if (!response.ok) {
-    throw new Error(i18n.t("errors.api.refreshTokenFailed"));
+    const error = data as Partial<ErrorResponse> | null;
+    throw new RefreshTokenError(
+      error?.message || i18n.t("errors.api.refreshTokenFailed"),
+      response.status,
+    );
   }
 
-  return response.json();
+  return data as LoginResponse;
 }
 
 /**
