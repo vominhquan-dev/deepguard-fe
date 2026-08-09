@@ -1,31 +1,26 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import {
-  Upload,
-  Image as ImageIcon,
-  Video,
-  Mic,
-  FileCheck,
-  X,
-  Cpu,
-  Shield,
   AlertCircle,
-  CheckCircle2,
-  BarChart2,
   AlertTriangle,
-  WifiOff,
-  Server,
-  FileX,
-  RefreshCw,
-  HardDrive,
-  Download,
-  Eye,
+  CheckCircle2,
+  ChevronRight,
   Clock,
-  Layers,
-  ChevronDown,
+  Download,
+  FileCheck2,
+  FileImage,
+  FileText,
+  Image as ImageIcon,
+  LoaderCircle,
+  Mic,
   Play,
+  RefreshCw,
+  ScanSearch,
+  ShieldCheck,
+  Upload,
+  Video,
+  X,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useMediaUpload } from "../../detection/hooks/useMediaUpload";
@@ -36,88 +31,85 @@ import { useAuth } from "../../auth/context/AuthContext";
 import i18n from "../../../shared/i18n/config";
 
 type UploadState = "idle" | "selected" | "scanning" | "done" | "error";
-type ErrorType =
-  | "file_too_large"
-  | "unsupported_format"
-  | "analysis_failed"
-  | "network_error"
-  | "server_unavailable";
 
-const errorConfigs: Record<
-  ErrorType,
-  {
-    icon: React.ElementType;
-    title: string;
-    desc: string;
-    hint: string;
-    iconColor: string;
-    bg: string;
-    border: string;
-    badgeBg: string;
-    badgeText: string;
+const MAX_FILE_SIZE = 500 * 1024 * 1024;
+const SUPPORTED_FORMATS = [
+  "JPG",
+  "PNG",
+  "WEBP",
+  "MP4",
+  "MOV",
+  "AVI",
+  "MP3",
+  "WAV",
+  "M4A",
+];
+
+function isRiskyPrediction(prediction: string) {
+  return [
+    "AI_GENERATED",
+    "AI_GENERATED_AND_DEEPFAKE",
+    "AI_GENERATED_AUDIO",
+    "DEEPFAKE",
+    "FAKE",
+  ].includes(prediction.toUpperCase());
+}
+
+function isTrustedPrediction(prediction: string) {
+  return ["REAL", "AUTHENTIC", "HUMAN", "NOT_AI_GENERATED"].includes(
+    prediction.toUpperCase(),
+  );
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatRelativeTime(value: string) {
+  const normalizedValue = value.endsWith("Z") ? value : `${value}Z`;
+  const date = new Date(normalizedValue);
+  const difference = Date.now() - date.getTime();
+  const minutes = Math.max(0, Math.floor(difference / 60_000));
+
+  if (minutes < 1) return "Vừa xong";
+  if (minutes < 60) return `${minutes} phút trước`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+}
+
+function FileTypeIcon({
+  type,
+  className = "",
+}: {
+  type: string;
+  className?: string;
+}) {
+  const normalizedType = type.toLowerCase();
+  if (normalizedType.startsWith("image") || type === "IMAGE") {
+    return <ImageIcon className={className} />;
   }
-> = {
-  file_too_large: {
-    icon: HardDrive,
-    title: "File Too Large",
-    desc: "The file you selected exceeds the 500MB limit. Please compress your file or use a shorter clip.",
-    hint: "Tip: For videos, try reducing resolution to 1080p or trimming to under 2 minutes.",
-    iconColor: "text-amber-500",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/25",
-    badgeBg: "bg-amber-500/10",
-    badgeText: "text-amber-600 dark:text-amber-400",
-  },
-  unsupported_format: {
-    icon: FileX,
-    title: "Unsupported File Format",
-    desc: "The file format is not supported. Please upload a valid image, video, or audio file.",
-    hint: "Supported: JPG, PNG, WEBP, MP4, MOV, AVI, MP3, WAV, M4A",
-    iconColor: "text-red-500",
-    bg: "bg-red-500/10",
-    border: "border-red-500/25",
-    badgeBg: "bg-red-500/10",
-    badgeText: "text-red-600 dark:text-red-400",
-  },
-  analysis_failed: {
-    icon: AlertTriangle,
-    title: "AI Analysis Failed",
-    desc: "Our detection models encountered an unexpected error while processing your file. This is usually temporary.",
-    hint: "Try re-uploading the same file. If the error persists, contact support.",
-    iconColor: "text-red-500",
-    bg: "bg-red-500/10",
-    border: "border-red-500/25",
-    badgeBg: "bg-red-500/10",
-    badgeText: "text-red-600 dark:text-red-400",
-  },
-  network_error: {
-    icon: WifiOff,
-    title: "Network Error",
-    desc: "Connection was interrupted during analysis. Please check your internet connection and try again.",
-    hint: "Your file was not uploaded. No data was lost.",
-    iconColor: "text-slate-500",
-    bg: "bg-slate-500/10",
-    border: "border-slate-400/25",
-    badgeBg: "bg-slate-500/10",
-    badgeText: "text-slate-600 dark:text-slate-400",
-  },
-  server_unavailable: {
-    icon: Server,
-    title: "Server Unavailable",
-    desc: "Our servers are temporarily overloaded. We are automatically scaling capacity to handle the demand.",
-    hint: "Average wait time: 2–3 minutes. Your position is being held.",
-    iconColor: "text-purple-500",
-    bg: "bg-purple-500/10",
-    border: "border-purple-500/25",
-    badgeBg: "bg-purple-500/10",
-    badgeText: "text-purple-600 dark:text-purple-400",
-  },
-};
+  if (normalizedType.startsWith("video") || type === "VIDEO") {
+    return <Video className={className} />;
+  }
+  if (normalizedType.startsWith("audio") || type === "AUDIO") {
+    return <Mic className={className} />;
+  }
+  return <FileText className={className} />;
+}
 
+/**
+ * This page deliberately keeps the original upload/result contract intact.
+ * Presentation is local to this component; upload adapters, cache keys and the
+ * video Hive payload remain the same ones consumed by Results.tsx.
+ */
 export function Dashboard() {
   const navigate = useNavigate();
   const {
     upload,
+    reset,
     uploading,
     progress,
     error: uploadError,
@@ -127,1507 +119,671 @@ export function Dashboard() {
   } = useMediaUpload();
   const {
     results: recentResults,
-    loading: resultsLoading,
+    loading: recentLoading,
     refetch: refetchResults,
   } = useDetectionResults();
   const { accessToken, userInfo } = useAuth();
-  const [uploadState, setUploadState] = useState<UploadState>("idle");
-  const [isDragging, setIsDragging] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [progress_display, setProgressDisplay] = useState(0);
-  const [scanPhase, setScanPhase] = useState("");
-  const [errorType, setErrorType] = useState<ErrorType | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // Create/revoke object URL for image preview
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [progressDisplay, setProgressDisplay] = useState(0);
+  const [scanPhase, setScanPhase] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    if (selectedFile && selectedFile.type.startsWith("image/")) {
-      const url = URL.createObjectURL(selectedFile);
-      setPreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
-    } else {
+    if (!selectedFile?.type.startsWith("image/")) {
       setPreviewUrl(null);
+      return;
     }
+
+    const objectUrl = URL.createObjectURL(selectedFile);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
   }, [selectedFile]);
 
-  const scanPhases = [
-    "Initializing AI models...",
-    "Extracting media features...",
-    "Analyzing with neural network...",
-    "Running deepfake classifiers...",
-    "Generating risk report...",
-  ];
-
-  // Safely extract detection info from flat API fields (resultLabel, fakeScore, confidence)
-  const getDetectionPrediction = (r: { resultLabel?: string }) =>
-    r.resultLabel || "REAL";
-  const getDetectionFakeProb = (r: { fakeScore?: number }): number =>
-    r.fakeScore ?? 0;
-  const getDetectionRealProb = (r: { confidence?: number }): number =>
-    r.confidence ?? 1;
-
-  const triggerError = (type: ErrorType) => {
-    setErrorType(type);
-    setUploadState("error");
-    setSelectedFile(null);
-  };
-
-  // Handle upload errors
   useEffect(() => {
-    if (uploadError) {
-      if (uploadError.includes("Network") || uploadError.includes("failed")) {
-        triggerError("network_error");
-      } else if (uploadError.includes("format")) {
-        triggerError("unsupported_format");
-      } else {
-        triggerError("analysis_failed");
-      }
-      toast.error(uploadError);
-    }
+    if (!uploadError) return;
+    setLocalError(uploadError);
+    setUploadState("error");
   }, [uploadError]);
 
-  // Handle upload progress
   useEffect(() => {
-    if (progress && uploading) {
+    if (uploading && progress) {
       setProgressDisplay(progress.percentage);
-      if (progress.percentage === 100) {
-        toast.success("File uploaded! Starting analysis...");
-      }
     }
   }, [progress, uploading]);
 
-  const resetUpload = () => {
-    setUploadState("idle");
+  const resetUpload = useCallback(() => {
+    reset();
     setSelectedFile(null);
+    setLocalError(null);
     setProgressDisplay(0);
-    setErrorType(null);
-  };
+    setScanPhase("");
+    setUploadState("idle");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [reset]);
 
-  const isImageFile = selectedFile?.type.startsWith("image/");
-
-  const startScan = useCallback(
-    async (file: File) => {
-      setSelectedFile(file);
-      setUploadState("scanning");
-      setProgressDisplay(0);
-      toast.info(`Uploading ${file.name}...`, { duration: 2000 });
-
-      try {
-        const token = localStorage.getItem("accessToken");
-        if (!token) {
-          triggerError("network_error");
-          toast.error(i18n.t("errors.api.authRequired"));
-          return;
-        }
-
-        // Upload file to server and receive AI detection results
-        const uploadData = await upload(file, token);
-
-        // Refresh credits and recent results after successful upload/detection
-        triggerCreditsRefetch();
-        refetchResults();
-
-        const prefix = userInfo?.email || userInfo?.id || "anonymous";
-
-        // Store the normalized image/audio result for the full-report route.
-        if (uploadData?.aiDetect) {
-          localStorage.setItem(
-            `lastDetection_${prefix}`,
-            JSON.stringify({
-              prediction: uploadData.aiDetect.prediction,
-              fakeProbability: uploadData.aiDetect.fakeProbability,
-              realProbability: uploadData.aiDetect.realProbability,
-              imageUrl: uploadData.aiDetect.imageUrl ?? null,
-              message: uploadData.aiDetect.message ?? null,
-              scanJobId: uploadData.scanJobId,
-            }),
-          );
-        }
-
-        // Store the normalized video result, including frame-level analysis.
-        if (uploadData?.hiveDetect) {
-          localStorage.setItem(
-            `lastDetectionHive_${prefix}`,
-            JSON.stringify({
-              prediction: uploadData.hiveDetect.prediction,
-              confidence: uploadData.hiveDetect.confidence,
-              aiGeneratedScore: uploadData.hiveDetect.aiGeneratedScore,
-              notAiGeneratedScore: uploadData.hiveDetect.notAiGeneratedScore,
-              deepfakeScore: uploadData.hiveDetect.deepfakeScore,
-              aiGeneratedAudioScore:
-                uploadData.hiveDetect.aiGeneratedAudioScore,
-              notAiGeneratedAudioScore:
-                uploadData.hiveDetect.notAiGeneratedAudioScore,
-              attributedGenerator: uploadData.hiveDetect.attributedGenerator,
-              frames: uploadData.hiveDetect.frames,
-              taskId: uploadData.hiveDetect.taskId,
-              mediaUrl: uploadData.hiveDetect.mediaUrl,
-              video: uploadData.hiveDetect.video,
-              scanJobId: uploadData.scanJobId,
-            }),
-          );
-        }
-
-        // Always store the full upload data
-        if (uploadData) {
-          localStorage.setItem(
-            `lastUploadData_${prefix}`,
-            JSON.stringify(uploadData),
-          );
-        }
-
-        // Show scanning animation briefly with real detection status
-        let currentPhase = 0;
-        setScanPhase(scanPhases[0]);
-
-        const interval = setInterval(() => {
-          setProgressDisplay((p) => {
-            const next = p + 2;
-            const phaseIdx = Math.floor((next / 100) * scanPhases.length);
-            if (phaseIdx < scanPhases.length && phaseIdx !== currentPhase) {
-              currentPhase = phaseIdx;
-              setScanPhase(scanPhases[phaseIdx]);
-            }
-            if (next >= 100) {
-              clearInterval(interval);
-              setUploadState("done");
-              toast.success("Analysis complete!");
-            }
-            return Math.min(next, 100);
-          });
-        }, 60);
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : i18n.t("errors.api.uploadFailed");
-        toast.error(message);
-      }
-    },
-    [upload, refetchResults, userInfo],
-  );
-
-  const handleFile = (file: File) => {
-    // Validate file size (500MB)
-    if (file.size > 500 * 1024 * 1024) {
-      triggerError("file_too_large");
-      toast.error(i18n.t("errors.api.fileTooLarge"));
+  const selectFile = useCallback((file: File) => {
+    if (file.size > MAX_FILE_SIZE) {
+      setLocalError("Tệp lớn hơn giới hạn 500 MB. Hãy nén hoặc cắt ngắn tệp trước khi thử lại.");
+      setUploadState("error");
       return;
     }
-    // Validate file type
-    const validTypes = ["image/", "video/", "audio/"];
-    if (!validTypes.some((t) => file.type.startsWith(t))) {
-      triggerError("unsupported_format");
-      toast.error(i18n.t("errors.api.unsupportedFormat"));
+
+    if (!/(image|video|audio)\//.test(file.type)) {
+      setLocalError("Định dạng này chưa được hỗ trợ. Hãy chọn ảnh, video hoặc âm thanh hợp lệ.");
+      setUploadState("error");
       return;
     }
+
     setSelectedFile(file);
+    setLocalError(null);
+    setProgressDisplay(0);
     setUploadState("selected");
-  };
+  }, []);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  };
+  const openFilePicker = useCallback((accept = "image/*,video/*,audio/*") => {
+    if (!fileInputRef.current) return;
+    fileInputRef.current.accept = accept;
+    fileInputRef.current.click();
+  }, []);
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-  };
+  const startScan = useCallback(async () => {
+    if (!selectedFile) return;
 
-  const handleDownloadReport = async () => {
-    if (!accessToken) {
-      toast.error(i18n.t("errors.api.authRequired"));
+    const token = accessToken || localStorage.getItem("accessToken");
+    if (!token) {
+      setLocalError(i18n.t("errors.api.authRequired"));
+      setUploadState("error");
       return;
     }
 
-    // Find the scanJobId from the latest detection result that matches our upload
-    const latestResult = recentResults.length > 0 ? recentResults[0] : null;
-    const scanJobId = latestResult?.scanJobId;
+    setUploadState("scanning");
+    setLocalError(null);
+    setProgressDisplay(0);
+    setScanPhase("Đang tải tệp an toàn…");
+    toast.info(`Đang tải ${selectedFile.name}…`, { duration: 2_000 });
 
-    if (!scanJobId) {
+    try {
+      // Keep the established FE → BE contract. The backend owns Hive/provider calls.
+      const uploadData = await upload(selectedFile, token);
+
+      triggerCreditsRefetch();
+      refetchResults();
+
+      const prefix = userInfo?.email || userInfo?.id || "anonymous";
+
+      // Preserve the exact per-user cache contracts read by Results.tsx.
+      if (uploadData?.aiDetect) {
+        localStorage.setItem(
+          `lastDetection_${prefix}`,
+          JSON.stringify({
+            prediction: uploadData.aiDetect.prediction,
+            fakeProbability: uploadData.aiDetect.fakeProbability,
+            realProbability: uploadData.aiDetect.realProbability,
+            imageUrl: uploadData.aiDetect.imageUrl ?? null,
+            message: uploadData.aiDetect.message ?? null,
+            scanJobId: uploadData.scanJobId,
+          }),
+        );
+      }
+
+      if (uploadData?.hiveDetect) {
+        localStorage.setItem(
+          `lastDetectionHive_${prefix}`,
+          JSON.stringify({
+            prediction: uploadData.hiveDetect.prediction,
+            confidence: uploadData.hiveDetect.confidence,
+            aiGeneratedScore: uploadData.hiveDetect.aiGeneratedScore,
+            notAiGeneratedScore: uploadData.hiveDetect.notAiGeneratedScore,
+            deepfakeScore: uploadData.hiveDetect.deepfakeScore,
+            aiGeneratedAudioScore: uploadData.hiveDetect.aiGeneratedAudioScore,
+            notAiGeneratedAudioScore: uploadData.hiveDetect.notAiGeneratedAudioScore,
+            attributedGenerator: uploadData.hiveDetect.attributedGenerator,
+            frames: uploadData.hiveDetect.frames,
+            taskId: uploadData.hiveDetect.taskId,
+            mediaUrl: uploadData.hiveDetect.mediaUrl,
+            video: uploadData.hiveDetect.video,
+            scanJobId: uploadData.scanJobId,
+          }),
+        );
+      }
+
+      localStorage.setItem(`lastUploadData_${prefix}`, JSON.stringify(uploadData));
+
+      const phases = [
+        "Đang kiểm tra đặc trưng nội dung…",
+        "Đang đối chiếu kết quả phân tích…",
+        "Đang hoàn thiện báo cáo…",
+      ];
+      let phaseIndex = 0;
+      setScanPhase(phases[phaseIndex]);
+
+      const interval = window.setInterval(() => {
+        setProgressDisplay((current) => {
+          const next = Math.min(100, Math.max(current + 4, 72));
+          const nextPhaseIndex = Math.min(
+            phases.length - 1,
+            Math.floor((next / 100) * phases.length),
+          );
+          if (nextPhaseIndex !== phaseIndex) {
+            phaseIndex = nextPhaseIndex;
+            setScanPhase(phases[phaseIndex]);
+          }
+          if (next === 100) {
+            window.clearInterval(interval);
+            setUploadState("done");
+            toast.success("Đã hoàn tất kiểm tra nội dung.");
+          }
+          return next;
+        });
+      }, 90);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : i18n.t("errors.api.uploadFailed");
+      setLocalError(message);
+      setUploadState("error");
+      toast.error(message);
+    }
+  }, [accessToken, refetchResults, selectedFile, upload, userInfo]);
+
+  const downloadReport = useCallback(async () => {
+    const token = accessToken || localStorage.getItem("accessToken");
+    if (!token || !data?.scanJobId) {
       toast.error(i18n.t("errors.api.noScanResultDownload"));
       return;
     }
 
     try {
       await downloadScanReportPdf(
-        scanJobId,
-        accessToken,
+        data.scanJobId,
+        token,
         `deepguard-report-${Date.now()}.pdf`,
       );
       toast.success(i18n.t("errors.api.reportDownloaded"));
-    } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : i18n.t("errors.api.downloadFailed");
-      toast.error(msg);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : i18n.t("errors.api.downloadFailed"));
     }
-  };
+  }, [accessToken, data?.scanJobId]);
 
-  const typeButtons = [
-    {
-      label: "Upload Image",
-      icon: ImageIcon,
-      accept: "image/*",
-      ext: "JPG, PNG, WEBP",
-    },
-    {
-      label: "Upload Video",
-      icon: Video,
-      accept: "video/*",
-      ext: "MP4, MOV, AVI",
-    },
-    {
-      label: "Upload Audio",
-      icon: Mic,
-      accept: "audio/*",
-      ext: "MP3, WAV, M4A",
-    },
-  ];
-
-  const isFakePrediction = (prediction: string) => prediction === "FAKE";
-
-  const getVerdictColor = (prediction: string) => {
-    if (isFakePrediction(prediction)) {
-      return {
-        bg: "bg-red-500/10",
-        text: "text-red-400",
-        border: "border-red-500/30",
-        bar: "bg-red-500",
-        barBg: "bg-red-500/20",
-      };
+  const openCurrentResult = useCallback(() => {
+    if (!data || !selectedFile) {
+      navigate("/results");
+      return;
     }
-    return {
-      bg: "bg-emerald-500/10",
-      text: "text-emerald-400",
-      border: "border-emerald-500/30",
-      bar: "bg-emerald-500",
-      barBg: "bg-emerald-500/20",
-    };
-  };
 
-  const getVerdictLabel = (prediction: string) => {
-    if (isFakePrediction(prediction)) return "Deepfake";
-    return "Real";
-  };
+    if (hiveDetect) {
+      navigate("/results", {
+        state: {
+          prediction: hiveDetect.prediction,
+          fakeProbability: hiveDetect.aiGeneratedScore,
+          realProbability: hiveDetect.notAiGeneratedScore,
+          imageUrl: data.originalUrl,
+          fileName: selectedFile.name,
+          fileType: data.fileType,
+          fileSize: data.fileSize,
+          uploadedAt: data.uploadedAt,
+          mediaId: data.id,
+          originalUrl: data.originalUrl,
+          scanJobId: data.scanJobId,
+          _videoHive: hiveDetect,
+        },
+      });
+      return;
+    }
 
-  const getVerdictIcon = (prediction: string) => {
-    if (isFakePrediction(prediction)) return AlertTriangle;
-    return CheckCircle2;
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    if (bytes < 1024 * 1024 * 1024)
-      return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
-  };
-
-  const formatRelativeTime = (dateStr: string) => {
-    // Backend returns UTC timestamps without "Z" suffix (e.g. "2026-06-25T10:45:08.903042")
-    // Append "Z" to ensure it's parsed as UTC, not local time
-    const utcStr = dateStr.endsWith("Z") ? dateStr : dateStr + "Z";
-    const date = new Date(utcStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+    navigate("/results", {
+      state: {
+        prediction: aiDetect?.prediction,
+        fakeProbability: aiDetect?.fakeProbability,
+        realProbability: aiDetect?.realProbability,
+        imageUrl: data.originalUrl,
+        fileName: selectedFile.name,
+        fileType: data.fileType,
+        fileSize: data.fileSize,
+        uploadedAt: data.uploadedAt,
+        mediaId: data.id,
+        originalUrl: data.originalUrl,
+        scanJobId: data.scanJobId,
+      },
     });
-  };
+  }, [aiDetect, data, hiveDetect, navigate, selectedFile]);
 
-  const getFileTypeLabel = (type: string) => {
-    switch (type) {
-      case "IMAGE":
-        return "Image";
-      case "VIDEO":
-        return "Video";
-      case "AUDIO":
-        return "Audio";
-      default:
-        return type;
-    }
-  };
+  const openHistoricalResult = useCallback(
+    (result: {
+      detectionResultId: string;
+      scanJobId: string;
+      resultLabel?: string;
+      fakeScore?: number;
+      confidence?: number;
+      originalUrl?: string;
+      fileName: string;
+      mediaId?: string;
+      processedAt: string;
+    }) => {
+      navigate("/results", {
+        state: {
+          detectionResultId: result.detectionResultId,
+          scanJobId: result.scanJobId,
+          prediction: result.resultLabel,
+          fakeProbability: result.fakeScore,
+          realProbability: result.confidence,
+          imageUrl: result.originalUrl,
+          fileName: result.fileName,
+          mediaId: result.mediaId,
+          uploadedAt: result.processedAt,
+        },
+      });
+    },
+    [navigate],
+  );
+
+  const detection = aiDetect ?? hiveDetect;
+  const prediction = detection?.prediction ?? "";
+  const isRisky = isRiskyPrediction(prediction);
+  const isTrusted = isTrustedPrediction(prediction);
+  const riskScore = hiveDetect
+    ? Math.round(
+        Math.max(
+          hiveDetect.aiGeneratedScore,
+          hiveDetect.deepfakeScore,
+          hiveDetect.aiGeneratedAudioScore,
+        ) * 100,
+      )
+    : Math.round((aiDetect?.fakeProbability ?? 0) * 100);
+  const confidence = hiveDetect
+    ? hiveDetect.confidence
+    : aiDetect?.realProbability ?? 0;
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Header */}
-          <div className="mb-6">
-            <h1
-              className="text-slate-900 dark:text-white"
-              style={{ fontSize: "24px", fontWeight: 800 }}
-            >
-              Detection Dashboard
-            </h1>
-            <p
-              className="text-slate-500 dark:text-slate-400 mt-1"
-              style={{ fontSize: "14px" }}
-            >
-              Upload media to detect AI-generated or manipulated content
+      <div className="min-h-full bg-background">
+        <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
+          <header className="mb-8 max-w-2xl">
+            <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.12em] text-primary">
+              DeepGuard kiểm tra nội dung
             </p>
-          </div>
+            <h1 className="text-3xl font-bold tracking-[-0.035em] text-slate-900 dark:text-white">
+              Kiểm tra ảnh, video hoặc âm thanh
+            </h1>
+            <p className="mt-2 text-[15px] leading-6 text-slate-600 dark:text-slate-300">
+              Nhận một kết luận rõ ràng để bạn quyết định có nên tiếp tục sử dụng nội dung đó hay không.
+            </p>
+          </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-            {/* Left Column */}
-            <div>
-              <AnimatePresence mode="wait">
-                {/* ── Error State ── */}
-                {uploadState === "error" && errorType && (
-                  <motion.div
-                    key="error"
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -16 }}
-                    className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 overflow-hidden"
-                  >
-                    {(() => {
-                      const cfg = errorConfigs[errorType];
-                      return (
-                        <div className="p-6">
-                          <div
-                            className={`flex items-center gap-3 mb-5 ${cfg.border} border rounded-xl p-4 ${cfg.bg}`}
-                          >
-                            <div
-                              className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center`}
-                            >
-                              <cfg.icon
-                                className={`w-5 h-5 ${cfg.iconColor}`}
-                              />
-                            </div>
-                            <div>
-                              <p
-                                className="text-slate-900 dark:text-white"
-                                style={{ fontSize: "15px", fontWeight: 700 }}
-                              >
-                                {cfg.title}
-                              </p>
-                              <p
-                                className="text-slate-500 dark:text-slate-400"
-                                style={{ fontSize: "12px" }}
-                              >
-                                {cfg.desc}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-2 mb-5">
-                            <RefreshCw className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#22D3EE] mt-0.5 flex-shrink-0" />
-                            <p
-                              className="text-slate-500 dark:text-slate-400"
-                              style={{ fontSize: "12px" }}
-                            >
-                              {cfg.hint}
-                            </p>
-                          </div>
-
-                          <div className="flex gap-3">
-                            <button
-                              onClick={resetUpload}
-                              className="px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
-                              style={{ fontSize: "13px", fontWeight: 700 }}
-                            >
-                              Try Again
-                            </button>
-                            <button
-                              onClick={() => navigate("/support")}
-                              className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                              style={{ fontSize: "13px", fontWeight: 600 }}
-                            >
-                              Contact Support
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </motion.div>
-                )}
-
-                {/* ── Idle / Selected State ── */}
-                {(uploadState === "idle" || uploadState === "selected") && (
-                  <motion.div
-                    key="upload"
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -16 }}
-                    className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 overflow-hidden"
-                  >
-                    {/* Drop zone */}
-                    <div
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setIsDragging(true);
-                      }}
-                      onDragLeave={() => setIsDragging(false)}
-                      onDrop={handleDrop}
-                      onClick={() =>
-                        uploadState === "idle" && fileInputRef.current?.click()
-                      }
-                      className={`relative m-5 rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer ${
-                        isDragging
-                          ? "border-[#22D3EE] bg-[#22D3EE]/5 scale-[1.01]"
-                          : uploadState === "selected"
-                            ? "border-[#2563EB]/60 bg-[#2563EB]/5 cursor-default"
-                            : "border-slate-300 dark:border-slate-600 hover:border-[#2563EB]/50 hover:bg-slate-50 dark:hover:bg-slate-700/30"
-                      }`}
-                      style={{ minHeight: "260px" }}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*,video/*,audio/*"
-                        className="hidden"
-                        onChange={handleFileInput}
-                      />
-
-                      {/* Drag-and-drop pulse ring */}
-                      {isDragging && (
-                        <motion.div
-                          className="absolute inset-0 rounded-xl border-2 border-[#22D3EE]"
-                          animate={{
-                            scale: [1, 1.02, 1],
-                            opacity: [1, 0.5, 1],
-                          }}
-                          transition={{ duration: 1.2, repeat: Infinity }}
-                        />
-                      )}
-
-                      <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
-                        {uploadState === "selected" && selectedFile ? (
-                          <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            className="text-center"
-                          >
-                            <div className="w-16 h-16 rounded-2xl bg-[#2563EB]/15 flex items-center justify-center mx-auto mb-4">
-                              <FileCheck className="w-8 h-8 text-[#2563EB]" />
-                            </div>
-                            <p
-                              className="text-slate-900 dark:text-white mb-1"
-                              style={{ fontSize: "16px", fontWeight: 600 }}
-                            >
-                              {selectedFile.name}
-                            </p>
-                            <p
-                              className="text-slate-500 dark:text-slate-400 mb-6"
-                              style={{ fontSize: "13px" }}
-                            >
-                              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                              · Ready to analyze
-                            </p>
-                            <div className="flex gap-3 justify-center">
-                              <button
-                                onClick={() => startScan(selectedFile)}
-                                className="btn-glow-blue px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25"
-                                style={{ fontSize: "14px", fontWeight: 700 }}
-                              >
-                                Analyze Now →
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setUploadState("idle");
-                                  setSelectedFile(null);
-                                }}
-                                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                                style={{ fontSize: "14px" }}
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </motion.div>
-                        ) : (
-                          <div className="text-center">
-                            <motion.div
-                              animate={
-                                isDragging
-                                  ? { scale: 1.15, rotate: 5 }
-                                  : { scale: 1, rotate: 0 }
-                              }
-                              transition={{
-                                type: "spring",
-                                stiffness: 300,
-                                damping: 20,
-                              }}
-                              className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-5"
-                            >
-                              <Upload
-                                className={`w-7 h-7 ${isDragging ? "text-[#22D3EE]" : "text-slate-400 dark:text-slate-500"}`}
-                              />
-                            </motion.div>
-                            <p
-                              className="text-slate-900 dark:text-white mb-1.5"
-                              style={{ fontSize: "17px", fontWeight: 700 }}
-                            >
-                              {isDragging
-                                ? "Drop your file here"
-                                : "Drag & drop your media"}
-                            </p>
-                            <p
-                              className="text-slate-400 dark:text-slate-500 mb-5"
-                              style={{ fontSize: "13px" }}
-                            >
-                              or click to browse files from your device
-                            </p>
-                            <div className="flex flex-wrap justify-center gap-2">
-                              {["JPG", "PNG", "MP4", "MOV", "MP3", "WAV"].map(
-                                (fmt) => (
-                                  <span
-                                    key={fmt}
-                                    className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
-                                    style={{
-                                      fontSize: "11px",
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    {fmt}
-                                  </span>
-                                ),
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Type buttons */}
-                    {uploadState === "idle" && (
-                      <div className="px-5 pb-5 grid grid-cols-3 gap-3">
-                        {typeButtons.map(
-                          ({ label, icon: Icon, accept, ext }) => (
-                            <button
-                              key={label}
-                              onClick={() => {
-                                if (fileInputRef.current) {
-                                  fileInputRef.current.accept = accept;
-                                  fileInputRef.current.click();
-                                }
-                              }}
-                              className="group flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-[#2563EB]/40 hover:bg-[#2563EB]/5 transition-all duration-200 hover:shadow-md hover:shadow-blue-500/5"
-                            >
-                              <Icon className="w-5 h-5 text-slate-400 dark:text-slate-500 group-hover:text-[#2563EB] dark:group-hover:text-[#22D3EE] transition-colors" />
-                              <span
-                                className="text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
-                                style={{ fontSize: "12px", fontWeight: 600 }}
-                              >
-                                {label}
-                              </span>
-                              <span
-                                className="text-slate-400 dark:text-slate-600"
-                                style={{ fontSize: "10px" }}
-                              >
-                                {ext}
-                              </span>
-                            </button>
-                          ),
-                        )}
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-
-                {/* ── Scanning / Done State ── */}
-                {(uploadState === "scanning" || uploadState === "done") && (
-                  <motion.div
-                    key={uploadState === "done" ? "result" : "scanning"}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -16 }}
-                    className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 overflow-hidden"
-                  >
-                    {uploadState === "scanning" && (
-                      <div className="p-8">
-                        {/* Image with Scan Overlay */}
-                        <div
-                          className="relative mx-auto mb-8 rounded-xl overflow-hidden bg-slate-900 dark:bg-[#0F172A]"
-                          style={{
-                            height:
-                              isImageFile && previewUrl ? "auto" : "180px",
-                            width: "100%",
-                            maxWidth: "400px",
-                            aspectRatio: isImageFile ? "auto" : undefined,
-                          }}
-                        >
-                          {isImageFile && previewUrl ? (
-                            <>
-                              <img
-                                src={previewUrl}
-                                alt={selectedFile?.name || "Upload preview"}
-                                className="w-full h-full object-contain rounded-xl"
-                                style={{ maxHeight: "300px" }}
-                              />
-                              {/* Scanning overlay */}
-                              <div className="absolute inset-0 pointer-events-none">
-                                {/* Grid overlay */}
-                                <div
-                                  className="absolute inset-0"
-                                  style={{
-                                    backgroundImage:
-                                      "linear-gradient(rgba(34,211,238,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.08) 1px, transparent 1px)",
-                                    backgroundSize: "20px 20px",
-                                  }}
-                                />
-                                {/* Scan line */}
-                                <motion.div
-                                  className="absolute left-0 right-0 h-0.5 bg-[#22D3EE]"
-                                  style={{
-                                    boxShadow:
-                                      "0 0 16px #22D3EE, 0 0 32px #22D3EE60",
-                                  }}
-                                  animate={{ top: ["5%", "95%", "5%"] }}
-                                  transition={{
-                                    duration: 2,
-                                    repeat: Infinity,
-                                    ease: "linear",
-                                  }}
-                                />
-                                {/* Corner brackets */}
-                                {[
-                                  "top-2 left-2",
-                                  "top-2 right-2",
-                                  "bottom-2 left-2",
-                                  "bottom-2 right-2",
-                                ].map((pos) => (
-                                  <div
-                                    key={pos}
-                                    className={`absolute ${pos} w-4 h-4 border-[#22D3EE]/60`}
-                                    style={{ borderWidth: "2px 0 0 2px" }}
-                                  />
-                                ))}
-                                {/* Pulse ring center */}
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  {[1, 2, 3].map((i) => (
-                                    <motion.div
-                                      key={i}
-                                      className="absolute rounded-full border border-[#22D3EE]/40"
-                                      animate={{
-                                        scale: [1, 1.5 + i * 0.3],
-                                        opacity: [0.5, 0],
-                                      }}
-                                      transition={{
-                                        duration: 2,
-                                        delay: i * 0.4,
-                                        repeat: Infinity,
-                                      }}
-                                      style={{ width: 60, height: 60 }}
-                                    />
-                                  ))}
-                                  <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 border border-[#22D3EE]/40 flex items-center justify-center backdrop-blur-sm">
-                                    <Cpu className="w-5 h-5 text-[#22D3EE]" />
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            /* Fallback: abstract animation for non-image files */
-                            <>
-                              <div
-                                className="absolute inset-0"
-                                style={{
-                                  backgroundImage:
-                                    "linear-gradient(rgba(34,211,238,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.05) 1px, transparent 1px)",
-                                  backgroundSize: "20px 20px",
-                                }}
-                              />
-                              <motion.div
-                                className="absolute left-0 right-0 h-0.5 bg-[#22D3EE]"
-                                style={{
-                                  boxShadow:
-                                    "0 0 16px #22D3EE, 0 0 32px #22D3EE60",
-                                }}
-                                animate={{ top: ["5%", "95%", "5%"] }}
-                                transition={{
-                                  duration: 2,
-                                  repeat: Infinity,
-                                  ease: "linear",
-                                }}
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                {[1, 2, 3].map((i) => (
-                                  <motion.div
-                                    key={i}
-                                    className="absolute rounded-full border border-[#22D3EE]/30"
-                                    animate={{
-                                      scale: [1, 1.5 + i * 0.3],
-                                      opacity: [0.5, 0],
-                                    }}
-                                    transition={{
-                                      duration: 2,
-                                      delay: i * 0.4,
-                                      repeat: Infinity,
-                                    }}
-                                    style={{ width: 60, height: 60 }}
-                                  />
-                                ))}
-                                <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 border border-[#22D3EE]/40 flex items-center justify-center">
-                                  <Cpu className="w-5 h-5 text-[#22D3EE]" />
-                                </div>
-                              </div>
-                              {[
-                                "top-2 left-2",
-                                "top-2 right-2",
-                                "bottom-2 left-2",
-                                "bottom-2 right-2",
-                              ].map((pos) => (
-                                <div
-                                  key={pos}
-                                  className={`absolute ${pos} w-4 h-4 border-[#22D3EE]/60`}
-                                  style={{ borderWidth: "2px 0 0 2px" }}
-                                />
-                              ))}
-                            </>
-                          )}
-                        </div>
-
-                        <div className="text-center mb-6">
-                          <p
-                            className="text-slate-900 dark:text-white mb-1"
-                            style={{ fontSize: "16px", fontWeight: 700 }}
-                          >
-                            Analyzing with AI...
-                          </p>
-                          <motion.p
-                            key={scanPhase}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="text-[#22D3EE]"
-                            style={{ fontSize: "13px", fontWeight: 500 }}
-                          >
-                            {scanPhase}
-                          </motion.p>
-                        </div>
-
-                        <div className="mb-3">
-                          <div className="flex justify-between mb-2">
-                            <span
-                              className="text-slate-500 dark:text-slate-400"
-                              style={{ fontSize: "12px", fontWeight: 500 }}
-                            >
-                              {selectedFile?.name}
-                            </span>
-                            <span
-                              className="text-[#22D3EE]"
-                              style={{ fontSize: "12px", fontWeight: 700 }}
-                            >
-                              {Math.round(progress_display)}%
-                            </span>
-                          </div>
-                          <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <motion.div
-                              className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-[#22D3EE]"
-                              style={{
-                                width: `${progress_display}%`,
-                                boxShadow: "0 0 8px rgba(34,211,238,0.5)",
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ── Results Card ── */}
-                    {uploadState === "done" &&
-                      aiDetect &&
-                      data &&
-                      selectedFile && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="p-6"
-                        >
-                          {/* Header */}
-                          <div className="flex items-start justify-between mb-5">
-                            <div>
-                              <h2
-                                className="text-slate-900 dark:text-white"
-                                style={{ fontSize: "20px", fontWeight: 800 }}
-                              >
-                                Detection Results
-                              </h2>
-                              <p
-                                className="text-slate-500 dark:text-slate-400 mt-0.5"
-                                style={{ fontSize: "13px" }}
-                              >
-                                Analysis complete for{" "}
-                                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                  {selectedFile.name}
-                                </span>
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Action buttons */}
-                          <div className="flex gap-3 mb-6">
-                            <button
-                              onClick={resetUpload}
-                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
-                              style={{ fontSize: "13px", fontWeight: 700 }}
-                            >
-                              <Upload className="w-4 h-4" />
-                              Scan Another
-                            </button>
-                            <button
-                              onClick={handleDownloadReport}
-                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                              style={{ fontSize: "13px", fontWeight: 600 }}
-                            >
-                              <Download className="w-4 h-4" />
-                              Download Report
-                            </button>
-                            <button
-                              onClick={() => {
-                                // Pass fresh aiDetect + uploadData to Results page so it doesn't rely on stale localStorage
-                                navigate("/results", {
-                                  state: {
-                                    prediction: aiDetect.prediction,
-                                    fakeProbability: aiDetect.fakeProbability,
-                                    realProbability: aiDetect.realProbability,
-                                    imageUrl: aiDetect.imageUrl ?? null,
-                                    message: aiDetect.message ?? null,
-                                    fileName: selectedFile.name,
-                                    fileType: data.fileType,
-                                    fileSize: data.fileSize,
-                                    uploadedAt: data.uploadedAt,
-                                    mediaId: data.id,
-                                    originalUrl: data.originalUrl,
-                                    scanJobId: data.scanJobId,
-                                  },
-                                });
-                              }}
-                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ml-auto"
-                              style={{ fontSize: "13px", fontWeight: 600 }}
-                            >
-                              <Eye className="w-4 h-4" />
-                              View Full Report
-                            </button>
-                          </div>
-
-                          {/* Image Preview */}
-                          {isImageFile && previewUrl && (
-                            <div className="mb-5 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
-                              <img
-                                src={previewUrl}
-                                alt={selectedFile.name}
-                                className="w-full h-full object-contain max-h-[300px]"
-                              />
-                            </div>
-                          )}
-
-                          {/* AI Verdict Message */}
-                          <div
-                            className={`flex items-start gap-3 p-4 rounded-xl mb-5 ${
-                              aiDetect.prediction === "FAKE"
-                                ? "bg-red-500/5 border border-red-500/20"
-                                : "bg-emerald-500/5 border border-emerald-500/20"
-                            }`}
-                          >
-                            {aiDetect.prediction === "FAKE" ? (
-                              <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                            ) : (
-                              <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-                            )}
-                            <p
-                              className={`text-sm ${
-                                aiDetect.prediction === "FAKE"
-                                  ? "text-red-600 dark:text-red-300"
-                                  : "text-emerald-600 dark:text-emerald-300"
-                              }`}
-                            >
-                              {aiDetect.prediction === "FAKE"
-                                ? "Deepfake or AI-generated content detected in this media."
-                                : "This media appears to be authentic."}
-                            </p>
-                          </div>
-
-                          {/* File info line */}
-                          <div className="flex items-center gap-2 text-slate-400 mb-6 text-xs">
-                            <span className="font-medium text-slate-500 dark:text-slate-400">
-                              {selectedFile.name}
-                            </span>
-                            <span>·</span>
-                            <span>{formatFileSize(data.fileSize)}</span>
-                            <span>·</span>
-                            <span>{getFileTypeLabel(data.fileType)}</span>
-                          </div>
-
-                          {/* Main verdict card */}
-                          {(() => {
-                            const verdict = getVerdictColor(
-                              aiDetect.prediction,
-                            );
-                            const VerdictIcon = getVerdictIcon(
-                              aiDetect.prediction,
-                            );
-                            const riskScore =
-                              aiDetect.prediction === "FAKE"
-                                ? Math.round(aiDetect.fakeProbability * 100)
-                                : Math.round(aiDetect.realProbability * 100);
-
-                            return (
-                              <div
-                                className={`rounded-xl border ${verdict.border} ${verdict.bg} p-6 mb-6`}
-                              >
-                                <div className="flex items-center gap-3 mb-4">
-                                  <div className="w-10 h-10 rounded-xl bg-white/10 dark:bg-white/5 flex items-center justify-center">
-                                    <VerdictIcon
-                                      className={`w-5 h-5 ${verdict.text}`}
-                                    />
-                                  </div>
-                                  <div>
-                                    <p
-                                      className={`font-bold text-lg ${verdict.text}`}
-                                    >
-                                      {isFakePrediction(aiDetect.prediction)
-                                        ? "⚠ DEEPFAKE DETECTED"
-                                        : "✓ AUTHENTIC CONTENT"}
-                                    </p>
-                                    <p className="text-slate-500 dark:text-slate-400 text-xs">
-                                      AI Verdict
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {/* Stats grid - Prediction / Fake Prob / Real Prob */}
-                                <div className="grid grid-cols-3 gap-3 mb-4">
-                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
-                                    <p className="text-slate-400 text-xs mb-0.5">
-                                      Prediction
-                                    </p>
-                                    <p
-                                      className={`font-bold text-sm ${verdict.text}`}
-                                    >
-                                      {aiDetect.prediction}
-                                    </p>
-                                  </div>
-                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
-                                    <p className="text-slate-400 text-xs mb-0.5">
-                                      Fake Prob.
-                                    </p>
-                                    <p className="font-bold text-sm text-red-500">
-                                      {(aiDetect.fakeProbability * 100).toFixed(
-                                        2,
-                                      )}
-                                      %
-                                    </p>
-                                  </div>
-                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
-                                    <p className="text-slate-400 text-xs mb-0.5">
-                                      Real Prob.
-                                    </p>
-                                    <p className="font-bold text-sm text-emerald-500">
-                                      {(aiDetect.realProbability * 100).toFixed(
-                                        2,
-                                      )}
-                                      %
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {/* File info row */}
-                                <div className="flex items-center gap-2 text-slate-400 text-xs">
-                                  <span>{getFileTypeLabel(data.fileType)}</span>
-                                  <span>·</span>
-                                  <span>{formatFileSize(data.fileSize)}</span>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </motion.div>
-                      )}
-
-                    {uploadState === "done" &&
-                      !aiDetect &&
-                      hiveDetect &&
-                      data &&
-                      selectedFile && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="p-6"
-                        >
-                          {/* Header */}
-                          <div className="flex items-start justify-between mb-5">
-                            <div>
-                              <h2
-                                className="text-slate-900 dark:text-white"
-                                style={{ fontSize: "20px", fontWeight: 800 }}
-                              >
-                                Detection Results
-                              </h2>
-                              <p
-                                className="text-slate-500 dark:text-slate-400 mt-0.5"
-                                style={{ fontSize: "13px" }}
-                              >
-                                Analysis complete for{" "}
-                                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                  {selectedFile.name}
-                                </span>
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Action buttons */}
-                          <div className="flex gap-3 mb-6">
-                            <button
-                              onClick={resetUpload}
-                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
-                              style={{ fontSize: "13px", fontWeight: 700 }}
-                            >
-                              <Upload className="w-4 h-4" />
-                              Scan Another
-                            </button>
-                            <button
-                              onClick={handleDownloadReport}
-                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                              style={{ fontSize: "13px", fontWeight: 600 }}
-                            >
-                              <Download className="w-4 h-4" />
-                              Download Report
-                            </button>
-                            <button
-                              onClick={() => {
-                                // Pass full hiveDetect data so Results can show video view
-                                navigate("/results", {
-                                  state: {
-                                    prediction: hiveDetect.prediction,
-                                    fakeProbability:
-                                      hiveDetect.aiGeneratedScore,
-                                    realProbability:
-                                      hiveDetect.notAiGeneratedScore,
-                                    imageUrl: data.originalUrl ?? null,
-                                    fileName: selectedFile.name,
-                                    fileType: data.fileType,
-                                    fileSize: data.fileSize,
-                                    uploadedAt: data.uploadedAt,
-                                    mediaId: data.id,
-                                    originalUrl: data.originalUrl,
-                                    scanJobId: data.scanJobId,
-                                    _videoHive: hiveDetect, // pass full hive data
-                                  },
-                                });
-                              }}
-                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ml-auto"
-                              style={{ fontSize: "13px", fontWeight: 600 }}
-                            >
-                              <Eye className="w-4 h-4" />
-                              View Full Report
-                            </button>
-                          </div>
-
-                          {/* Video Preview */}
-                          <div className="mb-5 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
-                            <video
-                              src={data.originalUrl}
-                              controls
-                              className="w-full max-h-80 object-contain"
-                            >
-                              Your browser does not support the video tag.
-                            </video>
-                          </div>
-
-                          {/* Video AI Verdict */}
-                          {(() => {
-                            const isReal =
-                              hiveDetect.prediction === "NOT_AI_GENERATED";
-                            return (
-                              <div
-                                className={`flex items-start gap-3 p-4 rounded-xl mb-5 ${
-                                  isReal
-                                    ? "bg-emerald-500/5 border border-emerald-500/20"
-                                    : "bg-red-500/5 border border-red-500/20"
-                                }`}
-                              >
-                                {isReal ? (
-                                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-                                ) : (
-                                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                                )}
-                                <p
-                                  className={`text-sm ${
-                                    isReal
-                                      ? "text-emerald-600 dark:text-emerald-300"
-                                      : "text-red-600 dark:text-red-300"
-                                  }`}
-                                >
-                                  {isReal
-                                    ? "This video appears to be authentic."
-                                    : "Deepfake or AI-generated content detected in this video."}
-                                </p>
-                              </div>
-                            );
-                          })()}
-
-                          {/* File info line */}
-                          <div className="flex items-center gap-2 text-slate-400 mb-6 text-xs">
-                            <span className="font-medium text-slate-500 dark:text-slate-400">
-                              {selectedFile.name}
-                            </span>
-                            <span>·</span>
-                            <span>{formatFileSize(data.fileSize)}</span>
-                            <span>·</span>
-                            <span>{getFileTypeLabel(data.fileType)}</span>
-                          </div>
-
-                          {/* Main verdict card */}
-                          {(() => {
-                            const isReal =
-                              hiveDetect.prediction === "NOT_AI_GENERATED";
-                            const verdictColor = isReal
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                              : "bg-red-500/10 text-red-400 border-red-500/30";
-                            const verdictBg = isReal
-                              ? "bg-emerald-500/5 border-emerald-500/20"
-                              : "bg-red-500/5 border-red-500/20";
-                            const confidence = (
-                              hiveDetect.confidence * 100
-                            ).toFixed(2);
-                            const aiScore = (
-                              hiveDetect.aiGeneratedScore * 100
-                            ).toFixed(2);
-                            const realScore = (
-                              hiveDetect.notAiGeneratedScore * 100
-                            ).toFixed(2);
-
-                            return (
-                              <div
-                                className={`rounded-xl border ${verdictBg} p-6 mb-6`}
-                              >
-                                <div className="flex items-center gap-3 mb-4">
-                                  <div className="w-10 h-10 rounded-xl bg-white/10 dark:bg-white/5 flex items-center justify-center">
-                                    {isReal ? (
-                                      <CheckCircle2
-                                        className={`w-5 h-5 ${verdictColor}`}
-                                      />
-                                    ) : (
-                                      <AlertTriangle
-                                        className={`w-5 h-5 ${verdictColor}`}
-                                      />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <p
-                                      className={`font-bold text-lg ${isReal ? "text-emerald-500" : "text-red-500"}`}
-                                    >
-                                      {isReal
-                                        ? "✓ AUTHENTIC CONTENT"
-                                        : "⚠ DEEPFAKE DETECTED"}
-                                    </p>
-                                    <p className="text-slate-500 dark:text-slate-400 text-xs">
-                                      Analysis confidence: {confidence}
-                                      %
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-3 mb-4">
-                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
-                                    <p className="text-slate-400 text-xs mb-0.5">
-                                      Prediction
-                                    </p>
-                                    <p
-                                      className={`font-bold text-sm ${isReal ? "text-emerald-500" : "text-red-500"}`}
-                                    >
-                                      {hiveDetect.prediction}
-                                    </p>
-                                  </div>
-                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
-                                    <p className="text-slate-400 text-xs mb-0.5">
-                                      AI Score
-                                    </p>
-                                    <p
-                                      className={`font-bold text-sm ${!isReal ? "text-red-500" : "text-emerald-500"}`}
-                                    >
-                                      {aiScore}%
-                                    </p>
-                                  </div>
-                                  <div className="bg-white/50 dark:bg-white/5 rounded-lg p-3">
-                                    <p className="text-slate-400 text-xs mb-0.5">
-                                      Real Score
-                                    </p>
-                                    <p
-                                      className={`font-bold text-sm ${isReal ? "text-emerald-500" : "text-red-500"}`}
-                                    >
-                                      {realScore}%
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 text-slate-400 text-xs">
-                                  <span>{getFileTypeLabel(data.fileType)}</span>
-                                  <span>·</span>
-                                  <span>{formatFileSize(data.fileSize)}</span>
-                                  <span>·</span>
-                                  <span>
-                                    {hiveDetect.frames.length} frames analyzed
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </motion.div>
-                      )}
-
-                    {uploadState === "done" && !aiDetect && !hiveDetect && (
-                      <div className="p-8 flex flex-col items-center justify-center gap-3">
-                        <CheckCircle2 className="w-12 h-12 text-emerald-400" />
-                        <p className="text-slate-900 dark:text-white font-semibold text-sm">
-                          Analysis complete!
-                        </p>
-                        <button
-                          onClick={resetUpload}
-                          className="px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all"
-                          style={{ fontSize: "13px", fontWeight: 700 }}
-                        >
-                          Scan Another File
-                        </button>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Right Panel */}
-            <div className="space-y-5">
-              {/* Tips */}
-              <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-5">
-                <h3
-                  className="text-slate-900 dark:text-white mb-4"
-                  style={{ fontSize: "14px", fontWeight: 700 }}
-                >
-                  Detection Tips
-                </h3>
-                <div className="space-y-3">
-                  {[
-                    {
-                      icon: Shield,
-                      text: "Files up to 500MB supported",
-                      color: "text-[#2563EB]",
-                    },
-                    {
-                      icon: AlertCircle,
-                      text: "Higher resolution = better accuracy",
-                      color: "text-amber-500",
-                    },
-                    {
-                      icon: CheckCircle2,
-                      text: "Results ready in under 30 seconds",
-                      color: "text-emerald-500",
-                    },
-                  ].map(({ icon: Icon, text, color }) => (
-                    <div key={text} className="flex items-start gap-3">
-                      <Icon
-                        className={`w-4 h-4 mt-0.5 flex-shrink-0 ${color}`}
-                      />
-                      <span
-                        className="text-slate-500 dark:text-slate-400"
-                        style={{ fontSize: "13px" }}
-                      >
-                        {text}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+            <section
+              className="overflow-hidden rounded-xl border border-border bg-card shadow-sm shadow-slate-900/[0.03]"
+              aria-labelledby="upload-title"
+            >
+              <div className="border-b border-border px-5 py-4 sm:px-6">
+                <h2 id="upload-title" className="text-[16px] font-bold text-slate-900 dark:text-white">
+                  Tải tệp cần kiểm tra
+                </h2>
+                <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">
+                  Một lượt kiểm tra sẽ được trừ sau khi tệp được gửi thành công.
+                </p>
               </div>
 
-              {/* Recent Scans */}
-              <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3
-                    className="text-slate-900 dark:text-white"
-                    style={{ fontSize: "14px", fontWeight: 700 }}
+              <div className="p-5 sm:p-6">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="sr-only"
+                  accept="image/*,video/*,audio/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) selectFile(file);
+                  }}
+                />
+
+                {(uploadState === "idle" || uploadState === "selected") && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openFilePicker();
+                      }
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setDragging(true);
+                    }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setDragging(false);
+                      const file = event.dataTransfer.files[0];
+                      if (file) selectFile(file);
+                    }}
+                    onClick={() => uploadState === "idle" && openFilePicker()}
+                    className={`relative min-h-[300px] rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                      dragging
+                        ? "border-primary bg-primary/[0.06]"
+                        : uploadState === "selected"
+                          ? "border-primary/40 bg-primary/[0.035]"
+                          : "border-slate-300 bg-slate-50/70 hover:border-primary/60 hover:bg-primary/[0.025] dark:border-slate-600 dark:bg-slate-800/30"
+                    }`}
+                    aria-label="Khu vực tải tệp"
                   >
-                    Recent Scans
-                  </h3>
-                  {resultsLoading && (
-                    <RefreshCw className="w-3.5 h-3.5 text-slate-400 animate-spin" />
-                  )}
-                </div>
-                {resultsLoading && recentResults.length === 0 ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="h-14 rounded-xl bg-slate-100 dark:bg-slate-700/50 animate-pulse"
-                      />
+                    {uploadState === "idle" ? (
+                      <div className="flex min-h-[250px] flex-col items-center justify-center">
+                        <span className="grid h-14 w-14 place-items-center rounded-xl bg-primary/10 text-primary">
+                          <Upload className="h-7 w-7" />
+                        </span>
+                        <h3 className="mt-5 text-[18px] font-bold text-slate-900 dark:text-white">
+                          Kéo thả tệp vào đây
+                        </h3>
+                        <p className="mt-1 text-[14px] text-slate-500 dark:text-slate-400">
+                          hoặc nhấn để chọn tệp từ thiết bị của bạn
+                        </p>
+                        <div className="mt-5 flex flex-wrap justify-center gap-2">
+                          {SUPPORTED_FORMATS.map((format) => (
+                            <span
+                              key={format}
+                              className="rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-slate-500 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700"
+                            >
+                              {format}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="mt-5 text-[12px] text-slate-400">Dung lượng tối đa 500 MB</p>
+                      </div>
+                    ) : (
+                      <div className="flex min-h-[250px] flex-col items-center justify-center">
+                        {previewUrl ? (
+                          <img
+                            src={previewUrl}
+                            alt="Xem trước tệp đã chọn"
+                            className="mb-4 h-20 w-20 rounded-xl object-cover ring-1 ring-slate-200"
+                          />
+                        ) : (
+                          <span className="mb-4 grid h-16 w-16 place-items-center rounded-xl bg-primary/10 text-primary">
+                            <FileTypeIcon type={selectedFile?.type || ""} className="h-8 w-8" />
+                          </span>
+                        )}
+                        <p className="max-w-md truncate text-[16px] font-bold text-slate-900 dark:text-white">
+                          {selectedFile?.name}
+                        </p>
+                        <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">
+                          {selectedFile && formatFileSize(selectedFile.size)} · Sẵn sàng kiểm tra
+                        </p>
+                        <div className="mt-6 flex flex-wrap justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              startScan();
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-bold text-primary-foreground shadow-sm shadow-blue-500/25 transition-colors hover:bg-[#406dcc]"
+                          >
+                            <ScanSearch className="h-4 w-4" /> Bắt đầu kiểm tra
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              resetUpload();
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-muted dark:text-slate-300"
+                          >
+                            <X className="h-4 w-4" /> Chọn lại
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {uploadState === "scanning" && (
+                  <div className="flex min-h-[300px] flex-col items-center justify-center rounded-xl border border-primary/20 bg-primary/[0.025] p-6 text-center">
+                    <span className="grid h-14 w-14 place-items-center rounded-xl bg-primary/10 text-primary">
+                      <LoaderCircle className="h-7 w-7 animate-spin" />
+                    </span>
+                    <h3 className="mt-5 text-[18px] font-bold text-slate-900 dark:text-white">
+                      {uploading ? "Đang tải tệp an toàn" : "Đang phân tích nội dung"}
+                    </h3>
+                    <p className="mt-1 max-w-sm text-[14px] leading-6 text-slate-500 dark:text-slate-400">
+                      {scanPhase || "Bạn có thể ở lại trang này. Kết quả sẽ xuất hiện ngay khi sẵn sàng."}
+                    </p>
+                    <div className="mt-6 w-full max-w-sm">
+                      <div className="flex justify-between gap-4 text-[12px] font-semibold text-slate-600 dark:text-slate-300">
+                        <span className="truncate">{selectedFile?.name}</span>
+                        <span>{progressDisplay}%</span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-primary/10">
+                        <div
+                          className="h-full rounded-full bg-primary transition-[width] duration-300"
+                          style={{ width: `${progressDisplay}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {uploadState === "done" && data && detection && (
+                  <ResultSummary
+                    fileName={data.fileName}
+                    riskScore={riskScore}
+                    confidence={confidence}
+                    risky={isRisky}
+                    trusted={isTrusted}
+                    onOpen={openCurrentResult}
+                    onReset={resetUpload}
+                    onDownload={downloadReport}
+                  />
+                )}
+
+                {uploadState === "done" && data && !detection && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-5 dark:border-amber-500/25 dark:bg-amber-500/[0.08]">
+                    <div className="flex gap-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/12 text-amber-700 dark:text-amber-400">
+                        <AlertCircle className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-white">Chưa thể hiển thị kết quả</h3>
+                        <p className="mt-1 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
+                          Tệp đã được gửi thành công. Bạn có thể mở lịch sử để xem kết quả vừa xử lý.
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button type="button" onClick={() => navigate("/history")} className="rounded-lg bg-primary px-3 py-2 text-[12px] font-bold text-primary-foreground hover:bg-[#406dcc]">
+                            Mở lịch sử kiểm tra
+                          </button>
+                          <button type="button" onClick={resetUpload} className="rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-semibold text-slate-600 hover:bg-muted dark:text-slate-300">
+                            Kiểm tra tệp khác
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {uploadState === "error" && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/70 p-5 dark:border-red-500/25 dark:bg-red-500/[0.08]">
+                    <div className="flex gap-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-500/12 text-red-600 dark:text-red-400">
+                        <AlertCircle className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-white">Không thể xử lý tệp này</h3>
+                        <p className="mt-1 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
+                          {localError || "Đã có lỗi xảy ra trong khi gửi tệp. Hãy thử lại sau ít phút."}
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button type="button" onClick={resetUpload} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-[12px] font-bold text-primary-foreground hover:bg-[#406dcc]">
+                            <RefreshCw className="h-3.5 w-3.5" /> Thử lại
+                          </button>
+                          <button type="button" onClick={() => navigate("/contact")} className="rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-semibold text-slate-600 hover:bg-muted dark:text-slate-300">
+                            Liên hệ hỗ trợ
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {uploadState === "idle" && (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {[
+                      { label: "Chọn ảnh", formats: "JPG, PNG, WEBP", icon: ImageIcon, accept: "image/*" },
+                      { label: "Chọn video", formats: "MP4, MOV, AVI", icon: Video, accept: "video/*" },
+                      { label: "Chọn âm thanh", formats: "MP3, WAV, M4A", icon: Mic, accept: "audio/*" },
+                    ].map(({ label, formats, icon: Icon, accept }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => openFilePicker(accept)}
+                        className="group rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/[0.025]"
+                      >
+                        <Icon className="h-5 w-5 text-slate-400 transition-colors group-hover:text-primary" />
+                        <p className="mt-3 text-[13px] font-bold text-slate-800 dark:text-slate-100">{label}</p>
+                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{formats}</p>
+                      </button>
                     ))}
                   </div>
+                )}
+              </div>
+            </section>
+
+            <aside className="space-y-5">
+              <section className="rounded-xl border border-border bg-card p-5 shadow-sm shadow-slate-900/[0.03]" aria-labelledby="tips-title">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  <h2 id="tips-title" className="text-[16px] font-bold text-slate-900 dark:text-white">Lưu ý khi kiểm tra</h2>
+                </div>
+                <ul className="mt-4 space-y-3 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
+                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Tệp tối đa 500 MB; hỗ trợ ảnh, video và âm thanh.</li>
+                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Ảnh hoặc video rõ nét giúp kết quả đáng tin cậy hơn.</li>
+                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Kết quả là tín hiệu hỗ trợ, không thay thế việc đối chiếu nguồn gốc.</li>
+                </ul>
+              </section>
+
+              <section className="rounded-xl border border-border bg-card p-5 shadow-sm shadow-slate-900/[0.03]" aria-labelledby="recent-title">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 id="recent-title" className="text-[16px] font-bold text-slate-900 dark:text-white">Kiểm tra gần đây</h2>
+                    <p className="mt-1 text-[12px] text-slate-500 dark:text-slate-400">Mở lại một kết quả để xem chi tiết.</p>
+                  </div>
+                  <button type="button" onClick={() => navigate("/history")} className="text-[12px] font-bold text-primary hover:underline">Tất cả</button>
+                </div>
+
+                {recentLoading ? (
+                  <div className="mt-4 space-y-3" aria-label="Đang tải lịch sử">
+                    {[1, 2, 3].map((item) => <div key={item} className="h-14 animate-pulse rounded-xl bg-muted" />)}
+                  </div>
                 ) : recentResults.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2 py-4 text-center">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center">
-                      <Eye className="w-5 h-5 text-slate-400" />
-                    </div>
-                    <p
-                      className="text-slate-500 dark:text-slate-400"
-                      style={{ fontSize: "13px" }}
-                    >
-                      No scans yet
-                    </p>
-                    <p
-                      className="text-slate-400 dark:text-slate-500"
-                      style={{ fontSize: "11px" }}
-                    >
-                      Upload your first media file to see results here
-                    </p>
+                  <div className="mt-5 rounded-xl bg-muted/60 p-4 text-center">
+                    <FileImage className="mx-auto h-5 w-5 text-slate-400" />
+                    <p className="mt-2 text-[12px] text-slate-500 dark:text-slate-400">Kết quả gần đây sẽ xuất hiện tại đây.</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {recentResults.slice(0, 5).map((result) => {
-                      const prediction = getDetectionPrediction(result);
-                      const isFake = prediction === "FAKE";
-                      const fakeProb = getDetectionFakeProb(result);
-                      const realProb = getDetectionRealProb(result);
-                      const isImage = /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(
-                        result.fileName,
-                      );
-                      const isVideo = /\.(mp4|webm|mov|avi|mkv|wmv|flv)$/i.test(
-                        result.fileName,
-                      );
+                  <div className="mt-4 divide-y divide-border">
+                    {recentResults.slice(0, 4).map((result) => {
+                      const risky = isRiskyPrediction(result.resultLabel || "");
+                      const resultType = result.fileName.split(".").pop() || "";
                       return (
                         <button
                           key={result.detectionResultId}
-                          onClick={() => {
-                            const prefix =
-                              userInfo?.email || userInfo?.id || "anonymous";
-                            localStorage.setItem(
-                              `lastDetection_${prefix}`,
-                              JSON.stringify({
-                                detectionResultId: result.detectionResultId,
-                                scanJobId: result.scanJobId,
-                                prediction,
-                                fakeProbability: fakeProb,
-                                realProbability: realProb,
-                                imageUrl: result.originalUrl,
-                                fileName: result.fileName,
-                                modelVersion: result.modelVersion,
-                                processedAt: result.processedAt,
-                                email: result.email,
-                                mediaId: result.mediaId,
-                              }),
-                            );
-                            // Pass scanJobId via location state so Results.tsx calls
-                            // GET /api/detection-results/{scanJobId} for full detail
-                            navigate("/results", {
-                              state: {
-                                scanJobId: result.scanJobId,
-                                prediction,
-                                fakeProbability: fakeProb,
-                                realProbability: realProb,
-                                imageUrl: result.originalUrl,
-                                fileName: result.fileName,
-                                uploadedAt: result.processedAt,
-                                mediaId: result.mediaId,
-                              },
-                            });
-                          }}
-                          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all text-left group"
+                          type="button"
+                          onClick={() => openHistoricalResult(result)}
+                          className="flex w-full items-center gap-3 py-3 text-left first:pt-0 last:pb-0"
                         >
-                          {result.originalUrl ? (
-                            isVideo ? (
-                              <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-600 relative bg-black">
-                                <video
-                                  src={result.originalUrl}
-                                  className="w-full h-full object-cover"
-                                  muted
-                                  preload="metadata"
-                                  onError={(e) => {
-                                    (
-                                      e.target as HTMLVideoElement
-                                    ).style.display = "none";
-                                    (
-                                      e.target as HTMLVideoElement
-                                    ).nextElementSibling?.classList.remove(
-                                      "hidden",
-                                    );
-                                  }}
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                                  <Play className="w-4 h-4 text-white opacity-80" />
-                                </div>
-                              </div>
-                            ) : isImage ? (
-                              <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-600">
-                                <img
-                                  src={result.originalUrl}
-                                  alt={result.fileName}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    const img = e.target as HTMLImageElement;
-                                    img.style.display = "none";
-                                  }}
-                                />
-                              </div>
-                            ) : null
-                          ) : null}
-                          {!result.originalUrl && (
-                            <div
-                              className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                isFake
-                                  ? "bg-red-500/10 group-hover:bg-red-500/15"
-                                  : "bg-emerald-500/10 group-hover:bg-emerald-500/15"
-                              }`}
-                            >
-                              {isFake ? (
-                                <AlertTriangle className="w-4 h-4 text-red-400" />
-                              ) : (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                              )}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p
-                                className="text-slate-900 dark:text-white truncate font-medium"
-                                style={{ fontSize: "12px" }}
-                              >
-                                {result.fileName}
-                              </p>
-                              {result.processedAt && (
-                                <span className="text-slate-400 text-[10px] flex-shrink-0">
-                                  {formatRelativeTime(result.processedAt)}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span
-                                className={`text-xs font-semibold ${
-                                  isFake ? "text-red-400" : "text-emerald-400"
-                                }`}
-                              >
-                                {prediction}
-                              </span>
-                              <span className="text-slate-400">·</span>
-                              <span className="text-slate-400 text-xs">
-                                Fake: {(fakeProb * 100)?.toFixed(0)}%
-                              </span>
-                            </div>
-                          </div>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 -rotate-90 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${risky ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"}`}>
+                            <FileTypeIcon type={resultType} className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[12px] font-semibold text-slate-800 dark:text-slate-100">{result.fileName}</span>
+                            <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                              {risky ? "Cần xem lại" : "Có vẻ đáng tin cậy"} <Clock className="h-3 w-3" /> {formatRelativeTime(result.processedAt)}
+                            </span>
+                          </span>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
                         </button>
                       );
                     })}
                   </div>
                 )}
-              </div>
-            </div>
+              </section>
+            </aside>
           </div>
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+function ResultSummary({
+  fileName,
+  riskScore,
+  confidence,
+  risky,
+  trusted,
+  onOpen,
+  onReset,
+  onDownload,
+}: {
+  fileName: string;
+  riskScore: number;
+  confidence: number;
+  risky: boolean;
+  trusted: boolean;
+  onOpen: () => void;
+  onReset: () => void;
+  onDownload: () => void;
+}) {
+  const tone = risky
+    ? "border-red-200 bg-red-50/65 dark:border-red-500/25 dark:bg-red-500/[0.08]"
+    : trusted
+      ? "border-emerald-200 bg-emerald-50/65 dark:border-emerald-500/25 dark:bg-emerald-500/[0.08]"
+      : "border-amber-200 bg-amber-50/65 dark:border-amber-500/25 dark:bg-amber-500/[0.08]";
+  const iconTone = risky
+    ? "bg-red-500/12 text-red-600 dark:text-red-400"
+    : trusted
+      ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400"
+      : "bg-amber-500/12 text-amber-700 dark:text-amber-400";
+
+  return (
+    <div className={`rounded-xl border p-5 ${tone}`} aria-live="polite">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex gap-3">
+          <span className={`grid h-11 w-11 place-items-center rounded-xl ${iconTone}`}>
+            {risky ? <AlertTriangle className="h-5 w-5" /> : trusted ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+          </span>
+          <div>
+            <p className="text-[15px] font-bold text-slate-900 dark:text-white">
+              {risky ? "Có dấu hiệu nội dung nhân tạo" : trusted ? "Nội dung có vẻ đáng tin cậy" : "Cần xem lại nội dung"}
+            </p>
+            <p className="mt-1 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
+              {risky
+                ? `Hệ thống ghi nhận mức rủi ro ${riskScore}%. Hãy kiểm tra kỹ trước khi đăng hoặc chia sẻ.`
+                : trusted
+                  ? "Hệ thống chưa phát hiện dấu hiệu can thiệp đáng kể trong lần kiểm tra này."
+                  : "Kết quả chưa đủ chắc chắn. Hãy đối chiếu thêm với nguồn nội dung gốc."}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onOpen} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-bold text-primary-foreground hover:bg-[#406dcc]">
+            Xem kết quả <ChevronRight className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={onDownload} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-semibold text-slate-600 hover:bg-muted dark:text-slate-300">
+            <Download className="h-3.5 w-3.5" /> Tải báo cáo
+          </button>
+          <button type="button" onClick={onReset} className="rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-semibold text-slate-600 hover:bg-muted dark:text-slate-300">
+            Kiểm tra tệp khác
+          </button>
+        </div>
+      </div>
+      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/[0.06] pt-4 text-[12px] text-slate-500 dark:border-white/[0.08] dark:text-slate-400">
+        <span className="inline-flex items-center gap-1.5"><FileCheck2 className="h-3.5 w-3.5" /> {fileName}</span>
+        <span>Rủi ro phát hiện: {riskScore}%</span>
+        <span>Độ tin cậy: {Math.round(confidence * 100)}%</span>
+      </div>
+    </div>
   );
 }

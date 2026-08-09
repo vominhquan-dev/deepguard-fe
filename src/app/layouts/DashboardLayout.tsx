@@ -335,7 +335,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       )}
 
       {/* Main content */}
-      <main className="flex-1 lg:ml-60 min-h-screen flex flex-col">
+      <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         {/* Mobile top bar */}
         <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 h-14 bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-slate-800">
           <button
