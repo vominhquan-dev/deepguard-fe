@@ -87,6 +87,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, role, logout } = useAuth();
+  const workspaceHome = role === "ADMIN" ? "/dashboard" : "/detect";
 
   // Filter nav items based on user role
   const navItems = navItemConfigs.filter((item) => {
@@ -118,11 +119,11 @@ export function Sidebar() {
           type="button"
           aria-label="Về trang chủ DeepGuard"
           className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-blue-500/30 transition-transform hover:scale-[1.03]"
-          onClick={() => navigate("/")}
+          onClick={() => navigate(workspaceHome)}
         >
           <Shield className="h-4.5 w-4.5" />
         </button>
-        <button type="button" onClick={() => navigate("/")} className="text-left leading-none">
+        <button type="button" onClick={() => navigate(workspaceHome)} className="text-left leading-none">
           <span className="block text-[17px] font-bold tracking-[-0.03em] text-slate-900 dark:text-white">
             Deep<span className="text-primary">Guard</span>
           </span>
