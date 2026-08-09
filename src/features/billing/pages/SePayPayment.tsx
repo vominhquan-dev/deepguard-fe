@@ -1,696 +1,304 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
-  Copy,
   CheckCircle2,
-  Clock,
+  CircleAlert,
+  Copy,
   ExternalLink,
-  CheckCircle,
-  RefreshCw,
-  AlertCircle,
+  Landmark,
+  Loader2,
+  QrCode,
+  ReceiptText,
 } from "lucide-react";
 import { toast } from "sonner";
-import i18n from "../../../shared/i18n/config";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
-import { createSePayPayment, type SePayPaymentData } from "../api/sepayApi";
-import { getPaymentById } from "../api/paymentsApi";
 import { useAuth } from "../../auth/context/AuthContext";
-
-const POLL_INTERVAL = 5000; // 5 seconds
-const POLL_DURATION = 300000; // 5 minutes
-const PAYMENT_SESSION_KEY_PREFIX = "deepguard_sepay_pending";
-const PAYMENT_COMPLETED_KEY_PREFIX = "deepguard_sepay_completed";
-
-// Module-level promises keyed by planId + user to deduplicate concurrent payment creation
-// (e.g., React StrictMode double-mount in dev)
-const pendingInitPromises = new Map<
-  string,
-  Promise<{
-    response: Awaited<ReturnType<typeof createSePayPayment>>;
-  }>
->();
-
-interface PaymentSession {
-  paymentId: string;
-  planId: string;
-  paymentData: SePayPaymentData;
-  expiresAt: number;
-}
+import { createSePayPayment, type SePayPaymentData } from "../api/sepayApi";
 
 export function SePayPayment() {
   const navigate = useNavigate();
   const { planId } = useParams<{ planId: string }>();
-  const { accessToken, userInfo } = useAuth();
+  const { accessToken } = useAuth();
   const [payment, setPayment] = useState<SePayPaymentData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
-  const [polling, setPolling] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  // Refs for timers and guards
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollDurationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const completedRef = useRef(false);
-  const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Build a session key scoped to user + planId (Bug 3 fix)
-  const getSessionKey = () => {
-    const userIdentifier =
-      userInfo?.email || userInfo?.id || accessToken?.slice(-8) || "anonymous";
-    const safePlanId = planId || "unknown";
-    return `${PAYMENT_SESSION_KEY_PREFIX}_${safePlanId}_${userIdentifier}`;
-  };
-
-  // Cleanup all timers
-  const cleanupTimers = () => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-    if (pollDurationRef.current) {
-      clearTimeout(pollDurationRef.current);
-      pollDurationRef.current = null;
-    }
-    if (navigateTimeoutRef.current) {
-      clearTimeout(navigateTimeoutRef.current);
-      navigateTimeoutRef.current = null;
-    }
-    setPolling(false);
-  };
-
-  const clearSession = () => {
-    sessionStorage.removeItem(getSessionKey());
-  };
-
-  const handleCompleted = () => {
-    if (completedRef.current) return;
-    completedRef.current = true;
-    cleanupTimers();
-    clearSession();
-    setCompleted(true);
-
-    // Save to localStorage so page refresh won't create a new order
-    // Use planId as key since that's what we have on page refresh from URL
-    const planIdentifier = planId || payment?.planName || "unknown";
-    const completedKey = `${PAYMENT_COMPLETED_KEY_PREFIX}_${planIdentifier}`;
-    localStorage.setItem(
-      completedKey,
-      JSON.stringify({ completedAt: Date.now() }),
-    );
-
-    // Show success toast for 3 seconds
-    toast.success(i18n.t("errors.api.paymentSuccess"), {
-      duration: 3000,
-      position: "top-center",
-      style: {
-        background: "linear-gradient(135deg, #059669, #10B981)",
-        color: "white",
-        border: "none",
-        fontSize: "14px",
-        fontWeight: 600,
-        padding: "16px 24px",
-        borderRadius: "12px",
-        boxShadow: "0 8px 32px rgba(5, 150, 105, 0.3)",
-      },
-    });
-
-    // Auto-redirect to /plan after 3 seconds
-    navigateTimeoutRef.current = setTimeout(() => {
-      navigate("/plan", { replace: true });
-    }, 3000);
-  };
-
-  const startPolling = (pid: string, token: string) => {
-    setPolling(true);
-
-    const checkStatus = async () => {
-      try {
-        const response = await getPaymentById(pid, token);
-        if (!response.success) return;
-
-        const data = response.data;
-        if (completedRef.current) return;
-
-        setPaymentStatus(data.status);
-
-        if (data.status === "COMPLETED" || data.status === "SUCCESS") {
-          handleCompleted();
-        } else if (
-          data.status === "FAILED" ||
-          data.status === "EXPIRED" ||
-          data.status === "CANCELLED"
-        ) {
-          cleanupTimers();
-          clearSession();
-          setError(
-            data.status === "FAILED"
-              ? i18n.t("billing.paymentFailed")
-              : data.status === "EXPIRED"
-                ? i18n.t("billing.paymentExpired")
-                : i18n.t("billing.paymentCancelled"),
-          );
-        }
-      } catch {
-        // Silently retry on next interval
-      }
-    };
-
-    // Initial check immediately
-    checkStatus();
-
-    // Poll every 5s
-    pollTimerRef.current = setInterval(checkStatus, POLL_INTERVAL);
-
-    // Stop after 5 minutes
-    pollDurationRef.current = setTimeout(() => {
-      cleanupTimers();
-      clearSession();
-      if (!completedRef.current) {
-        toast.info(i18n.t("errors.api.paymentStatusCheckEnd"));
-      }
-    }, POLL_DURATION);
-  };
-
-  // Main initialization effect
   useEffect(() => {
-    // Guard: only proceed if we have all required params
-    if (!planId || !accessToken) return;
-
-    const token = accessToken;
-    const safePlanId: string = planId;
-    const dedupKey = `${safePlanId}_${token.slice(-8)}`;
-
-    let isSubscribed = true;
-
-    async function initPayment() {
-      // Check localStorage for completed payment — redirect to /plan to avoid recreating order
-      const completedKey = `${PAYMENT_COMPLETED_KEY_PREFIX}_${safePlanId}`;
-      const completedRaw = localStorage.getItem(completedKey);
-      if (completedRaw) {
-        try {
-          const { completedAt } = JSON.parse(completedRaw);
-          // Keep the flag for 1 hour after completion
-          if (completedAt && Date.now() - completedAt < 3600000) {
-            if (!isSubscribed) return;
-            navigate("/plan", { replace: true });
-            return;
-          } else {
-            localStorage.removeItem(completedKey);
-          }
-        } catch {
-          localStorage.removeItem(completedKey);
-        }
-      }
-
-      // Check sessionStorage first — resume pending payment on page refresh
-      const existingRaw = sessionStorage.getItem(getSessionKey());
-      if (existingRaw) {
-        try {
-          const session: PaymentSession = JSON.parse(existingRaw);
-          if (
-            session.paymentId &&
-            session.planId === safePlanId &&
-            session.paymentData &&
-            session.expiresAt > Date.now()
-          ) {
-            if (!isSubscribed) return;
-            setPayment(session.paymentData);
-            setLoading(false);
-            startPolling(session.paymentId, token);
-            return;
-          }
-        } catch {
-          clearSession();
-        }
-      }
-
-      // Deduplicate concurrent API calls (e.g. React StrictMode double-mount in dev).
-      // Module-level Map keyed by dedupKey ensures different users/plans don't share one promise.
-      // (Bug 2 fix: was a single module-level variable shared across all planIds/users)
-      if (!pendingInitPromises.has(dedupKey)) {
-        const promise = (async () => {
-          setLoading(true);
-          const response = await createSePayPayment(
-            { pricingPlanId: safePlanId },
-            token,
-          );
-          if (!response.success) {
-            throw new Error(response.message || "Failed to create payment");
-          }
-          return { response };
-        })();
-        pendingInitPromises.set(dedupKey, promise);
-        // Clean up the promise map after it resolves/rejects
-        promise.finally(() => {
-          pendingInitPromises.delete(dedupKey);
-        });
-      }
-
-      try {
-        const result = await pendingInitPromises.get(dedupKey)!;
-
-        if (!isSubscribed) return;
-
-        if (!result.response.success) return;
-
-        setPayment(result.response.data);
-
-        // Save to sessionStorage so page refresh can resume
-        sessionStorage.setItem(
-          getSessionKey(),
-          JSON.stringify({
-            paymentId: result.response.data.paymentId,
-            planId: safePlanId,
-            paymentData: result.response.data,
-            expiresAt: Date.now() + POLL_DURATION,
-          } satisfies PaymentSession),
-        );
-
-        startPolling(result.response.data.paymentId, token);
-      } catch (err) {
-        if (isSubscribed) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : i18n.t("errors.api.somethingWentWrong"),
-          );
-        }
-      } finally {
-        if (isSubscribed) {
-          setLoading(false);
-        }
-      }
+    if (!planId) {
+      setError("Không tìm thấy gói cần thanh toán.");
+      setLoading(false);
+      return;
     }
-
-    initPayment();
-
-    return () => {
-      isSubscribed = false;
-      cleanupTimers();
+    if (!accessToken) {
+      setError("Phiên đăng nhập đã hết. Hãy đăng nhập lại để thanh toán.");
+      setLoading(false);
+      return;
+    }
+    const initPayment = async () => {
+      try {
+        const response = await createSePayPayment(
+          { pricingPlanId: planId },
+          accessToken,
+        );
+        if (!response.success)
+          throw new Error(
+            response.message || "Không thể tạo yêu cầu thanh toán.",
+          );
+        setPayment(response.data);
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Không thể tạo yêu cầu thanh toán.",
+        );
+      } finally {
+        setLoading(false);
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId, accessToken]);
+    void initPayment();
+  }, [accessToken, planId]);
 
-  const handleCopy = async (text: string) => {
+  const copyValue = async (label: string, value: string) => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      toast.success(i18n.t("errors.api.copiedToClipboard"));
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
+      toast.success(`Đã sao chép ${label.toLowerCase()}.`);
+      window.setTimeout(() => setCopied(null), 1800);
     } catch {
-      toast.error(i18n.t("errors.api.failedToCopy"));
+      toast.error("Không thể sao chép. Hãy chọn và sao chép thủ công.");
     }
   };
 
-  if (loading) {
+  if (loading)
     return (
       <DashboardLayout>
-        <div className="p-8 flex items-center justify-center min-h-[60vh]">
+        <div className="grid min-h-[60vh] place-items-center p-6">
           <div className="text-center">
-            <div className="w-12 h-12 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p
-              className="text-slate-500 dark:text-slate-400"
-              style={{ fontSize: "14px" }}
-            >
-              {i18n.t("billing.generatingQr")}
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+            <p className="mt-3 text-[14px] text-slate-500 dark:text-slate-400">
+              Đang tạo mã thanh toán an toàn…
             </p>
           </div>
         </div>
       </DashboardLayout>
     );
-  }
 
-  if (error || !payment) {
+  if (error || !payment)
     return (
       <DashboardLayout>
-        <div className="p-8">
+        <div className="mx-auto max-w-xl p-5 sm:p-8">
           <button
-            onClick={() => {
-              clearSession();
-              navigate("/plan");
-            }}
-            className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-6 transition-colors"
+            type="button"
+            onClick={() => navigate("/plan")}
+            className="inline-flex items-center gap-2 text-[13px] font-semibold text-slate-500 hover:text-primary"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span style={{ fontSize: "14px" }}>
-              {i18n.t("billing.backToPlans")}
-            </span>
+            <ArrowLeft className="h-4 w-4" /> Quay lại gói dịch vụ
           </button>
-
-          <div className="max-w-md mx-auto mt-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
-              <ArrowLeft className="w-8 h-8 text-red-500 rotate-45" />
-            </div>
-            <h2
-              className="text-slate-900 dark:text-white mb-2"
-              style={{ fontSize: "18px", fontWeight: 700 }}
-            >
-              {i18n.t("billing.paymentError")}
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-6">
-              {error || i18n.t("billing.unableToCreatePayment")}
+          <div className="mt-14 rounded-2xl border border-border bg-card p-7 text-center shadow-sm">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl border border-rose-200 text-rose-600">
+              <CircleAlert className="h-6 w-6" />
+            </span>
+            <h1 className="mt-5 text-xl font-bold text-slate-900 dark:text-white">
+              Không thể tạo thanh toán
+            </h1>
+            <p className="mt-2 text-[14px] leading-6 text-slate-500 dark:text-slate-400">
+              {error || "Vui lòng thử lại sau."}
             </p>
             <button
+              type="button"
               onClick={() => navigate("/plan")}
-              className="px-6 py-2.5 rounded-xl bg-[#2563EB] text-white font-bold text-sm hover:bg-blue-700 transition-colors"
+              className="mt-6 h-10 rounded-lg bg-primary px-5 text-[13px] font-bold text-primary-foreground hover:bg-[#406dcc]"
             >
-              {i18n.t("billing.tryAgain")}
+              Chọn lại gói
             </button>
           </div>
         </div>
       </DashboardLayout>
     );
-  }
 
-  const amountFormatted = payment.amount.toLocaleString("vi-VN");
+  const amount = `${payment.amount.toLocaleString("vi-VN")}₫`;
+  const qrLink = `https://img.vietqr.io/image/${payment.bankCode}-${payment.bankAccountNo}-compact2.png?amount=${payment.amount}&addInfo=${encodeURIComponent(payment.transferContent)}&accountName=${encodeURIComponent(payment.bankAccountName)}`;
+  const CopyButton = ({ label, value }: { label: string; value: string }) => (
+    <button
+      type="button"
+      onClick={() => copyValue(label, value)}
+      className="grid h-8 w-8 place-items-center rounded-md text-primary transition-colors hover:bg-primary/10"
+      aria-label={`Sao chép ${label}`}
+    >
+      {copied === label ? (
+        <CheckCircle2 className="h-4 w-4" />
+      ) : (
+        <Copy className="h-4 w-4" />
+      )}
+    </button>
+  );
 
   return (
     <DashboardLayout>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        {/* Back button */}
+      <main className="mx-auto max-w-5xl p-5 sm:p-8">
         <button
+          type="button"
           onClick={() => navigate("/plan")}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-6 transition-colors"
+          className="inline-flex items-center gap-2 text-[13px] font-semibold text-slate-500 transition-colors hover:text-primary"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span style={{ fontSize: "14px" }}>
-            {i18n.t("billing.backToPlans")}
-          </span>
+          <ArrowLeft className="h-4 w-4" /> Quay lại gói dịch vụ
         </button>
-
-        <div className="rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700">
-          {/* Header */}
-          <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#22D3EE] flex items-center justify-center">
-                <Clock className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2
-                  className="text-slate-900 dark:text-white"
-                  style={{ fontSize: "18px", fontWeight: 700 }}
-                >
-                  {i18n.t("billing.completePayment")}
-                </h2>
-                <p
-                  className="text-slate-500 dark:text-slate-400"
-                  style={{ fontSize: "13px" }}
-                >
-                  {i18n.t("billing.transferViaVietQr")}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {paymentStatus === "COMPLETED" || completed ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                  <CheckCircle className="w-3 h-3 text-emerald-500" />
-                  <span
-                    className="text-emerald-500"
-                    style={{ fontSize: "11px", fontWeight: 600 }}
-                  >
-                    {i18n.t("billing.status.completed")}
-                  </span>
-                </div>
-              ) : paymentStatus === "FAILED" ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20">
-                  <AlertCircle className="w-3 h-3 text-red-500" />
-                  <span
-                    className="text-red-500"
-                    style={{ fontSize: "11px", fontWeight: 600 }}
-                  >
-                    {i18n.t("billing.status.failed")}
-                  </span>
-                </div>
-              ) : paymentStatus === "EXPIRED" ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/20">
-                  <Clock className="w-3 h-3 text-slate-500" />
-                  <span
-                    className="text-slate-500"
-                    style={{ fontSize: "11px", fontWeight: 600 }}
-                  >
-                    {i18n.t("billing.status.expired")}
-                  </span>
-                </div>
-              ) : paymentStatus === "CANCELLED" ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/20">
-                  <Clock className="w-3 h-3 text-slate-500" />
-                  <span
-                    className="text-slate-500"
-                    style={{ fontSize: "11px", fontWeight: 600 }}
-                  >
-                    {i18n.t("billing.status.cancelled")}
-                  </span>
-                </div>
-              ) : polling ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
-                  <RefreshCw className="w-3 h-3 text-amber-500 animate-spin" />
-                  <span
-                    className="text-amber-500"
-                    style={{ fontSize: "11px", fontWeight: 600 }}
-                  >
-                    {i18n.t("billing.status.waiting")}
-                  </span>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
-                  <Clock className="w-3 h-3 text-amber-500" />
-                  <span
-                    className="text-amber-500"
-                    style={{ fontSize: "11px", fontWeight: 600 }}
-                  >
-                    {i18n.t("billing.status.pending")}
-                  </span>
-                </div>
-              )}
-            </div>
+        <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-primary">
+              Thanh toán qua VietQR
+            </p>
+            <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em] text-slate-900 dark:text-white">
+              Hoàn tất nâng cấp
+            </h1>
+            <p className="mt-2 text-[14px] text-slate-500 dark:text-slate-400">
+              Quét mã hoặc chuyển khoản với đúng số tiền và nội dung bên dưới.
+            </p>
           </div>
-
-          {/* Completed state */}
-          {completed && (
-            <div className="p-6 bg-gradient-to-r from-emerald-500/5 to-emerald-500/10 border-b border-emerald-500/20">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-8 h-8 text-emerald-500" />
-                </div>
-                <div>
-                  <h3
-                    className="text-emerald-600 dark:text-emerald-400 font-bold"
-                    style={{ fontSize: "16px" }}
-                  >
-                    {i18n.t("billing.paymentSuccessful")}
-                  </h3>
-                  <p
-                    className="text-emerald-600/70 dark:text-emerald-400/70"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {i18n.t("billing.paymentUpgradedCredits", {
-                      credits: payment.credits,
-                    })}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate("/plan")}
-                className="mt-4 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors"
-              >
-                {i18n.t("billing.backToPlan")}
-              </button>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 px-3 py-1.5 text-[12px] font-bold text-amber-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Đang chờ
+            thanh toán
+          </span>
+        </div>
+        <section className="mt-6 grid gap-6 rounded-2xl border border-border bg-card p-5 shadow-sm shadow-slate-900/[0.03] lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.2fr)] sm:p-7">
+          <div className="flex flex-col items-center">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+              <QrCode className="h-5 w-5" />
             </div>
-          )}
-
-          {/* Two-column layout: QR left, info right */}
-          <div className="flex flex-col lg:flex-row gap-6 p-6">
-            {/* QR Code - Left */}
-            <div className="flex-shrink-0 flex flex-col items-center gap-4">
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <img
-                  src={payment.qrUrl}
-                  alt="VietQR Payment"
-                  className="w-72 h-72 sm:w-80 sm:h-80 object-contain"
-                />
-              </div>
-              <a
-                href={`https://img.vietqr.io/image/${payment.bankCode}-${payment.bankAccountNo}-compact2.png?amount=${payment.amount}&addInfo=${payment.transferContent}&accountName=${payment.bankAccountName}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-sm transition-colors shadow-lg shadow-blue-500/25"
-              >
-                <ExternalLink className="w-4 h-4" />
-                {i18n.t("billing.openInBankingApp")}
-              </a>
+            <h2 className="mt-3 text-[15px] font-bold text-slate-900 dark:text-white">
+              Quét mã thanh toán
+            </h2>
+            <p className="mt-1 text-center text-[12px] leading-5 text-slate-500 dark:text-slate-400">
+              Mở ứng dụng ngân hàng và quét QR để điền sẵn thông tin.
+            </p>
+            <div className="mt-5 rounded-2xl border border-border bg-white p-3 shadow-sm">
+              <img
+                src={payment.qrUrl}
+                alt={`Mã VietQR thanh toán ${amount}`}
+                className="h-64 w-64 object-contain sm:h-72 sm:w-72"
+              />
             </div>
-
-            {/* Payment details - Right */}
-            <div className="flex-1 min-w-0 space-y-3">
-              {/* Order details */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span
-                    className="text-slate-500 dark:text-slate-400"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {i18n.t("billing.plan")}
-                  </span>
-                  <span
-                    className="text-slate-900 dark:text-white font-semibold"
-                    style={{ fontSize: "13px" }}
-                  >
+            <a
+              href={qrLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary text-[13px] font-bold text-primary-foreground transition-colors hover:bg-[#406dcc]"
+            >
+              <ExternalLink className="h-4 w-4" /> Mở mã QR
+            </a>
+          </div>
+          <div className="min-w-0">
+            <div className="rounded-xl border border-border bg-muted/60 p-5">
+              <div className="flex items-center gap-2">
+                <ReceiptText className="h-4 w-4 text-primary" />
+                <h2 className="text-[14px] font-bold text-slate-900 dark:text-white">
+                  Thông tin đơn hàng
+                </h2>
+              </div>
+              <dl className="mt-4 space-y-3 text-[13px]">
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-slate-500 dark:text-slate-400">
+                    Gói dịch vụ
+                  </dt>
+                  <dd className="font-bold text-slate-900 dark:text-white">
                     {payment.planName}
-                  </span>
+                  </dd>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span
-                    className="text-slate-500 dark:text-slate-400"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {i18n.t("billing.credits")}
-                  </span>
-                  <span
-                    className="text-slate-900 dark:text-white font-semibold"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {payment.credits}
-                  </span>
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-slate-500 dark:text-slate-400">
+                    Tín dụng
+                  </dt>
+                  <dd className="font-semibold text-slate-900 dark:text-white">
+                    {payment.credits.toLocaleString("vi-VN")}
+                  </dd>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span
-                    className="text-slate-500 dark:text-slate-400"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {i18n.t("billing.amount")}
-                  </span>
-                  <span
-                    className="text-slate-900 dark:text-white font-bold"
-                    style={{ fontSize: "16px" }}
-                  >
-                    {amountFormatted}₫
-                  </span>
+                <div className="flex items-center justify-between gap-4 border-t border-border pt-3">
+                  <dt className="font-semibold text-slate-700 dark:text-slate-200">
+                    Tổng thanh toán
+                  </dt>
+                  <dd className="text-xl font-bold tracking-[-0.03em] text-slate-900 dark:text-white">
+                    {amount}
+                  </dd>
                 </div>
+              </dl>
+            </div>
+            <div className="mt-4 rounded-xl border border-primary/20 bg-primary/[0.04] p-5">
+              <div className="flex items-center gap-2">
+                <Landmark className="h-4 w-4 text-primary" />
+                <h2 className="text-[14px] font-bold text-slate-900 dark:text-white">
+                  Thông tin chuyển khoản
+                </h2>
               </div>
-
-              {/* Bank info */}
-              <div className="p-4 rounded-xl bg-[#2563EB]/5 border border-[#2563EB]/20 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span
-                    className="text-slate-500 dark:text-slate-400"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {i18n.t("billing.bank")}
-                  </span>
-                  <span
-                    className="text-slate-900 dark:text-white font-semibold"
-                    style={{ fontSize: "13px" }}
-                  >
-                    Vietcombank
-                  </span>
+              <dl className="mt-4 divide-y divide-primary/10">
+                <div className="flex items-center justify-between gap-4 py-2">
+                  <dt className="text-[12px] text-slate-500 dark:text-slate-400">
+                    Ngân hàng
+                  </dt>
+                  <dd className="font-bold text-slate-900 dark:text-white">
+                    {payment.bankCode}
+                  </dd>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span
-                    className="text-slate-500 dark:text-slate-400"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {i18n.t("billing.accountNo")}
-                  </span>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className="text-slate-900 dark:text-white font-semibold truncate"
-                      style={{ fontSize: "13px" }}
-                    >
+                <div className="flex items-center justify-between gap-4 py-2">
+                  <dt className="text-[12px] text-slate-500 dark:text-slate-400">
+                    Số tài khoản
+                  </dt>
+                  <dd className="flex min-w-0 items-center gap-1">
+                    <span className="truncate font-bold text-slate-900 dark:text-white">
                       {payment.bankAccountNo}
                     </span>
-                    <button
-                      onClick={() => handleCopy(payment.bankAccountNo)}
-                      className="text-[#2563EB] hover:text-blue-700 transition-colors flex-shrink-0"
-                    >
-                      {copied ? (
-                        <CheckCircle2 className="w-4 h-4" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
+                    <CopyButton
+                      label="Số tài khoản"
+                      value={payment.bankAccountNo}
+                    />
+                  </dd>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span
-                    className="text-slate-500 dark:text-slate-400"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {i18n.t("billing.accountName")}
-                  </span>
-                  <span
-                    className="text-slate-900 dark:text-white font-semibold text-right"
-                    style={{ fontSize: "13px" }}
-                  >
+                <div className="flex items-center justify-between gap-4 py-2">
+                  <dt className="text-[12px] text-slate-500 dark:text-slate-400">
+                    Chủ tài khoản
+                  </dt>
+                  <dd className="text-right font-bold text-slate-900 dark:text-white">
                     {payment.bankAccountName}
-                  </span>
+                  </dd>
                 </div>
-                <div className="pt-2 border-t border-[#2563EB]/10">
-                  <div className="flex items-center justify-between">
-                    <span
-                      className="text-slate-500 dark:text-slate-400"
-                      style={{ fontSize: "13px" }}
-                    >
-                      {i18n.t("billing.transferContent")}
+                <div className="flex items-center justify-between gap-4 py-2">
+                  <dt className="text-[12px] text-slate-500 dark:text-slate-400">
+                    Nội dung
+                  </dt>
+                  <dd className="flex min-w-0 items-center gap-1">
+                    <span className="truncate font-bold text-primary">
+                      {payment.transferContent}
                     </span>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="text-[#2563EB] font-bold truncate"
-                        style={{ fontSize: "13px" }}
-                      >
-                        {payment.transferContent}
-                      </span>
-                      <button
-                        onClick={() => handleCopy(payment.transferContent)}
-                        className="text-[#2563EB] hover:text-blue-700 transition-colors flex-shrink-0"
-                      >
-                        {copied ? (
-                          <CheckCircle2 className="w-4 h-4" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                    <CopyButton
+                      label="Nội dung chuyển khoản"
+                      value={payment.transferContent}
+                    />
+                  </dd>
                 </div>
-              </div>
-
-              {/* Instructions */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <p
-                  className="text-slate-600 dark:text-slate-300 font-semibold mb-2"
-                  style={{ fontSize: "12px" }}
-                >
-                  {i18n.t("billing.instructions")}
-                </p>
-                <ol
-                  className="text-slate-500 dark:text-slate-400 space-y-1.5"
-                  style={{ fontSize: "12px" }}
-                >
-                  <li>{i18n.t("billing.instructionsSteps.step1")}</li>
-                  <li>{i18n.t("billing.instructionsSteps.step2")}</li>
-                  <li>
-                    {i18n.t("billing.instructionsSteps.step3")}{" "}
-                    <strong className="text-slate-900 dark:text-white">
-                      {amountFormatted}₫
-                    </strong>
-                  </li>
-                  <li>{i18n.t("billing.instructionsSteps.step4")}</li>
-                  <li>{i18n.t("billing.instructionsSteps.step5")}</li>
-                </ol>
-                <p
-                  className="text-slate-400 mt-2 italic"
-                  style={{ fontSize: "11px" }}
-                >
-                  {i18n.t("billing.creditsAutoAdded")}
-                </p>
-              </div>
+              </dl>
+            </div>
+            <div className="mt-4 rounded-xl border border-border p-4">
+              <p className="text-[13px] font-bold text-slate-900 dark:text-white">
+                Lưu ý trước khi chuyển khoản
+              </p>
+              <ol className="mt-2 list-decimal space-y-1 pl-4 text-[12px] leading-5 text-slate-500 dark:text-slate-400">
+                <li>
+                  Chuyển đúng số tiền{" "}
+                  <strong className="text-slate-700 dark:text-slate-200">
+                    {amount}
+                  </strong>
+                  .
+                </li>
+                <li>Giữ nguyên nội dung chuyển khoản để hệ thống đối chiếu.</li>
+                <li>
+                  Tín dụng sẽ được cập nhật sau khi hệ thống xác nhận giao dịch.
+                </li>
+              </ol>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </DashboardLayout>
   );
 }

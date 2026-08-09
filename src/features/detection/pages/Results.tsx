@@ -1,40 +1,24 @@
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router";
-import { motion } from "motion/react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
-  Download,
-  RefreshCw,
-  Eye,
-  X,
+  ChevronRight,
+  CircleHelp,
   Copy,
-  Printer,
-  Shield,
+  Download,
+  FileImage,
   FileText,
-  Info,
-  HelpCircle,
-  Video,
-  BarChart,
-  Clock,
-  Layers,
-  ChevronDown,
-  ChevronUp,
-  AudioWaveform,
-  Film,
+  LoaderCircle,
+  RefreshCw,
+  ScanSearch,
+  ShieldCheck,
 } from "lucide-react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
-import i18n from "../../../shared/i18n/config";
-import { toast } from "sonner";
 import { useAuth } from "../../auth/context/AuthContext";
-import { downloadScanReportPdf } from "../api/reportApi";
 import { useCredits } from "../../billing/hooks/useCredits";
-import {
-  getDetectionResultByScanJobId,
-  getUserDetectionResults,
-  type DetectionResultDetail,
-} from "../api/detectionApi";
-import type { HiveFrameData } from "../types/media";
+import { downloadScanReportPdf } from "../api/reportApi";
 
 interface DetectionData {
   detectionResultId?: string;
@@ -49,1301 +33,228 @@ interface DetectionData {
   fileSize?: number;
   uploadedAt?: string;
   mediaId?: string;
-  email?: string;
-  type?: string;
-  // Full API fields
-  originalUrl?: string | null;
-  fakeScore?: number;
-  confidence?: number;
-  modelVersion?: string;
-  processedAt?: string;
 }
 
-interface HiveDetectionData {
-  prediction: string;
-  confidence: number;
-  aiGeneratedScore: number;
-  notAiGeneratedScore: number;
-  deepfakeScore: number;
-  aiGeneratedAudioScore: number;
-  notAiGeneratedAudioScore: number;
-  attributedGenerator: string;
-  frames: HiveFrameData[];
-  taskId: string;
-  mediaUrl: string;
-  video: boolean;
-}
-
-// ── Verdict Badge ──
-function VerdictBadge({ prediction }: { prediction: string }) {
-  const isReal =
-    prediction?.toUpperCase() === "REAL" ||
-    prediction?.toUpperCase() === "AUTHENTIC" ||
-    prediction?.toUpperCase() === "HUMAN" ||
-    prediction?.toUpperCase() === "NOT_AI_GENERATED";
-  const isFake =
-    prediction?.toUpperCase() === "FAKE" ||
-    prediction?.toUpperCase() === "DEEPFAKE" ||
-    prediction?.toUpperCase() === "AI_GENERATED";
-
-  const color = isReal
-    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-    : isFake
-      ? "bg-red-500/10 text-red-500 border-red-500/30"
-      : "bg-amber-500/10 text-amber-500 border-amber-500/30";
-
-  const icon = isReal ? (
-    <CheckCircle2 className="w-4 h-4" />
-  ) : isFake ? (
-    <AlertTriangle className="w-4 h-4" />
-  ) : (
-    <HelpCircle className="w-4 h-4" />
-  );
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold ${color}`}
-    >
-      {icon}
-      {prediction || "REAL"}
-    </span>
+function isRiskyPrediction(prediction: string) {
+  return ["AI_GENERATED", "AI_GENERATED_AND_DEEPFAKE", "AI_GENERATED_AUDIO", "DEEPFAKE", "FAKE"].includes(
+    prediction.toUpperCase(),
   );
 }
 
-// ── Stat Card ──
-function StatCard({
-  label,
-  value,
-  color,
-  sub,
-}: {
-  label: string;
-  value: string;
-  color: string;
-  sub?: string;
-}) {
-  return (
-    <div className="flex-1 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
-      <p className="text-slate-500 dark:text-slate-400 text-xs font-medium mb-1">
-        {label}
-      </p>
-      <p className={`text-lg font-black ${color}`}>{value}</p>
-      {sub && <p className="text-slate-400 text-[10px] mt-0.5">{sub}</p>}
-    </div>
-  );
+function isTrustedPrediction(prediction: string) {
+  return ["REAL", "AUTHENTIC", "HUMAN"].includes(prediction.toUpperCase());
 }
 
-// ── Score bar ──
-function ScoreBar({
-  label,
-  score,
-  color,
-  invert = false,
-}: {
-  label: string;
-  score: number;
-  color: string;
-  invert?: boolean;
-}) {
-  const barColor = invert
-    ? score > 0.5
-      ? "bg-emerald-500"
-      : "bg-red-500"
-    : color;
-  const percentage = (score * 100).toFixed(1);
-
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-slate-500 dark:text-slate-400 text-xs">
-          {label}
-        </span>
-        <span className={`text-xs font-bold ${color}`}>{percentage}%</span>
-      </div>
-      <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full ${barColor} transition-all`}
-          style={{ width: `${Math.min(parseFloat(percentage), 100)}%` }}
-        />
-      </div>
-    </div>
-  );
+function asPercent(value: number | undefined) {
+  return `${Math.max(0, Math.min(100, Math.round((value ?? 0) * 100)))}%`;
 }
 
-// ── Full Report Modal ──
-function ReportModal({
-  detection,
-  onClose,
-}: {
-  detection: DetectionData;
-  onClose: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      const reportText = `DeepGuard Detection Report
-File: ${detection.fileName || "Unknown"}
-Verdict: ${detection.prediction}
-Fake Probability: ${(detection.fakeProbability * 100).toFixed(2)}%
-Real Probability: ${(detection.realProbability * 100).toFixed(2)}%
-Processed At: ${detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleString() : "N/A"}`;
-      await navigator.clipboard.writeText(reportText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      toast.success(i18n.t("errors.api.reportCopied"));
-    } catch {
-      toast.error(i18n.t("errors.api.failedToCopyReport"));
-    }
-  };
-
-  const handlePrint = () => window.print();
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-700"
-      >
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-        >
-          <X className="w-4 h-4 text-slate-500" />
-        </button>
-
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-[#2563EB]/10 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-[#2563EB]" />
-          </div>
-          <div>
-            <h2 className="text-slate-900 dark:text-white text-lg font-bold">
-              Detection Report
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Generated on {new Date().toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-
-        {/* AI Verdict Highlight */}
-        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 mb-6">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-14 h-14 rounded-xl flex items-center justify-center ${
-                detection.prediction?.toUpperCase() === "REAL" ||
-                detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                detection.prediction?.toUpperCase() === "HUMAN" ||
-                detection.prediction?.toUpperCase() === "NOT_AI_GENERATED"
-                  ? "bg-emerald-500/10 text-emerald-500"
-                  : "bg-red-500/10 text-red-500"
-              }`}
-            >
-              {detection.prediction?.toUpperCase() === "REAL" ||
-              detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-              detection.prediction?.toUpperCase() === "HUMAN" ||
-              detection.prediction?.toUpperCase() === "NOT_AI_GENERATED" ? (
-                <CheckCircle2 className="w-7 h-7" />
-              ) : (
-                <AlertTriangle className="w-7 h-7" />
-              )}
-            </div>
-            <div>
-              <p className="text-slate-900 dark:text-white text-base font-bold">
-                {detection.prediction?.toUpperCase() === "REAL" ||
-                detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                detection.prediction?.toUpperCase() === "HUMAN" ||
-                detection.prediction?.toUpperCase() === "NOT_AI_GENERATED"
-                  ? "AUTHENTIC CONTENT"
-                  : "AI-GENERATED / MANIPULATED"}
-              </p>
-              <p className="text-slate-500 dark:text-slate-400 text-sm">
-                AI Verdict
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Detail Stats */}
-        <div className="flex gap-3 mb-6">
-          <div className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium mb-1">
-              Prediction
-            </p>
-            <p
-              className={`text-base font-black ${
-                detection.prediction?.toUpperCase() === "REAL" ||
-                detection.prediction?.toUpperCase() === "AUTHENTIC" ||
-                detection.prediction?.toUpperCase() === "HUMAN" ||
-                detection.prediction?.toUpperCase() === "NOT_AI_GENERATED"
-                  ? "text-emerald-500"
-                  : "text-red-500"
-              }`}
-            >
-              {detection.prediction}
-            </p>
-          </div>
-          <div className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium mb-1">
-              Fake Prob.
-            </p>
-            <p className="text-red-500 text-base font-black">
-              {(detection.fakeProbability * 100).toFixed(2)}%
-            </p>
-          </div>
-          <div className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium mb-1">
-              Real Prob.
-            </p>
-            <p className="text-emerald-500 text-base font-black">
-              {(detection.realProbability * 100).toFixed(2)}%
-            </p>
-          </div>
-        </div>
-
-        {/* File Info */}
-        {detection.fileName && (
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 mb-6">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-slate-400" />
-              <span className="text-slate-600 dark:text-slate-300 text-sm">
-                {detection.fileName}
-              </span>
-              {detection.fileSize && (
-                <span className="text-slate-400 text-xs ml-auto">
-                  {(detection.fileSize / 1024).toFixed(1)} KB
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Message */}
-        {detection.message && (
-          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 mb-6">
-            <p className="text-amber-700 dark:text-amber-400 text-sm font-medium">
-              {detection.message}
-            </p>
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          <button
-            onClick={handleCopy}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-sm font-semibold"
-          >
-            <Copy className="w-4 h-4" />
-            Copy Report
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-sm font-semibold"
-          >
-            <Printer className="w-4 h-4" />
-            Print
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
+function formatFileSize(bytes: number | undefined) {
+  if (!bytes) return "Không rõ dung lượng";
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-// ── Frame Detail Row ──
-function FrameRow({
-  frame,
-  isExpanded,
-  onToggle,
-}: {
-  frame: HiveFrameData;
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
-  const isAIGenerated = frame.aiGeneratedScore > 0.5;
-
-  return (
-    <div className="border-b border-slate-100 dark:border-slate-700/60 last:border-0">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors text-left"
-      >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <Film className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-          <span className="text-slate-700 dark:text-slate-300 text-sm font-medium">
-            Frame {frame.frameIndex}
-          </span>
-          <span className="text-slate-400 text-xs">@ {frame.timestamp}s</span>
-        </div>
-
-        <span
-          className={`text-xs font-bold px-2 py-0.5 rounded ${
-            isAIGenerated
-              ? "bg-red-500/10 text-red-500"
-              : "bg-emerald-500/10 text-emerald-500"
-          }`}
-        >
-          {isAIGenerated ? "FAKE" : "REAL"}
-        </span>
-
-        <span className="text-slate-400 text-xs">
-          {(
-            (isAIGenerated
-              ? frame.aiGeneratedScore
-              : frame.notAiGeneratedScore) * 100
-          ).toFixed(1)}
-          %
-        </span>
-
-        {isExpanded ? (
-          <ChevronUp className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-        ) : (
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-        )}
-      </button>
-
-      {isExpanded && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          className="px-4 pb-4 space-y-3"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <ScoreBar
-              label="AI Generated"
-              score={frame.aiGeneratedScore}
-              color={
-                frame.aiGeneratedScore > 0.5
-                  ? "text-red-500"
-                  : "text-emerald-500"
-              }
-            />
-            <ScoreBar
-              label="Not AI Generated"
-              score={frame.notAiGeneratedScore}
-              color={
-                frame.notAiGeneratedScore > 0.5
-                  ? "text-emerald-500"
-                  : "text-red-500"
-              }
-            />
-          </div>
-          {frame.deepfakeScore > 0 && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-400">Deepfake Score:</span>
-              <span className="font-bold text-red-500">
-                {(frame.deepfakeScore * 100).toFixed(2)}%
-              </span>
-            </div>
-          )}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-400">Attributed Generator:</span>
-            <span className="font-medium text-slate-600 dark:text-slate-300">
-              {frame.attributedGenerator || "N/A"}
-            </span>
-          </div>
-          {frame.aiGeneratedAudioScore > 0 && (
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60">
-              <p className="text-xs font-medium text-slate-500 mb-2">
-                <AudioWaveform className="w-3 h-3 inline mr-1" />
-                Audio Analysis
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <ScoreBar
-                  label="AI Audio"
-                  score={frame.aiGeneratedAudioScore}
-                  color={
-                    frame.aiGeneratedAudioScore > 0.5
-                      ? "text-red-500"
-                      : "text-emerald-500"
-                  }
-                />
-                <ScoreBar
-                  label="Natural Audio"
-                  score={frame.notAiGeneratedAudioScore}
-                  color={
-                    frame.notAiGeneratedAudioScore > 0.5
-                      ? "text-emerald-500"
-                      : "text-red-500"
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </motion.div>
-      )}
-    </div>
-  );
-}
-
-// ── Video Detection View ──
-function VideoDetectionView({ hive }: { hive: HiveDetectionData }) {
-  const [expandedFrames, setExpandedFrames] = useState<Set<number>>(new Set());
-  const [showAllFrames, setShowAllFrames] = useState(false);
-
-  const isReal = hive.prediction === "NOT_AI_GENERATED";
-  const displayedFrames = useMemo(
-    () => (showAllFrames ? hive.frames : hive.frames.slice(0, 5)),
-    [hive.frames, showAllFrames],
-  );
-
-  const toggleFrame = (frameIndex: number) => {
-    setExpandedFrames((prev) => {
-      const next = new Set(prev);
-      if (next.has(frameIndex)) {
-        next.delete(frameIndex);
-      } else {
-        next.add(frameIndex);
-      }
-      return next;
-    });
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Video Preview */}
-      {hive.mediaUrl && (
-        <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
-          <video
-            src={hive.mediaUrl}
-            controls
-            className="w-full max-h-80 object-contain"
-            poster={hive.mediaUrl}
-          >
-            Your browser does not support the video tag.
-          </video>
-        </div>
-      )}
-
-      {/* Overall Prediction */}
-      <div
-        className={`p-5 rounded-xl border ${
-          isReal
-            ? "bg-emerald-500/5 border-emerald-500/20"
-            : "bg-red-500/5 border-red-500/20"
-        }`}
-      >
-        <div className="flex items-center gap-3 mb-4">
-          {isReal ? (
-            <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-          ) : (
-            <AlertTriangle className="w-6 h-6 text-red-500" />
-          )}
-          <div>
-            <p
-              className={`text-lg font-bold ${
-                isReal ? "text-emerald-500" : "text-red-500"
-              }`}
-            >
-              {isReal ? "AUTHENTIC VIDEO" : "AI-GENERATED / MANIPULATED"}
-            </p>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Confidence: {(hive.confidence * 100).toFixed(2)}%
-            </p>
-          </div>
-        </div>
-
-        {/* Score bars */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <ScoreBar
-            label="AI Generated Score"
-            score={hive.aiGeneratedScore}
-            color={
-              hive.aiGeneratedScore > 0.5 ? "text-red-500" : "text-emerald-500"
-            }
-          />
-          <ScoreBar
-            label="Not AI Generated Score"
-            score={hive.notAiGeneratedScore}
-            color={
-              hive.notAiGeneratedScore > 0.5
-                ? "text-emerald-500"
-                : "text-red-500"
-            }
-          />
-        </div>
-
-        {hive.deepfakeScore > 0 && (
-          <div className="mb-4">
-            <ScoreBar
-              label="Deepfake Score"
-              score={hive.deepfakeScore}
-              color="text-red-500"
-            />
-          </div>
-        )}
-
-        {/* Audio scores */}
-        {(hive.aiGeneratedAudioScore > 0 ||
-          hive.notAiGeneratedAudioScore > 0) && (
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <AudioWaveform className="w-3.5 h-3.5" />
-              Audio Analysis
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <ScoreBar
-                label="AI Generated Audio"
-                score={hive.aiGeneratedAudioScore}
-                color={
-                  hive.aiGeneratedAudioScore > 0.5
-                    ? "text-red-500"
-                    : "text-emerald-500"
-                }
-              />
-              <ScoreBar
-                label="Natural Audio"
-                score={hive.notAiGeneratedAudioScore}
-                color={
-                  hive.notAiGeneratedAudioScore > 0.5
-                    ? "text-emerald-500"
-                    : "text-red-500"
-                }
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Attributed Generator */}
-        <div className="flex items-center gap-2 text-xs mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-          <span className="text-slate-400">Attributed Generator:</span>
-          <span className="font-semibold text-slate-700 dark:text-slate-300">
-            {hive.attributedGenerator || "N/A"}
-          </span>
-        </div>
-      </div>
-
-      {/* Frame-by-frame analysis */}
-      {hive.frames.length > 0 && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-            <Layers className="w-4 h-4 text-[#2563EB]" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Frame-by-Frame Analysis
-            </h3>
-            <span className="text-xs text-slate-400 ml-auto">
-              {hive.frames.length} frames
-            </span>
-          </div>
-
-          {displayedFrames.map((frame) => (
-            <FrameRow
-              key={frame.frameIndex}
-              frame={frame}
-              isExpanded={expandedFrames.has(frame.frameIndex)}
-              onToggle={() => toggleFrame(frame.frameIndex)}
-            />
-          ))}
-
-          {hive.frames.length > 5 && (
-            <button
-              onClick={() => setShowAllFrames(!showAllFrames)}
-              className="w-full py-3 text-center text-sm font-semibold text-[#2563EB] dark:text-[#22D3EE] hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-            >
-              {showAllFrames
-                ? "Show Less"
-                : `Show All ${hive.frames.length} Frames`}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Check whether a file is a video based on fileName, fileType, or URL */
-function isVideoFile(detection: DetectionData): boolean {
-  // Check fileType first
-  if (detection.fileType) {
-    const t = detection.fileType.toLowerCase();
-    if (t.startsWith("video/") || t === "video") return true;
-  }
-
-  // Check fileName extension
-  const name = detection.fileName || "";
-  const videoExts = [
-    "mp4",
-    "webm",
-    "ogg",
-    "mov",
-    "avi",
-    "mkv",
-    "wmv",
-    "flv",
-    "m4v",
-    "mpeg",
-    "mpg",
-    "3gp",
-  ];
-  const ext = name.split(".").pop()?.toLowerCase() || "";
-  if (videoExts.includes(ext)) return true;
-
-  // Check URL extension (imageUrl or originalUrl)
-  const urls = [detection.imageUrl, detection.originalUrl].filter(
-    Boolean,
-  ) as string[];
-  for (const url of urls) {
-    const urlExt = url.split(".").pop()?.toLowerCase().split("?")[0] || "";
-    if (videoExts.includes(urlExt)) return true;
-  }
-
-  return false;
-}
-
-// ── Main Results Page ──
 export function Results() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { accessToken, userInfo } = useAuth();
-  const [detection, setDetection] = useState<DetectionData | null>(null);
-  const [hiveDetection, setHiveDetection] = useState<HiveDetectionData | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(true);
-  const [showReport, setShowReport] = useState(false);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const { accessToken } = useAuth();
   const { credits } = useCredits();
+  const [detection, setDetection] = useState<DetectionData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
-  const handleDownloadPdf = async () => {
-    if (!accessToken) {
-      toast.error(i18n.t("errors.api.loginAgainDownload"));
+  useEffect(() => {
+    const routeState = location.state as DetectionData | null;
+    if (routeState?.prediction) {
+      setDetection(routeState);
+      setLoading(false);
       return;
     }
 
-    let scanJobId = detection?.scanJobId;
-
-    // If scanJobId is not available yet, try fetching latest results from API
-    if (!scanJobId) {
-      toast.info(i18n.t("errors.api.fetchingScanData"));
-
-      try {
-        const response = await getUserDetectionResults(accessToken);
-        if (response.success && response.data.length > 0) {
-          // Find the matching result by mediaId if available, otherwise use latest
-          const matchingResult = detection?.mediaId
-            ? response.data.find((r) => r.mediaId === detection.mediaId)
-            : null;
-          const latestResult = matchingResult || response.data[0];
-          scanJobId = latestResult.scanJobId;
-
-          // Also update detection with scanJobId for future use
-          setDetection((prev) => {
-            if (prev) {
-              return { ...prev, scanJobId: latestResult.scanJobId };
-            }
-            return prev;
-          });
-        } else {
-          toast.error(i18n.t("errors.api.noScanResultFound"));
-          return;
-        }
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : i18n.t("errors.api.fetchScanDataFailed"),
-        );
-        return;
-      }
-    }
-
-    if (!scanJobId) {
-      toast.error(i18n.t("errors.api.noScanJobId"));
+    const stored = localStorage.getItem("lastDetection");
+    if (!stored) {
+      setLoading(false);
       return;
     }
 
-    setDownloadingPdf(true);
+    try {
+      const parsed = JSON.parse(stored) as DetectionData;
+      if (parsed.prediction) setDetection(parsed);
+    } catch {
+      localStorage.removeItem("lastDetection");
+    } finally {
+      setLoading(false);
+    }
+  }, [location.state]);
+
+  const downloadPdf = async () => {
+    if (!detection?.scanJobId || !accessToken) {
+      toast.error("Báo cáo PDF chưa sẵn sàng. Hãy thử lại sau ít phút.");
+      return;
+    }
+    setDownloading(true);
     try {
       await downloadScanReportPdf(
-        scanJobId,
+        detection.scanJobId,
         accessToken,
-        `deepguard-report-${scanJobId}.pdf`,
+        `deepguard-report-${detection.scanJobId}.pdf`,
       );
-      toast.success(i18n.t("errors.api.pdfDownloaded"));
+      toast.success("Đã tải báo cáo PDF.");
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : i18n.t("errors.api.downloadPdfFailed"),
-      );
+      toast.error(error instanceof Error ? error.message : "Không thể tải báo cáo PDF.");
     } finally {
-      setDownloadingPdf(false);
+      setDownloading(false);
     }
   };
 
-  const isVideoResult = useMemo(() => {
-    // Check if we have hive detection data (video)
-    if (hiveDetection) return true;
-    return false;
-  }, [hiveDetection]);
-
-  useEffect(() => {
-    const locationState = location.state as Record<string, unknown> | null;
-
-    // Priority 1: location state contains full _videoHive data (from Dashboard video result)
-    if (locationState?._videoHive) {
-      const hive = locationState._videoHive as HiveDetectionData;
-      setHiveDetection(hive);
-      const isReal = hive.prediction === "NOT_AI_GENERATED";
-      setDetection({
-        prediction: hive.prediction,
-        fakeProbability: isReal
-          ? hive.aiGeneratedScore
-          : hive.notAiGeneratedScore,
-        realProbability: isReal
-          ? hive.notAiGeneratedScore
-          : hive.aiGeneratedScore,
-        imageUrl: hive.mediaUrl,
-        fileName: (locationState.fileName as string) || undefined,
-        fileType: (locationState.fileType as string) || undefined,
-        fileSize: locationState.fileSize as number | undefined,
-        uploadedAt: (locationState.uploadedAt as string) || undefined,
-        mediaId: (locationState.mediaId as string) || undefined,
-      });
-      setLoading(false);
-      return;
+  const copySummary = async () => {
+    if (!detection) return;
+    const risky = isRiskyPrediction(detection.prediction);
+    const trusted = isTrustedPrediction(detection.prediction);
+    const status = risky ? "Có dấu hiệu nội dung nhân tạo" : trusted ? "Nội dung có vẻ đáng tin cậy" : "Cần xem lại nội dung";
+    try {
+      await navigator.clipboard.writeText(
+        `Kết quả DeepGuard\nTệp: ${detection.fileName || "Không rõ tên tệp"}\nKết luận: ${status}\nMức rủi ro: ${asPercent(detection.fakeProbability)}\nĐộ tin cậy: ${asPercent(detection.realProbability)}`,
+      );
+      toast.success("Đã sao chép phần tóm tắt.");
+    } catch {
+      toast.error("Không thể sao chép. Hãy thử lại.");
     }
-
-    // Priority 1b: location state has scanJobId → fetch full detail from API
-    const stateWithScanJob = location.state as DetectionData | null;
-    if (stateWithScanJob?.scanJobId && accessToken) {
-      setLoading(true);
-      getDetectionResultByScanJobId(stateWithScanJob.scanJobId, accessToken)
-        .then((res) => {
-          if (res.success && res.data) {
-            const d = res.data;
-            const isFake = d.fakeScore > 0.5;
-            const prediction = d.resultLabel || (isFake ? "FAKE" : "REAL");
-            setDetection({
-              detectionResultId: d.detectionResultId,
-              scanJobId: d.scanJobId,
-              prediction,
-              // fakeProbability from API fakeScore, realProbability as 1 - fakeScore
-              fakeProbability: d.fakeScore,
-              realProbability: 1 - d.fakeScore,
-              imageUrl: d.originalUrl || null,
-              fileName: d.fileName || stateWithScanJob.fileName,
-              fileType: stateWithScanJob.fileType,
-              fileSize: stateWithScanJob.fileSize,
-              uploadedAt: d.processedAt || stateWithScanJob.uploadedAt,
-              mediaId: d.mediaId || stateWithScanJob.mediaId,
-              email: d.email || undefined,
-              // Full API fields
-              originalUrl: d.originalUrl || undefined,
-              fakeScore: d.fakeScore,
-              confidence: d.confidence,
-              modelVersion: d.modelVersion,
-              processedAt: d.processedAt,
-            });
-            if (d.video) {
-              setHiveDetection({
-                prediction,
-                confidence: d.confidence ?? 0,
-                aiGeneratedScore: d.aiGeneratedScore ?? d.fakeScore ?? 0,
-                notAiGeneratedScore: d.notAiGeneratedScore ?? 0,
-                deepfakeScore: d.deepfakeScore ?? 0,
-                aiGeneratedAudioScore: d.aiGeneratedAudioScore ?? 0,
-                notAiGeneratedAudioScore: d.notAiGeneratedAudioScore ?? 0,
-                attributedGenerator: d.attributedGenerator ?? "",
-                frames: d.frames ?? [],
-                taskId: "",
-                mediaUrl: d.originalUrl,
-                video: true,
-              });
-            }
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to fetch detection result detail:", err);
-          // Fallback to whatever was passed in state
-          if (stateWithScanJob) {
-            setDetection(stateWithScanJob);
-          }
-        })
-        .finally(() => setLoading(false));
-      return;
-    }
-
-    // Priority 1c: standard location state (from History without scanJobId, etc.)
-    const standardState = location.state as DetectionData | null;
-    if (standardState && standardState.prediction) {
-      setDetection(standardState);
-      setHiveDetection(null);
-      setLoading(false);
-      return;
-    }
-
-    const prefix = userInfo?.email || userInfo?.id || "anonymous";
-
-    // Priority 2: check for hive (video) detection data in localStorage
-    const hiveStored = localStorage.getItem(`lastDetectionHive_${prefix}`);
-    if (hiveStored) {
-      try {
-        const parsed: HiveDetectionData = JSON.parse(hiveStored);
-        setHiveDetection(parsed);
-
-        // Also build standard detection data from hiveDetect for compatibility
-        const isReal = parsed.prediction === "NOT_AI_GENERATED";
-        setDetection({
-          prediction: parsed.prediction,
-          fakeProbability: isReal
-            ? parsed.aiGeneratedScore
-            : parsed.notAiGeneratedScore,
-          realProbability: isReal
-            ? parsed.notAiGeneratedScore
-            : parsed.aiGeneratedScore,
-          imageUrl: parsed.mediaUrl,
-        });
-
-        // Try to enrich with uploadData
-        const uploadDataStr = localStorage.getItem(`lastUploadData_${prefix}`);
-        if (uploadDataStr) {
-          try {
-            const uploadData = JSON.parse(uploadDataStr);
-            setDetection((prev) => ({
-              ...(prev ?? {
-                prediction: parsed.prediction,
-                fakeProbability: 0,
-                realProbability: 0,
-                imageUrl: parsed.mediaUrl,
-              }),
-              fileName: uploadData.fileName,
-              fileType: uploadData.fileType,
-              fileSize: uploadData.fileSize,
-              uploadedAt: uploadData.uploadedAt,
-              mediaId: uploadData.id,
-              imageUrl:
-                prev?.imageUrl || uploadData.originalUrl || parsed.mediaUrl,
-            }));
-          } catch {}
-        }
-
-        setLoading(false);
-        return;
-      } catch {}
-    }
-
-    // Priority 3: read standard aiDetect from localStorage
-    const stored = localStorage.getItem(`lastDetection_${prefix}`);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        const data: DetectionData = {
-          prediction: parsed.prediction || "REAL",
-          fakeProbability: parsed.fakeProbability ?? 0,
-          realProbability: parsed.realProbability ?? 1,
-          imageUrl: parsed.imageUrl ?? null,
-          message: parsed.message ?? null,
-          scanJobId: parsed.scanJobId ?? null,
-        };
-        const uploadDataStr = localStorage.getItem(`lastUploadData_${prefix}`);
-        if (uploadDataStr) {
-          try {
-            const uploadData = JSON.parse(uploadDataStr);
-            data.fileName = data.fileName || uploadData.fileName;
-            data.fileType = data.fileType || uploadData.fileType;
-            data.fileSize = data.fileSize ?? uploadData.fileSize;
-            data.uploadedAt = data.uploadedAt || uploadData.uploadedAt;
-            data.mediaId = data.mediaId || uploadData.id;
-            data.imageUrl = data.imageUrl || uploadData.originalUrl;
-          } catch {}
-        }
-        setDetection(data);
-      } catch {
-        setDetection(null);
-      }
-    }
-    setLoading(false);
-  }, [location.state, userInfo]);
+  };
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <RefreshCw className="w-8 h-8 text-[#22D3EE] animate-spin" />
-            <p className="text-slate-400">Loading detection results...</p>
+        <div className="grid min-h-[calc(100vh-4rem)] place-items-center bg-background">
+          <div className="text-center">
+            <LoaderCircle className="mx-auto h-7 w-7 animate-spin text-primary" />
+            <p className="mt-3 text-[14px] text-slate-500 dark:text-slate-400">Đang chuẩn bị kết quả…</p>
           </div>
         </div>
       </DashboardLayout>
     );
   }
 
-  if (!detection && !hiveDetection) {
+  if (!detection) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4 max-w-md text-center p-8">
-            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-              <Eye className="w-8 h-8 text-slate-400" />
-            </div>
-            <h2 className="text-slate-900 dark:text-white text-xl font-bold">
-              No Detection Results
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Please upload a media file to see detection results here.
-            </p>
-            <button
-              onClick={() => navigate("/detect")}
-              className="px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all text-sm font-bold"
-            >
-              Go to Detection
-            </button>
-          </div>
+        <div className="grid min-h-[calc(100vh-4rem)] place-items-center bg-background px-5">
+          <section className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm shadow-slate-900/[0.04]">
+            <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-secondary text-primary"><FileImage className="h-6 w-6" /></span>
+            <h1 className="mt-5 text-xl font-bold tracking-[-0.025em] text-slate-900 dark:text-white">Chưa có kết quả để hiển thị</h1>
+            <p className="mt-2 text-[14px] leading-6 text-slate-500 dark:text-slate-400">Tải ảnh, video hoặc âm thanh để DeepGuard bắt đầu kiểm tra.</p>
+            <button type="button" onClick={() => navigate("/detect")} className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-bold text-primary-foreground hover:bg-[#406dcc]"><ScanSearch className="h-4 w-4" /> Kiểm tra nội dung</button>
+          </section>
         </div>
       </DashboardLayout>
     );
   }
+
+  const risky = isRiskyPrediction(detection.prediction);
+  const trusted = isTrustedPrediction(detection.prediction);
+  const verdict = risky
+    ? { title: "Có dấu hiệu nội dung nhân tạo", detail: `Hệ thống ghi nhận mức rủi ro ${asPercent(detection.fakeProbability)}. Hãy xem lại nguồn gốc trước khi đăng, chia sẻ hoặc dùng trong giao dịch.`, icon: AlertTriangle, tone: "red" }
+    : trusted
+      ? { title: "Nội dung có vẻ đáng tin cậy", detail: "Hệ thống chưa phát hiện dấu hiệu can thiệp đáng kể trong lần kiểm tra này. Bạn vẫn nên đối chiếu nguồn gốc nếu nội dung quan trọng.", icon: CheckCircle2, tone: "green" }
+      : { title: "Cần xem lại nội dung", detail: "Kết quả chưa đủ chắc chắn để đưa ra kết luận. Hãy đối chiếu với nguồn gốc hoặc thử lại bằng tệp rõ nét hơn.", icon: CircleHelp, tone: "amber" };
+  const VerdictIcon = verdict.icon;
+  const statusClasses = verdict.tone === "red"
+    ? "border-red-200 bg-red-50/70 dark:border-red-500/25 dark:bg-red-500/[0.08]"
+    : verdict.tone === "green"
+      ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-500/25 dark:bg-emerald-500/[0.08]"
+      : "border-amber-200 bg-amber-50/70 dark:border-amber-500/25 dark:bg-amber-500/[0.08]";
+  const iconClasses = verdict.tone === "red"
+    ? "bg-red-500/12 text-red-600 dark:text-red-400"
+    : verdict.tone === "green"
+      ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400"
+      : "bg-amber-500/12 text-amber-700 dark:text-amber-400";
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-wrap items-start justify-between gap-4 mb-6"
-          >
+      <div className="min-h-full bg-background">
+        <div className="mx-auto max-w-6xl px-5 py-8 lg:px-8 lg:py-10">
+          <header className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-1 h-6 rounded-full bg-[#22D3EE]" />
-                <h1 className="text-slate-900 dark:text-white text-2xl font-black tracking-tight">
-                  Detection Results
-                </h1>
-              </div>
-              <p className="text-slate-500 dark:text-slate-400 ml-3 text-sm">
-                {detection?.fileName
-                  ? `Analysis complete for ${detection.fileName}`
-                  : "Analysis complete"}
-              </p>
+              <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.12em] text-primary">DeepGuard kết quả</p>
+              <h1 className="text-3xl font-bold tracking-[-0.035em] text-slate-900 dark:text-white">Kết quả kiểm tra</h1>
+              <p className="mt-2 max-w-2xl text-[14px] leading-6 text-slate-600 dark:text-slate-300">Kết luận dưới đây giúp bạn sàng lọc nội dung nhanh hơn trước khi sử dụng.</p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => navigate("/detect")}
-                className="px-4 py-2 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all hover:shadow-lg hover:shadow-blue-500/25 text-sm font-bold"
-              >
-                Scan Another
-              </button>
-            </div>
-          </motion.div>
+            <button type="button" onClick={() => navigate("/detect")} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-bold text-primary-foreground shadow-sm shadow-blue-500/25 hover:bg-[#406dcc]"><ScanSearch className="h-4 w-4" /> Kiểm tra tệp khác</button>
+          </header>
 
-          {/* Main Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700"
-          >
-            {/* Verdict Badge */}
-            <div className="flex justify-center mb-6">
-              <VerdictBadge
-                prediction={
-                  isVideoResult && hiveDetection
-                    ? hiveDetection.prediction === "NOT_AI_GENERATED"
-                      ? "REAL"
-                      : hiveDetection.prediction
-                    : detection?.prediction || "REAL"
-                }
-              />
-            </div>
-
-            {/* Video Detection View */}
-            {isVideoResult && hiveDetection ? (
-              <VideoDetectionView hive={hiveDetection} />
-            ) : (
-              <>
-                {/* Image/Audio Detection View */}
-                {/* Scanned Media Preview (video or image) */}
-                {detection?.imageUrl && !isVideoFile(detection) && (
-                  <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
-                    <img
-                      src={detection.imageUrl}
-                      alt={detection.fileName || "Scanned image"}
-                      className="w-full h-auto max-h-80 object-contain bg-slate-100 dark:bg-slate-800"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
-                {detection?.imageUrl && isVideoFile(detection) && (
-                  <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
-                    <video
-                      src={detection.imageUrl}
-                      controls
-                      className="w-full max-h-80 object-contain"
-                      preload="metadata"
-                    >
-                      Your browser does not support the video tag.
-                    </video>
-                  </div>
-                )}
-
-                {/* Stats Cards */}
-                <div className="flex gap-3 mb-6">
-                  <StatCard
-                    label="Prediction"
-                    value={detection?.prediction || "REAL"}
-                    color={
-                      detection?.prediction?.toUpperCase() === "REAL" ||
-                      detection?.prediction?.toUpperCase() === "AUTHENTIC" ||
-                      detection?.prediction?.toUpperCase() === "HUMAN"
-                        ? "text-emerald-500"
-                        : "text-red-500"
-                    }
-                  />
-                  <StatCard
-                    label="Fake Probability"
-                    value={`${((detection?.fakeProbability ?? 0) * 100).toFixed(2)}%`}
-                    color="text-red-500"
-                  />
-                  <StatCard
-                    label="Real Probability"
-                    value={`${((detection?.realProbability ?? 1) * 100).toFixed(2)}%`}
-                    color="text-emerald-500"
-                  />
-                </div>
-
-                {/* AI Verdict Highlight */}
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 mb-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        detection?.prediction?.toUpperCase() === "REAL" ||
-                        detection?.prediction?.toUpperCase() === "AUTHENTIC" ||
-                        detection?.prediction?.toUpperCase() === "HUMAN"
-                          ? "bg-emerald-500/10 text-emerald-500"
-                          : "bg-red-500/10 text-red-500"
-                      }`}
-                    >
-                      {detection?.prediction?.toUpperCase() === "REAL" ||
-                      detection?.prediction?.toUpperCase() === "AUTHENTIC" ||
-                      detection?.prediction?.toUpperCase() === "HUMAN" ? (
-                        <CheckCircle2 className="w-6 h-6" />
-                      ) : (
-                        <AlertTriangle className="w-6 h-6" />
-                      )}
-                    </div>
+          <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-slate-900/[0.03]" aria-labelledby="verdict-title">
+              <div className="p-5 sm:p-7">
+                <div className={`rounded-xl border p-5 ${statusClasses}`}>
+                  <div className="flex gap-4">
+                    <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${iconClasses}`}><VerdictIcon className="h-6 w-6" /></span>
                     <div>
-                      <p className="text-slate-900 dark:text-white text-base font-bold">
-                        {detection?.prediction?.toUpperCase() === "REAL" ||
-                        detection?.prediction?.toUpperCase() === "AUTHENTIC" ||
-                        detection?.prediction?.toUpperCase() === "HUMAN"
-                          ? "AUTHENTIC CONTENT"
-                          : "AI-GENERATED / MANIPULATED"}
-                      </p>
-                      <p className="text-slate-500 dark:text-slate-400 text-sm">
-                        AI Verdict
-                      </p>
+                      <p className="text-[18px] font-bold tracking-[-0.02em] text-slate-900 dark:text-white" id="verdict-title">{verdict.title}</p>
+                      <p className="mt-1.5 text-[14px] leading-6 text-slate-600 dark:text-slate-300">{verdict.detail}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Message */}
-                {detection?.message && (
-                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 mb-4">
-                    <p className="text-amber-700 dark:text-amber-400 text-sm font-medium">
-                      {detection.message}
-                    </p>
+                <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-border bg-muted/45 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Mức rủi ro</p>
+                    <p className={`mt-2 text-2xl font-bold tracking-[-0.03em] ${risky ? "text-red-600 dark:text-red-400" : "text-slate-800 dark:text-white"}`}>{asPercent(detection.fakeProbability)}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/45 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Độ tin cậy</p>
+                    <p className="mt-2 text-2xl font-bold tracking-[-0.03em] text-emerald-700 dark:text-emerald-400">{asPercent(detection.realProbability)}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/45 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Phân loại hệ thống</p>
+                    <p className="mt-2 text-[15px] font-bold text-slate-800 dark:text-white">{risky ? "Cần xác minh" : trusted ? "Có vẻ thật" : "Chưa chắc chắn"}</p>
+                  </div>
+                </div>
+
+                {detection.imageUrl && (
+                  <div className="mt-7 overflow-hidden rounded-xl border border-border bg-muted/35">
+                    <div className="flex items-center gap-2 border-b border-border px-4 py-3"><FileImage className="h-4 w-4 text-primary" /><span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">Tệp đã kiểm tra</span></div>
+                    <img src={detection.imageUrl} alt={detection.fileName || "Nội dung đã kiểm tra"} className="max-h-[400px] w-full object-contain" />
                   </div>
                 )}
-              </>
-            )}
 
-            {/* File info (shown for both views) */}
-            {detection?.fileName && (
-              <div
-                className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-700/50 ${isVideoResult ? "mt-4" : ""}`}
-              >
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-600 dark:text-slate-300 text-sm">
-                    {detection.fileName}
-                  </span>
-                  {detection.fileSize && (
-                    <span className="text-slate-400 text-xs ml-auto">
-                      {(detection.fileSize / 1024).toFixed(1)} KB
-                    </span>
-                  )}
+                <div className="mt-7 rounded-xl border border-border">
+                  <div className="flex items-center gap-2 border-b border-border px-4 py-3"><FileText className="h-4 w-4 text-slate-500" /><h2 className="text-[13px] font-bold text-slate-800 dark:text-slate-100">Thông tin tệp</h2></div>
+                  <dl className="grid gap-x-4 gap-y-4 p-4 text-[13px] sm:grid-cols-2">
+                    <div><dt className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500 dark:text-slate-400">Tên tệp</dt><dd className="mt-1 truncate font-semibold text-slate-800 dark:text-slate-100">{detection.fileName || "Không rõ tên tệp"}</dd></div>
+                    <div><dt className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500 dark:text-slate-400">Dung lượng</dt><dd className="mt-1 font-semibold text-slate-800 dark:text-slate-100">{formatFileSize(detection.fileSize)}</dd></div>
+                    <div><dt className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500 dark:text-slate-400">Thời điểm kiểm tra</dt><dd className="mt-1 font-semibold text-slate-800 dark:text-slate-100">{detection.uploadedAt ? new Date(detection.uploadedAt).toLocaleString("vi-VN") : "Vừa hoàn tất"}</dd></div>
+                    <div><dt className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500 dark:text-slate-400">Mã kiểm tra</dt><dd className="mt-1 truncate font-semibold text-slate-800 dark:text-slate-100">{detection.scanJobId || detection.detectionResultId || "Đang cập nhật"}</dd></div>
+                  </dl>
                 </div>
+
+                {detection.message && <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-5 text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">{detection.message}</p>}
               </div>
-            )}
+            </section>
 
-            {/* ── Original Media Preview (from originalUrl) ── */}
-            {detection?.originalUrl &&
-              detection?.imageUrl !== detection?.originalUrl &&
-              !isVideoFile(detection) && (
-                <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                    <Video className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-xs font-medium text-slate-500">
-                      Original Media
-                    </span>
-                  </div>
-                  <img
-                    src={detection.originalUrl}
-                    alt="Original media"
-                    className="w-full h-auto max-h-80 object-contain bg-slate-100 dark:bg-slate-800"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                </div>
-              )}
-            {detection?.originalUrl &&
-              detection?.imageUrl !== detection?.originalUrl &&
-              isVideoFile(detection) && (
-                <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
-                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                    <Video className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-xs font-medium text-slate-500">
-                      Original Media
-                    </span>
-                  </div>
-                  <video
-                    src={detection.originalUrl}
-                    controls
-                    className="w-full max-h-80 object-contain"
-                    preload="metadata"
-                  >
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
-              )}
+            <aside className="space-y-5">
+              <section className="rounded-2xl border border-border bg-card p-5 shadow-sm shadow-slate-900/[0.03]" aria-labelledby="next-step-title">
+                <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /><h2 id="next-step-title" className="text-[16px] font-bold text-slate-900 dark:text-white">Nên làm gì tiếp?</h2></div>
+                <ol className="mt-4 space-y-4">
+                  {(risky
+                    ? ["Tạm dừng đăng hoặc chia sẻ nội dung này.", "Đối chiếu với nguồn gốc hoặc người gửi đáng tin cậy.", "Lưu báo cáo nếu bạn cần trao đổi với đối tác."]
+                    : trusted
+                      ? ["Đối chiếu nguồn gốc nếu nội dung phục vụ giao dịch quan trọng.", "Lưu báo cáo để theo dõi nội bộ khi cần.", "Kiểm tra tệp khác nếu bạn còn nghi ngờ."]
+                      : ["Thử lại với bản gốc có chất lượng cao hơn.", "So sánh với nguồn nội dung ban đầu.", "Liên hệ hỗ trợ nếu bạn cần tư vấn thêm."]
+                  ).map((item, index) => <li key={item} className="flex gap-3 text-[13px] leading-5 text-slate-600 dark:text-slate-300"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{index + 1}</span>{item}</li>)}
+                </ol>
+              </section>
 
-            {/* ── Raw Scores Section (removed per user request) -- */}
+              {credits && <section className="rounded-2xl border border-primary/15 bg-primary/[0.035] p-5"><p className="text-[12px] font-semibold text-slate-600 dark:text-slate-300">Tín dụng còn lại</p><p className="mt-1 text-3xl font-bold tracking-[-0.035em] text-primary">{credits.remainingCredits}</p><p className="mt-2 text-[12px] leading-5 text-slate-500 dark:text-slate-400">Bạn có thể bắt đầu một lượt kiểm tra mới bất cứ lúc nào.</p></section>}
 
-            {/* ── Full Metadata Table ── */}
-            {(detection?.modelVersion ||
-              detection?.email ||
-              detection?.detectionResultId ||
-              detection?.scanJobId ||
-              detection?.mediaId ||
-              detection?.processedAt) && (
-              <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                  <Layers className="w-4 h-4 text-[#2563EB]" />
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Technical Details
-                  </h3>
-                </div>
-                <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                  {detection?.email && (
-                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                        Email
-                      </span>
-                      <span className="text-slate-700 dark:text-slate-200 text-xs font-semibold text-right ml-4 break-all">
-                        {detection.email}
-                      </span>
-                    </div>
-                  )}
-                  {detection?.modelVersion && (
-                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                        Model Version
-                      </span>
-                      <span
-                        className="text-slate-700 dark:text-slate-200 text-xs font-mono text-right ml-4 break-all max-w-[260px]"
-                        title={detection.modelVersion}
-                      >
-                        {detection.modelVersion}
-                      </span>
-                    </div>
-                  )}
-                  {/* Result ID, Scan Job ID, Media ID removed per user request */}
-                  {detection?.processedAt && (
-                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1E293B]">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                        Processed At
-                      </span>
-                      <span className="text-slate-700 dark:text-slate-200 text-xs font-semibold text-right ml-4">
-                        {new Date(detection.processedAt).toLocaleString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit",
-                            timeZoneName: "short",
-                          },
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </motion.div>
-
-          {/* Remaining Credits */}
-          {credits && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="mt-6 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-500/5 dark:to-indigo-500/5 border border-blue-100 dark:border-blue-500/10"
-            >
-              <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 flex items-center justify-center">
-                <span className="text-[#2563EB] text-sm font-black">
-                  {credits.remainingCredits}
-                </span>
-              </div>
-              <p className="text-slate-600 dark:text-slate-300 text-sm">
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  Remaining Credits
-                </span>{" "}
-                — you have{" "}
-                <span className="font-bold text-[#2563EB]">
-                  {credits.remainingCredits}
-                </span>{" "}
-                detection
-                {credits.remainingCredits !== 1 ? "s" : ""} left
-              </p>
-            </motion.div>
-          )}
-
-          {/* Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex gap-3 mt-6"
-          >
-            <button
-              onClick={() => setShowReport(true)}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-sm font-semibold"
-            >
-              <Info className="w-4 h-4" />
-              View Full Report
-            </button>
-            <button
-              onClick={handleDownloadPdf}
-              disabled={downloadingPdf}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white transition-all text-sm font-semibold disabled:opacity-50"
-            >
-              <Download className="w-4 h-4" />
-              {downloadingPdf ? "Downloading..." : "Download Report"}
-            </button>
-          </motion.div>
+              <section className="rounded-2xl border border-border bg-card p-3 shadow-sm shadow-slate-900/[0.03]">
+                <button type="button" onClick={copySummary} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold text-slate-700 transition-colors hover:bg-muted dark:text-slate-200"><Copy className="h-4 w-4 text-primary" /> Sao chép tóm tắt</button>
+                <button type="button" onClick={downloadPdf} disabled={downloading || !detection.scanJobId} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold text-slate-700 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-200">{downloading ? <LoaderCircle className="h-4 w-4 animate-spin text-primary" /> : <Download className="h-4 w-4 text-primary" />}{downloading ? "Đang chuẩn bị báo cáo" : "Tải báo cáo PDF"}</button>
+                <button type="button" onClick={() => navigate("/history")} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold text-slate-700 transition-colors hover:bg-muted dark:text-slate-200"><ChevronRight className="h-4 w-4 text-primary" /> Xem lịch sử kiểm tra</button>
+              </section>
+            </aside>
+          </div>
         </div>
-
-        {/* Report Modal */}
-        {showReport && detection && (
-          <ReportModal
-            detection={detection}
-            onClose={() => setShowReport(false)}
-          />
-        )}
       </div>
     </DashboardLayout>
   );
