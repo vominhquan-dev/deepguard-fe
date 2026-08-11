@@ -45,12 +45,16 @@ import {
 } from "recharts";
 import {
   getScanJobs,
-  getAdminMedia,
   getUsers,
   getUserStats,
+  getAdminAnalytics,
   ScanJob,
   AdminUserStats,
 } from "../../admin/api/adminApi";
+import {
+  createAdminCacheKey,
+  getCachedAdminData,
+} from "../../admin/api/adminCache";
 
 /* ── Helpers ── */
 function formatNumber(n: number): string {
@@ -223,41 +227,49 @@ function AdminDashboardView() {
       // Fire all API calls independently – one failure won't block the others
       await Promise.all([
         safeFetch(
-          () => getUserStats(token),
+          () =>
+            getCachedAdminData(
+              token,
+              "users:stats",
+              () => getUserStats(token),
+            ),
           (data) => setFullUserStats(data),
         ),
         safeFetch(
-          () => getScanJobs(token, 0, 1000),
+          () =>
+            getCachedAdminData(
+              token,
+              "analytics:summary",
+              () => getAdminAnalytics(token),
+              { ttlMs: 120_000 },
+            ),
           (data) => {
-            setTotalScans(data.totalElements);
-            const statusCounts: Record<string, number> = {};
-            data.content.forEach((job: any) => {
-              statusCounts[job.status] = (statusCounts[job.status] || 0) + 1;
-            });
-            setScanStatusCounts(statusCounts);
-            setRecentJobs(data.content.slice(-5).reverse());
+            setTotalScans(data.totalScanJobs);
+            setScanStatusCounts(data.scanJobStatusCounts);
+            setTotalMedia(data.totalMediaFiles);
+            setMediaTypeCounts(data.mediaTypeCounts);
           },
         ),
         safeFetch(
-          () => getAdminMedia(token, { page: 0, size: 1000 }),
-          (data) => {
-            setTotalMedia(data.totalElements);
-            const typeCounts: Record<string, number> = {};
-            data.content.forEach((item: any) => {
-              const t = item.fileType?.toLowerCase() || "unknown";
-              if (t.includes("image"))
-                typeCounts["image"] = (typeCounts["image"] || 0) + 1;
-              else if (t.includes("video"))
-                typeCounts["video"] = (typeCounts["video"] || 0) + 1;
-              else if (t.includes("audio"))
-                typeCounts["audio"] = (typeCounts["audio"] || 0) + 1;
-              else typeCounts["other"] = (typeCounts["other"] || 0) + 1;
-            });
-            setMediaTypeCounts(typeCounts);
-          },
+          () =>
+            getCachedAdminData(
+              token,
+              createAdminCacheKey("scan-jobs", { page: 0, size: 5 }),
+              () => getScanJobs(token, 0, 5),
+            ),
+          (data) => setRecentJobs(data.content),
         ),
         safeFetch(
-          () => getUsers(token, { page: 0, size: 5, sort: ["createdAt,desc"] }),
+          () =>
+            getCachedAdminData(
+              token,
+              createAdminCacheKey("users", {
+                page: 0,
+                size: 5,
+                sort: ["createdAt,desc"],
+              }),
+              () => getUsers(token, { page: 0, size: 5, sort: ["createdAt,desc"] }),
+            ),
           (data) => setRecentUsers(data.content),
         ),
       ]);
