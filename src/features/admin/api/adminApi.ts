@@ -35,6 +35,53 @@ export interface ErrorResponse {
   timestamp: string;
 }
 
+export interface AdminAnalyticsResponse {
+  totalScanJobs: number;
+  totalMediaFiles: number;
+  scanJobStatusCounts: Record<string, number>;
+  totalTransactions: number;
+  totalRevenue: number;
+  paymentMethodCounts: Record<string, number>;
+  paymentStatusCounts: Record<string, number>;
+  pricingPlanCounts: Record<string, number>;
+  dailyRevenue: Array<{
+    date: string;
+    revenue: number;
+    transactions: number;
+  }>;
+}
+
+export interface AdminAnalyticsApiResponse {
+  success: boolean;
+  code: string;
+  message: string;
+  data: AdminAnalyticsResponse;
+  timestamp: string;
+}
+
+/**
+ * Fetch compact aggregate metrics for the admin analytics dashboard.
+ * This replaces downloading full scan, media, and payment lists in the UI.
+ */
+export async function getAdminAnalytics(
+  accessToken: string,
+): Promise<AdminAnalyticsApiResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/analytics`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const error = data as ErrorResponse;
+    throw new Error(error.message || "Failed to fetch admin analytics");
+  }
+
+  return data as AdminAnalyticsApiResponse;
+}
+
 /**
  * Fetch all scan jobs (Admin)
  * GET /api/admin/scan-jobs/all

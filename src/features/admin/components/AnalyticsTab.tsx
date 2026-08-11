@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../auth/context/AuthContext";
 import { useTranslation } from "react-i18next";
-import { getScanJobs, getAdminMedia, getBillingHistory } from "../api/adminApi";
+import { getAdminAnalytics } from "../api/adminApi";
 import { getCachedAdminData } from "../api/adminCache";
 import {
   Loader2,
@@ -178,24 +178,16 @@ export function AnalyticsTab() {
     if (!accessToken) return;
     setLoading(true);
     try {
-      // Fetch large batches to get meaningful data
-      const [scanRes, mediaRes] = await Promise.all([
-        getCachedAdminData(
-          accessToken,
-          "analytics:scan-jobs",
-          () => getScanJobs(accessToken, 0, 1000),
-          { force, ttlMs: 120_000 },
-        ),
-        getCachedAdminData(
-          accessToken,
-          "analytics:media",
-          () => getAdminMedia(accessToken, { page: 0, size: 1000 }),
-          { force, ttlMs: 120_000 },
-        ),
-      ]);
-
-      const jobs = scanRes.success ? scanRes.data.content : [];
-      const media = mediaRes.success ? mediaRes.data.content : [];
+      const analyticsRes = await getCachedAdminData(
+        accessToken,
+        "analytics:summary",
+        () => getAdminAnalytics(accessToken),
+        { force, ttlMs: 120_000 },
+      );
+      if (!analyticsRes.success) return;
+      const analytics = analyticsRes.data;
+      const jobs: any[] = [];
+      const media: any[] = [];
 
       /* ── Status distribution ── */
       const queued = jobs.filter((j: any) => j.status === "QUEUED").length;
@@ -308,18 +300,7 @@ export function AnalyticsTab() {
       setScanJobsTrend(Object.values(trendMap));
 
       /* ────── Billing Data ────── */
-      const billingRes = await getCachedAdminData(
-        accessToken,
-        "analytics:billing-history",
-        () =>
-          getBillingHistory(accessToken, {
-            page: 0,
-            size: 1000,
-            sort: ["createdAt,desc"],
-          }),
-        { force, ttlMs: 120_000 },
-      );
-      const payments = billingRes.success ? billingRes.data.content : [];
+      const payments: any[] = [];
 
       const rev = payments.reduce(
         (sum: number, p: any) =>
@@ -431,6 +412,60 @@ export function AnalyticsTab() {
           color: planColors[idx % planColors.length],
         })),
       );
+
+      const scanStatus = analytics.scanJobStatusCounts;
+      const paymentStatus = analytics.paymentStatusCounts;
+      setStats({
+        totalScanJobs: analytics.totalScanJobs,
+        totalMedia: analytics.totalMediaFiles,
+        queued: scanStatus.QUEUED || 0,
+        processing: scanStatus.PROCESSING || 0,
+        completed: scanStatus.COMPLETED || 0,
+        failed: scanStatus.FAILED || 0,
+      });
+      setStatusChartData(
+        Object.entries(scanStatus).map(([name, value]) => ({
+          name,
+          value,
+          color: STATUS_COLORS[name] || "#6B7280",
+        })),
+      );
+      setDailyRevenueData(
+        analytics.dailyRevenue.map((item) => ({
+          date: item.date,
+          Revenue: item.revenue,
+          Transactions: item.transactions,
+        })),
+      );
+      setPaymentMethodData(
+        Object.entries(analytics.paymentMethodCounts).map(([name, value]) => ({
+          name,
+          value,
+          color: methodColors[name] || "#6B7280",
+        })),
+      );
+      setPaymentStatusData([
+        { name: "SUCCESS", value: paymentStatus.SUCCESS || 0, color: "#10B981" },
+        { name: "PENDING", value: paymentStatus.PENDING || 0, color: "#F59E0B" },
+        { name: "FAILED", value: paymentStatus.FAILED || 0, color: "#EF4444" },
+        { name: "CANCELLED", value: paymentStatus.CANCELLED || 0, color: "#6B7280" },
+        { name: "REFUNDED", value: paymentStatus.REFUNDED || 0, color: "#8B5CF6" },
+      ]);
+      setBillingPlanData(
+        Object.entries(analytics.pricingPlanCounts).map(([name, value], index) => ({
+          name,
+          value,
+          color: planColors[index % planColors.length],
+        })),
+      );
+      setBillingStats({
+        totalRevenue: analytics.totalRevenue,
+        totalTransactions: analytics.totalTransactions,
+        successCount: paymentStatus.SUCCESS || 0,
+        pendingCount: paymentStatus.PENDING || 0,
+        failedCount: paymentStatus.FAILED || 0,
+        refundedCount: paymentStatus.REFUNDED || 0,
+      });
     } catch (err) {
       console.error("Analytics fetch error:", err);
     } finally {
