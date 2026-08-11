@@ -56,10 +56,10 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, language = "en"): string {
   if (!iso) return "-";
   try {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -77,25 +77,25 @@ const statusConfig: Record<
 > = {
   QUEUED: {
     icon: Clock,
-    label: "Queued",
+    label: "admin.ui.queued",
     color: "text-amber-500",
     bg: "bg-amber-500/10",
   },
   PROCESSING: {
     icon: Loader2,
-    label: "Processing",
+    label: "admin.ui.processing",
     color: "text-blue-500",
     bg: "bg-blue-500/10",
   },
   COMPLETED: {
     icon: CheckCircle2,
-    label: "Completed",
+    label: "admin.ui.completed",
     color: "text-emerald-500",
     bg: "bg-emerald-500/10",
   },
   FAILED: {
     icon: XCircle,
-    label: "Failed",
+    label: "admin.ui.failed",
     color: "text-red-500",
     bg: "bg-red-500/10",
   },
@@ -107,13 +107,13 @@ const resultLabelConfig: Record<
 > = {
   REAL: {
     icon: CheckCircle2,
-    label: "Real",
+    label: "admin.ui.real",
     color: "text-emerald-500",
     bg: "bg-emerald-500/10",
   },
   FAKE: {
     icon: AlertTriangle,
-    label: "Fake",
+    label: "admin.ui.fake",
     color: "text-red-500",
     bg: "bg-red-500/10",
   },
@@ -197,6 +197,7 @@ function Pagination({
   totalPages: number;
   onChange: (p: number) => void;
 }) {
+  const { t } = useTranslation();
   if (totalPages <= 1) return null;
   return (
     <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
@@ -204,7 +205,7 @@ function Pagination({
         className="text-slate-400 dark:text-slate-500"
         style={{ fontSize: "12px" }}
       >
-        Page {page + 1} of {totalPages}
+        {t("admin.ui.pageOf", { page: page + 1, total: totalPages })}
       </span>
       <div className="flex gap-2">
         <button
@@ -237,7 +238,7 @@ const USER_STATUS_OPTIONS = [
 const USER_ROLE_OPTIONS = ["USER", "ADMIN"];
 
 function UsersTable() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { accessToken } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [stats, setStats] = useState<AdminUserStats | null>(null);
@@ -489,7 +490,7 @@ function UsersTable() {
           className="text-center py-16 text-slate-400"
           style={{ fontSize: "14px" }}
         >
-          No users found
+          {t("admin.ui.noUsers")}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -497,25 +498,25 @@ function UsersTable() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700">
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  User
+                  {t("admin.ui.user")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Email
+                  {t("admin.ui.email")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Role
+                  {t("admin.ui.role")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Status
+                  {t("admin.ui.status")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Verified
+                  {t("admin.ui.verified")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Created
+                  {t("admin.ui.created")}
                 </th>
                 <th className="text-right py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Actions
+                  {t("admin.ui.actions")}
                 </th>
               </tr>
             </thead>
@@ -622,12 +623,12 @@ function UsersTable() {
                       {user.isVerified ? (
                         <div className="inline-flex items-center gap-1 text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded text-xs font-semibold">
                           <CheckCircle2 className="w-3 h-3" />
-                          Yes
+                          {t("admin.ui.yes")}
                         </div>
                       ) : (
                         <div className="inline-flex items-center gap-1 text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded text-xs font-semibold">
                           <Clock className="w-3 h-3" />
-                          No
+                          {t("admin.ui.no")}
                         </div>
                       )}
                     </td>
@@ -636,16 +637,16 @@ function UsersTable() {
                         className="text-slate-500"
                         style={{ fontSize: "12px" }}
                       >
-                        {formatDate(user.createdAt)}
+                        {formatDate(user.createdAt, i18n.resolvedLanguage || "en")}
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
                       <button
                         className="inline-flex items-center gap-1 text-purple-500 hover:text-purple-600 transition-colors text-xs font-semibold"
-                        title="View Details"
+                        title={t("admin.ui.viewDetails")}
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        Details
+                        {t("admin.ui.details")}
                       </button>
                     </td>
                   </tr>
@@ -664,7 +665,7 @@ function UsersTable() {
 /* ────── Sub-tables (existing) ────── */
 
 function ScanJobsTable() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { accessToken } = useAuth();
   const [data, setData] = useState<ScanJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -720,7 +721,7 @@ function ScanJobsTable() {
                 : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
             }`}
           >
-            {s || "All"}
+            {s ? t(`admin.ui.${s.toLowerCase()}`) : t("admin.ui.all")}
           </button>
         ))}
         <button
@@ -741,7 +742,7 @@ function ScanJobsTable() {
           className="text-center py-16 text-slate-400"
           style={{ fontSize: "14px" }}
         >
-          No scan jobs found
+          {t("admin.ui.noScanJobs")}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -749,22 +750,22 @@ function ScanJobsTable() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700">
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  File
+                  {t("admin.ui.file")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  User
+                  {t("admin.ui.user")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Status
+                  {t("admin.ui.status")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Started
+                  {t("admin.ui.started")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Finished
+                  {t("admin.ui.finished")}
                 </th>
                 <th className="text-right py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Actions
+                  {t("admin.ui.actions")}
                 </th>
               </tr>
             </thead>
@@ -820,7 +821,7 @@ function ScanJobsTable() {
                           className={cfg.color}
                           style={{ fontSize: "11px", fontWeight: 700 }}
                         >
-                          {cfg.label}
+                          {t(cfg.label)}
                         </span>
                       </div>
                     </td>
@@ -829,7 +830,7 @@ function ScanJobsTable() {
                         className="text-slate-500"
                         style={{ fontSize: "12px" }}
                       >
-                        {formatDate(job.startedAt)}
+                        {formatDate(job.startedAt, i18n.resolvedLanguage || "en")}
                       </span>
                     </td>
                     <td className="py-3 px-3">
@@ -837,7 +838,7 @@ function ScanJobsTable() {
                         className="text-slate-500"
                         style={{ fontSize: "12px" }}
                       >
-                        {formatDate(job.finishedAt)}
+                        {formatDate(job.finishedAt, i18n.resolvedLanguage || "en")}
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
@@ -860,6 +861,7 @@ function ScanJobsTable() {
 }
 
 function MediaTable() {
+  const { t, i18n } = useTranslation();
   const { accessToken } = useAuth();
   const [data, setData] = useState<AdminMediaItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -891,7 +893,7 @@ function MediaTable() {
           className="text-center py-16 text-slate-400"
           style={{ fontSize: "14px" }}
         >
-          No media found
+          {t("admin.ui.noMedia")}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -899,22 +901,22 @@ function MediaTable() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700">
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  File
+                  {t("admin.ui.file")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Type
+                  {t("admin.ui.type")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Size
+                  {t("admin.ui.size")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  User
+                  {t("admin.ui.user")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Uploaded
+                  {t("admin.ui.uploaded")}
                 </th>
                 <th className="text-right py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Actions
+                  {t("admin.ui.actions")}
                 </th>
               </tr>
             </thead>
@@ -941,7 +943,7 @@ function MediaTable() {
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-slate-500 text-xs font-medium uppercase">
-                      {item.fileType || "Unknown"}
+                      {item.fileType || t("admin.ui.unknown")}
                     </span>
                   </td>
                   <td className="py-3 px-3">
@@ -967,7 +969,7 @@ function MediaTable() {
                         className="text-slate-500"
                         style={{ fontSize: "12px" }}
                       >
-                        {formatDate(item.uploadedAt)}
+                        {formatDate(item.uploadedAt, i18n.resolvedLanguage || "en")}
                       </span>
                     </div>
                   </td>
@@ -979,7 +981,7 @@ function MediaTable() {
                       className="inline-flex items-center gap-1 text-purple-500 hover:text-purple-600 transition-colors text-xs font-semibold"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      Open
+                      {t("admin.ui.open")}
                     </a>
                   </td>
                 </tr>
@@ -995,7 +997,7 @@ function MediaTable() {
 }
 
 function DetectionResultsTable() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { accessToken } = useAuth();
   const [data, setData] = useState<DetectionResultItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1051,7 +1053,7 @@ function DetectionResultsTable() {
                 : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
             }`}
           >
-            {l || "All"}
+            {l ? t(`admin.ui.${l.toLowerCase()}`) : t("admin.ui.all")}
           </button>
         ))}
         <button
@@ -1071,7 +1073,7 @@ function DetectionResultsTable() {
           className="text-center py-16 text-slate-400"
           style={{ fontSize: "14px" }}
         >
-          No detection results found
+          {t("admin.ui.noDetectionResults")}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -1079,25 +1081,25 @@ function DetectionResultsTable() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700">
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Preview
+                  {t("admin.ui.preview")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  File
+                  {t("admin.ui.file")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  User
+                  {t("admin.ui.user")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Fake Prob.
+                  {t("admin.ui.fakeProbability")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Confidence
+                  {t("admin.ui.confidence")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Result
+                  {t("admin.ui.result")}
                 </th>
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  Processed
+                  {t("admin.ui.processed")}
                 </th>
               </tr>
             </thead>
@@ -1221,7 +1223,7 @@ function DetectionResultsTable() {
                           className={cfg.color}
                           style={{ fontSize: "11px", fontWeight: 700 }}
                         >
-                          {cfg.label}
+                          {cfg.label.startsWith("admin.") ? t(cfg.label) : cfg.label}
                         </span>
                       </div>
                     </td>
@@ -1230,7 +1232,7 @@ function DetectionResultsTable() {
                         className="text-slate-500"
                         style={{ fontSize: "12px" }}
                       >
-                        {formatDate(item.processedAt)}
+                        {formatDate(item.processedAt, i18n.resolvedLanguage || "en")}
                       </span>
                     </td>
                   </tr>

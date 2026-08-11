@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useAuth } from "../../auth/context/AuthContext";
+import { useTranslation } from "react-i18next";
 import { getBillingHistory, BillingHistoryItem } from "../api/adminApi";
 import {
   Loader2,
@@ -23,10 +24,10 @@ import {
 
 /* ────── Helpers ────── */
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, language = "en"): string {
   if (!iso) return "-";
   try {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -51,31 +52,31 @@ const statusConfig: Record<
 > = {
   PENDING: {
     icon: Clock,
-    label: "Pending",
+    label: "admin.pending",
     color: "text-amber-500",
     bg: "bg-amber-500/10",
   },
   SUCCESS: {
     icon: CheckCircle2,
-    label: "Success",
+    label: "admin.ui.success",
     color: "text-emerald-500",
     bg: "bg-emerald-500/10",
   },
   FAILED: {
     icon: XCircle,
-    label: "Failed",
+    label: "admin.ui.failed",
     color: "text-red-500",
     bg: "bg-red-500/10",
   },
   CANCELLED: {
     icon: Ban,
-    label: "Cancelled",
+    label: "admin.ui.cancelled",
     color: "text-slate-500",
     bg: "bg-slate-500/10",
   },
   REFUNDED: {
     icon: RotateCcw,
-    label: "Refunded",
+    label: "admin.ui.refunded",
     color: "text-blue-500",
     bg: "bg-blue-500/10",
   },
@@ -137,11 +138,13 @@ function Pagination({
   totalElements: number;
   onChange: (p: number) => void;
 }) {
+  const { t } = useTranslation();
   if (totalPages <= 1) return null;
   return (
     <div className="flex items-center justify-between pt-4">
       <span className="text-xs text-slate-400">
-        {totalElements} transactions &middot; Page {page + 1} / {totalPages}
+        {totalElements} {t("admin.ui.transactions")} &middot;{" "}
+        {t("admin.ui.pageOf", { page: page + 1, total: totalPages })}
       </span>
       <div className="flex gap-1">
         <button
@@ -182,24 +185,9 @@ function Pagination({
 
 /* ────── Main ────── */
 
-const statusOptions = [
-  { value: "PENDING", label: "Pending" },
-  { value: "SUCCESS", label: "Success" },
-  { value: "FAILED", label: "Failed" },
-  { value: "CANCELLED", label: "Cancelled" },
-  { value: "REFUNDED", label: "Refunded" },
-];
-
-const methodOptions = [
-  { value: "BANK_TRANSFER", label: "Bank Transfer" },
-  { value: "CREDIT_CARD", label: "Credit Card" },
-  { value: "PAYPAL", label: "PayPal" },
-  { value: "MOMO", label: "Momo" },
-  { value: "VNPAY", label: "VNPay" },
-];
-
 export function BillingHistoryPage() {
   const { accessToken } = useAuth();
+  const { t, i18n } = useTranslation();
   const [data, setData] = useState<BillingHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -269,6 +257,20 @@ export function BillingHistoryPage() {
     keyword || statusFilter || methodFilter || startDate || endDate;
 
   const thisPageTotal = data.reduce((s, i) => s + i.amount, 0);
+  const statusOptions = [
+    { value: "PENDING", label: t("admin.pending") },
+    { value: "SUCCESS", label: t("admin.ui.success") },
+    { value: "FAILED", label: t("admin.ui.failed") },
+    { value: "CANCELLED", label: t("admin.ui.cancelled") },
+    { value: "REFUNDED", label: t("admin.ui.refunded") },
+  ];
+  const methodOptions = [
+    { value: "BANK_TRANSFER", label: t("admin.ui.bankTransfer") },
+    { value: "CREDIT_CARD", label: t("admin.ui.creditCard") },
+    { value: "PAYPAL", label: "PayPal" },
+    { value: "MOMO", label: "Momo" },
+    { value: "VNPAY", label: "VNPay" },
+  ];
 
   return (
     <DashboardLayout>
@@ -276,10 +278,10 @@ export function BillingHistoryPage() {
         {/* ── Header ── */}
         <div className="mb-5">
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Billing History
+            {t("admin.ui.billingHistory")}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            View all payment transactions across users
+            {t("admin.ui.billingSubtitle")}
           </p>
         </div>
 
@@ -290,7 +292,7 @@ export function BillingHistoryPage() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search user, email, transaction..."
+              placeholder={t("admin.ui.billingSearch")}
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -305,7 +307,7 @@ export function BillingHistoryPage() {
               setStatusFilter(v);
             }}
             options={statusOptions}
-            placeholder="All statuses"
+            placeholder={t("admin.ui.allStatuses")}
           />
 
           <FilterSelect
@@ -315,7 +317,7 @@ export function BillingHistoryPage() {
               setMethodFilter(v);
             }}
             options={methodOptions}
-            placeholder="All methods"
+            placeholder={t("admin.ui.allMethods")}
           />
 
           {/* Date range */}
@@ -344,7 +346,7 @@ export function BillingHistoryPage() {
               onClick={clearFilters}
               className="px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
-              Clear
+              {t("admin.ui.clear")}
             </button>
           )}
 
@@ -362,7 +364,7 @@ export function BillingHistoryPage() {
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <Receipt className="w-3.5 h-3.5" />
               <span className="font-semibold">
-                {totalElements} transactions
+                {totalElements} {t("admin.ui.transactions")}
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-xs">
@@ -370,7 +372,7 @@ export function BillingHistoryPage() {
               <span className="font-bold text-emerald-500">
                 {formatCurrency(thisPageTotal)}
               </span>
-              <span className="text-slate-400">(this page)</span>
+              <span className="text-slate-400">({t("admin.ui.thisPage")})</span>
             </div>
           </div>
         )}
@@ -384,7 +386,7 @@ export function BillingHistoryPage() {
           <div className="text-center py-16 text-slate-400">
             <Receipt className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
             <p className="text-xs font-semibold">
-              No billing transactions found
+              {t("admin.ui.noBilling")}
             </p>
           </div>
         ) : (
@@ -394,28 +396,28 @@ export function BillingHistoryPage() {
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                     <th className="text-left py-2.5 px-3 font-semibold text-slate-400 uppercase tracking-wider">
-                      Transaction
+                      {t("admin.ui.transaction")}
                     </th>
                     <th className="text-left py-2.5 px-3 font-semibold text-slate-400 uppercase tracking-wider">
-                      User
+                      {t("admin.ui.user")}
                     </th>
                     <th className="text-left py-2.5 px-3 font-semibold text-slate-400 uppercase tracking-wider">
-                      Plan
+                      {t("admin.ui.plan")}
                     </th>
                     <th className="text-right py-2.5 px-3 font-semibold text-slate-400 uppercase tracking-wider">
-                      Amount
+                      {t("admin.ui.amount")}
                     </th>
                     <th className="text-left py-2.5 px-3 font-semibold text-slate-400 uppercase tracking-wider">
-                      Method
+                      {t("admin.ui.method")}
                     </th>
                     <th className="text-left py-2.5 px-3 font-semibold text-slate-400 uppercase tracking-wider">
-                      Status
+                      {t("admin.ui.status")}
                     </th>
                     <th className="text-left py-2.5 px-3 font-semibold text-slate-400 uppercase tracking-wider">
-                      Date
+                      {t("admin.ui.date")}
                     </th>
                     <th className="text-right py-2.5 px-3 font-semibold text-slate-400 uppercase tracking-wider">
-                      Credits
+                      {t("admin.ui.credits")}
                     </th>
                   </tr>
                 </thead>
@@ -469,13 +471,13 @@ export function BillingHistoryPage() {
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md ${sc.bg} ${sc.color} font-bold text-[10px]`}
                           >
                             <SI className="w-3 h-3" />
-                            {sc.label}
+                            {sc.label.startsWith("admin.") ? t(sc.label) : sc.label}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
                           <span className="inline-flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-slate-400" />
-                            {formatDate(item.createdAt)}
+                            {formatDate(item.createdAt, i18n.resolvedLanguage || "en")}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-right">

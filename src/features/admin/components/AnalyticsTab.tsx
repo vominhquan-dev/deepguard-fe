@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../auth/context/AuthContext";
+import { useTranslation } from "react-i18next";
 import { getScanJobs, getAdminMedia, getBillingHistory } from "../api/adminApi";
 import {
   Loader2,
@@ -114,6 +115,7 @@ function ChartTooltip({ active, payload, label }: any) {
 
 /* ────── Main Analytics Component ────── */
 export function AnalyticsTab() {
+  const { t, i18n } = useTranslation();
   const { accessToken } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -176,14 +178,22 @@ export function AnalyticsTab() {
       });
 
       setStatusChartData([
-        { name: "Queued", value: queued, color: STATUS_COLORS.QUEUED },
         {
-          name: "Processing",
+          name: t("admin.ui.queued"),
+          value: queued,
+          color: STATUS_COLORS.QUEUED,
+        },
+        {
+          name: t("admin.ui.processing"),
           value: processing,
           color: STATUS_COLORS.PROCESSING,
         },
-        { name: "Completed", value: completed, color: STATUS_COLORS.COMPLETED },
-        { name: "Failed", value: failed, color: STATUS_COLORS.FAILED },
+        {
+          name: t("admin.ui.completed"),
+          value: completed,
+          color: STATUS_COLORS.COMPLETED,
+        },
+        { name: t("admin.ui.failed"), value: failed, color: STATUS_COLORS.FAILED },
       ]);
 
       /* ── Daily scan jobs (last 7 days) ── */
@@ -210,7 +220,7 @@ export function AnalyticsTab() {
       });
       setDailyJobsData(
         Object.values(dailyMap).map((d) => ({
-          date: new Date(d.date + "T00:00:00").toLocaleDateString("en-US", {
+          date: new Date(d.date + "T00:00:00").toLocaleDateString(i18n.resolvedLanguage === "vi" ? "vi-VN" : "en-US", {
             month: "short",
             day: "numeric",
           }),
@@ -240,7 +250,7 @@ export function AnalyticsTab() {
         const d = new Date(now - i * oneDay);
         const key = d.toISOString().slice(0, 10);
         trendMap[key] = {
-          date: new Date(key + "T00:00:00").toLocaleDateString("en-US", {
+          date: new Date(key + "T00:00:00").toLocaleDateString(i18n.resolvedLanguage === "vi" ? "vi-VN" : "en-US", {
             month: "short",
             day: "numeric",
           }),
@@ -308,7 +318,7 @@ export function AnalyticsTab() {
         const d = new Date(now - i * oneDay);
         const key = d.toISOString().slice(0, 10);
         revDailyMap[key] = {
-          date: new Date(key + "T00:00:00").toLocaleDateString("en-US", {
+          date: new Date(key + "T00:00:00").toLocaleDateString(i18n.resolvedLanguage === "vi" ? "vi-VN" : "en-US", {
             month: "short",
             day: "numeric",
           }),
@@ -345,7 +355,14 @@ export function AnalyticsTab() {
       };
       setPaymentMethodData(
         Object.entries(methodMap).map(([key, value]) => ({
-          name: key.charAt(0).toUpperCase() + key.slice(1),
+          name:
+            key === "BANK_TRANSFER"
+              ? t("admin.ui.bankTransfer")
+              : key === "CREDIT_CARD"
+                ? t("admin.ui.creditCard")
+                : key === "Unknown"
+                  ? t("admin.ui.unknown")
+                  : key.charAt(0).toUpperCase() + key.slice(1),
           value,
           color: methodColors[key] || "#6B7280",
         })),
@@ -354,20 +371,20 @@ export function AnalyticsTab() {
       // Payment status distribution
       setPaymentStatusData([
         {
-          name: "Success",
+          name: t("admin.ui.success"),
           value: successCount,
           color: "#10B981",
         },
-        { name: "Pending", value: pendCount, color: "#F59E0B" },
-        { name: "Failed", value: failCount, color: "#EF4444" },
-        { name: "Cancelled", value: cancCount, color: "#6B7280" },
-        { name: "Refunded", value: refundCount, color: "#8B5CF6" },
+        { name: t("admin.pending"), value: pendCount, color: "#F59E0B" },
+        { name: t("admin.ui.failed"), value: failCount, color: "#EF4444" },
+        { name: t("admin.ui.cancelled"), value: cancCount, color: "#6B7280" },
+        { name: t("admin.ui.refunded"), value: refundCount, color: "#8B5CF6" },
       ]);
 
       // Plan distribution
       const planMap: Record<string, number> = {};
       payments.forEach((p: any) => {
-        const plan = p.pricingPlanName || "Unknown";
+        const plan = p.pricingPlanName || t("admin.ui.unknown");
         planMap[plan] = (planMap[plan] || 0) + 1;
       });
       const planColors = [
@@ -390,7 +407,7 @@ export function AnalyticsTab() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, i18n.resolvedLanguage]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -414,7 +431,7 @@ export function AnalyticsTab() {
           className="text-slate-400 dark:text-slate-500"
           style={{ fontSize: "14px" }}
         >
-          No data available for analytics yet.
+          {t("admin.ui.noAnalytics")}
         </p>
       </div>
     );
@@ -429,13 +446,13 @@ export function AnalyticsTab() {
             className="text-slate-900 dark:text-white font-bold"
             style={{ fontSize: "18px" }}
           >
-            Analytics Dashboard
+            {t("admin.ui.analyticsDashboard")}
           </h2>
           <p
             className="text-slate-400 dark:text-slate-500"
             style={{ fontSize: "13px" }}
           >
-            Overview of system activity based on Scan Jobs & Media
+            {t("admin.ui.analyticsSubtitle")}
           </p>
         </div>
         <button
@@ -443,35 +460,35 @@ export function AnalyticsTab() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition-colors"
         >
           <Loader2 className="w-4 h-4" />
-          Refresh
+          {t("admin.ui.refresh")}
         </button>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label="Total Scan Jobs"
+          label={t("admin.ui.totalScanJobs")}
           value={stats.totalScanJobs}
           icon={BarChart3}
           color="text-blue-500"
           bg="bg-blue-500/10"
         />
         <StatCard
-          label="Total Media Files"
+          label={t("admin.ui.totalMediaFiles")}
           value={stats.totalMedia}
           icon={ImageIcon}
           color="text-purple-500"
           bg="bg-purple-500/10"
         />
         <StatCard
-          label="Completed / Failed"
+          label={t("admin.ui.completedFailed")}
           value={`${stats.completed} / ${stats.failed}`}
           icon={AlertTriangle}
           color="text-amber-500"
           bg="bg-amber-500/10"
         />
         <StatCard
-          label="Queued / Processing"
+          label={t("admin.ui.queuedProcessing")}
           value={`${stats.queued} / ${stats.processing}`}
           icon={TrendingUp}
           color="text-emerald-500"
@@ -487,7 +504,7 @@ export function AnalyticsTab() {
             className="text-slate-900 dark:text-white font-bold mb-4"
             style={{ fontSize: "14px" }}
           >
-            Daily Revenue (7 days)
+            {t("admin.ui.dailyRevenue")}
           </h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={dailyRevenueData} barGap={2}>
@@ -503,13 +520,13 @@ export function AnalyticsTab() {
                 dataKey="Revenue"
                 fill="#10B981"
                 radius={[4, 4, 0, 0]}
-                name="Revenue ($)"
+                name={t("admin.ui.revenue")}
               />
               <Bar
                 dataKey="Transactions"
                 fill="#3B82F6"
                 radius={[4, 4, 0, 0]}
-                name="Transactions"
+                name={t("admin.ui.transactions")}
               />
             </BarChart>
           </ResponsiveContainer>
@@ -521,7 +538,7 @@ export function AnalyticsTab() {
             className="text-slate-900 dark:text-white font-bold mb-4"
             style={{ fontSize: "14px" }}
           >
-            Payment Methods
+            {t("admin.ui.paymentMethods")}
           </h3>
           <ResponsiveContainer width="100%" height={260}>
             <RePieChart>
@@ -557,7 +574,7 @@ export function AnalyticsTab() {
             className="text-slate-900 dark:text-white font-bold mb-4"
             style={{ fontSize: "14px" }}
           >
-            Payment Status Distribution
+            {t("admin.ui.paymentStatusDistribution")}
           </h3>
           <ResponsiveContainer width="100%" height={260}>
             <RePieChart>
@@ -595,7 +612,7 @@ export function AnalyticsTab() {
             className="text-slate-900 dark:text-white font-bold mb-4"
             style={{ fontSize: "14px" }}
           >
-            Pricing Plan Distribution
+            {t("admin.ui.pricingPlanDistribution")}
           </h3>
           <ResponsiveContainer width="100%" height={260}>
             <RePieChart>

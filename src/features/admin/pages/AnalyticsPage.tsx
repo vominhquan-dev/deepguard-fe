@@ -1,7 +1,9 @@
 import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { AnalyticsTab } from "../components/AnalyticsTab";
+import { useTranslation } from "react-i18next";
 
 export function AnalyticsPage() {
+  const { t } = useTranslation();
   return (
     <DashboardLayout>
       <div className="p-8">
@@ -17,7 +19,7 @@ export function AnalyticsPage() {
                 letterSpacing: "-0.5px",
               }}
             >
-              Analytics
+              {t("admin.ui.analytics")}
             </h1>
           </div>
         </div>
