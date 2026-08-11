@@ -3,6 +3,7 @@ import { DashboardLayout } from "../../../app/layouts/DashboardLayout";
 import { useAuth } from "../../auth/context/AuthContext";
 import { useTranslation } from "react-i18next";
 import { getBillingHistory, BillingHistoryItem } from "../api/adminApi";
+import { createAdminCacheKey, getCachedAdminData } from "../api/adminCache";
 import {
   Loader2,
   Search,
@@ -201,11 +202,11 @@ export function BillingHistoryPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
     if (!accessToken) return;
     setLoading(true);
     try {
-      const res = await getBillingHistory(accessToken, {
+      const params = {
         keyword: keyword || undefined,
         status: statusFilter || undefined,
         paymentMethod: methodFilter || undefined,
@@ -213,7 +214,13 @@ export function BillingHistoryPage() {
         endDate: endDate || undefined,
         page,
         size: 15,
-      });
+      };
+      const res = await getCachedAdminData(
+        accessToken,
+        createAdminCacheKey("billing-history", params),
+        () => getBillingHistory(accessToken, params),
+        { force },
+      );
       if (res.success) {
         setData(res.data.content);
         setTotalPages(res.data.totalPages);
@@ -351,7 +358,7 @@ export function BillingHistoryPage() {
           )}
 
           <button
-            onClick={fetchData}
+            onClick={() => fetchData(true)}
             className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />

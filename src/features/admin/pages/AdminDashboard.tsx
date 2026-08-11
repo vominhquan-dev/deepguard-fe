@@ -19,6 +19,11 @@ import {
   AdminUserStats,
 } from "../api/adminApi";
 import {
+  createAdminCacheKey,
+  getCachedAdminData,
+  invalidateAdminCache,
+} from "../api/adminCache";
+import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
@@ -251,19 +256,30 @@ function UsersTable() {
   const [roleFilter, setRoleFilter] = useState("");
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
     if (!accessToken) return;
     setLoading(true);
     try {
+      const userParams = {
+        keyword: keyword || undefined,
+        status: statusFilter || undefined,
+        roleName: roleFilter || undefined,
+        page,
+        size: 15,
+      };
       const [usersRes, statsRes] = await Promise.all([
-        getUsers(accessToken, {
-          keyword: keyword || undefined,
-          status: statusFilter || undefined,
-          roleName: roleFilter || undefined,
-          page,
-          size: 15,
-        }),
-        getUserStats(accessToken),
+        getCachedAdminData(
+          accessToken,
+          createAdminCacheKey("users", userParams),
+          () => getUsers(accessToken, userParams),
+          { force },
+        ),
+        getCachedAdminData(
+          accessToken,
+          "users:stats",
+          () => getUserStats(accessToken),
+          { force },
+        ),
       ]);
       if (usersRes.success) {
         setUsers(usersRes.data.content);
@@ -296,6 +312,7 @@ function UsersTable() {
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, status: newStatus } : u)),
       );
+      invalidateAdminCache(accessToken, "users:");
     } catch {
       // handled
     } finally {
@@ -311,6 +328,7 @@ function UsersTable() {
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)),
       );
+      invalidateAdminCache(accessToken, "users:");
     } catch {
       // handled
     } finally {
@@ -473,7 +491,7 @@ function UsersTable() {
         ))}
 
         <button
-          onClick={fetchData}
+          onClick={() => fetchData(true)}
           className="ml-auto p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
         >
           <RefreshCw className="w-4 h-4 text-slate-500" />
@@ -673,15 +691,20 @@ function ScanJobsTable() {
   const [totalPages, setTotalPages] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>("");
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
     if (!accessToken) return;
     setLoading(true);
     try {
-      const res = await getScanJobs(
-        accessToken,
+      const params = {
         page,
-        10,
-        statusFilter || undefined,
+        size: 10,
+        status: statusFilter || undefined,
+      };
+      const res = await getCachedAdminData(
+        accessToken,
+        createAdminCacheKey("scan-jobs", params),
+        () => getScanJobs(accessToken, page, 10, statusFilter || undefined),
+        { force },
       );
       if (res.success) {
         setData(res.data.content);
@@ -725,7 +748,7 @@ function ScanJobsTable() {
           </button>
         ))}
         <button
-          onClick={fetchData}
+          onClick={() => fetchData(true)}
           className="ml-auto p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
         >
           <RefreshCw className="w-4 h-4 text-slate-500" />
@@ -868,22 +891,42 @@ function MediaTable() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  useEffect(() => {
+  const fetchData = useCallback(async (force = false) => {
     if (!accessToken) return;
     setLoading(true);
-    getAdminMedia(accessToken, { page, size: 15 })
-      .then((res) => {
-        if (res.success) {
-          setData(res.data.content);
-          setTotalPages(res.data.totalPages);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    try {
+      const params = { page, size: 15 };
+      const res = await getCachedAdminData(
+        accessToken,
+        createAdminCacheKey("media", params),
+        () => getAdminMedia(accessToken, params),
+        { force },
+      );
+      if (res.success) {
+        setData(res.data.content);
+        setTotalPages(res.data.totalPages);
+      }
+    } catch {
+      // handled
+    } finally {
+      setLoading(false);
+    }
   }, [accessToken, page]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
     <div>
+      <div className="flex justify-end mb-5">
+        <button
+          onClick={() => fetchData(true)}
+          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4 text-slate-500" />
+        </button>
+      </div>
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
@@ -1005,15 +1048,26 @@ function DetectionResultsTable() {
   const [totalPages, setTotalPages] = useState(0);
   const [labelFilter, setLabelFilter] = useState<string>("");
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
     if (!accessToken) return;
     setLoading(true);
     try {
-      const res = await getDetectionResults(
-        accessToken,
+      const params = {
         page,
-        10,
-        labelFilter || undefined,
+        size: 10,
+        prediction: labelFilter || undefined,
+      };
+      const res = await getCachedAdminData(
+        accessToken,
+        createAdminCacheKey("detection-results", params),
+        () =>
+          getDetectionResults(
+            accessToken,
+            page,
+            10,
+            labelFilter || undefined,
+          ),
+        { force },
       );
       if (res.success) {
         setData(res.data.content);
@@ -1057,7 +1111,7 @@ function DetectionResultsTable() {
           </button>
         ))}
         <button
-          onClick={fetchData}
+          onClick={() => fetchData(true)}
           className="ml-auto p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
         >
           <RefreshCw className="w-4 h-4 text-slate-500" />

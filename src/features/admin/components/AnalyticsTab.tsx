@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../auth/context/AuthContext";
 import { useTranslation } from "react-i18next";
 import { getScanJobs, getAdminMedia, getBillingHistory } from "../api/adminApi";
+import { getCachedAdminData } from "../api/adminCache";
 import {
   Loader2,
   AlertTriangle,
@@ -51,6 +52,33 @@ function getFileCategory(fileType: string): string {
   return "other";
 }
 
+const CHART_LABEL_KEYS: Record<string, string> = {
+  QUEUED: "admin.ui.queued",
+  PROCESSING: "admin.ui.processing",
+  COMPLETED: "admin.ui.completed",
+  FAILED: "admin.ui.failed",
+  SUCCESS: "admin.ui.success",
+  PENDING: "admin.pending",
+  CANCELLED: "admin.ui.cancelled",
+  REFUNDED: "admin.ui.refunded",
+  BANK_TRANSFER: "admin.ui.bankTransfer",
+  CREDIT_CARD: "admin.ui.creditCard",
+  Unknown: "admin.ui.unknown",
+};
+
+function formatChartLabel(label: string, t: (key: string) => string) {
+  const translationKey = CHART_LABEL_KEYS[label];
+  return translationKey ? t(translationKey) : label;
+}
+
+function formatChartDate(value: string, language: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${value}T00:00:00`));
+}
+
 /* ────── Stat Card ────── */
 function StatCard({
   label,
@@ -92,11 +120,12 @@ function StatCard({
 
 /* ────── Custom Tooltip ────── */
 function ChartTooltip({ active, payload, label }: any) {
+  const { t, i18n } = useTranslation();
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg px-3 py-2">
       <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
-        {label}
+        {formatChartDate(String(label), i18n.resolvedLanguage || "en")}
       </p>
       {payload.map((entry: any, idx: number) => (
         <div key={idx} className="flex items-center gap-2 text-sm">
@@ -105,7 +134,7 @@ function ChartTooltip({ active, payload, label }: any) {
             style={{ backgroundColor: entry.color }}
           />
           <span className="text-slate-900 dark:text-slate-200 font-medium">
-            {entry.name}: {entry.value}
+            {formatChartLabel(entry.name, t)}: {entry.value}
           </span>
         </div>
       ))}
@@ -145,14 +174,24 @@ export function AnalyticsTab() {
   const [paymentStatusData, setPaymentStatusData] = useState<any[]>([]);
   const [billingPlanData, setBillingPlanData] = useState<any[]>([]);
 
-  const fetchAnalytics = useCallback(async () => {
+  const fetchAnalytics = useCallback(async (force = false) => {
     if (!accessToken) return;
     setLoading(true);
     try {
       // Fetch large batches to get meaningful data
       const [scanRes, mediaRes] = await Promise.all([
-        getScanJobs(accessToken, 0, 1000),
-        getAdminMedia(accessToken, { page: 0, size: 1000 }),
+        getCachedAdminData(
+          accessToken,
+          "analytics:scan-jobs",
+          () => getScanJobs(accessToken, 0, 1000),
+          { force, ttlMs: 120_000 },
+        ),
+        getCachedAdminData(
+          accessToken,
+          "analytics:media",
+          () => getAdminMedia(accessToken, { page: 0, size: 1000 }),
+          { force, ttlMs: 120_000 },
+        ),
       ]);
 
       const jobs = scanRes.success ? scanRes.data.content : [];
@@ -179,21 +218,21 @@ export function AnalyticsTab() {
 
       setStatusChartData([
         {
-          name: t("admin.ui.queued"),
+          name: "QUEUED",
           value: queued,
           color: STATUS_COLORS.QUEUED,
         },
         {
-          name: t("admin.ui.processing"),
+          name: "PROCESSING",
           value: processing,
           color: STATUS_COLORS.PROCESSING,
         },
         {
-          name: t("admin.ui.completed"),
+          name: "COMPLETED",
           value: completed,
           color: STATUS_COLORS.COMPLETED,
         },
-        { name: t("admin.ui.failed"), value: failed, color: STATUS_COLORS.FAILED },
+        { name: "FAILED", value: failed, color: STATUS_COLORS.FAILED },
       ]);
 
       /* ── Daily scan jobs (last 7 days) ── */
@@ -220,10 +259,7 @@ export function AnalyticsTab() {
       });
       setDailyJobsData(
         Object.values(dailyMap).map((d) => ({
-          date: new Date(d.date + "T00:00:00").toLocaleDateString(i18n.resolvedLanguage === "vi" ? "vi-VN" : "en-US", {
-            month: "short",
-            day: "numeric",
-          }),
+          date: d.date,
           Total: d.total,
           Completed: d.completed,
           Failed: d.failed,
@@ -250,10 +286,7 @@ export function AnalyticsTab() {
         const d = new Date(now - i * oneDay);
         const key = d.toISOString().slice(0, 10);
         trendMap[key] = {
-          date: new Date(key + "T00:00:00").toLocaleDateString(i18n.resolvedLanguage === "vi" ? "vi-VN" : "en-US", {
-            month: "short",
-            day: "numeric",
-          }),
+          date: key,
           Queued: 0,
           Processing: 0,
           Completed: 0,
@@ -275,11 +308,17 @@ export function AnalyticsTab() {
       setScanJobsTrend(Object.values(trendMap));
 
       /* ────── Billing Data ────── */
-      const billingRes = await getBillingHistory(accessToken, {
-        page: 0,
-        size: 1000,
-        sort: ["createdAt,desc"],
-      });
+      const billingRes = await getCachedAdminData(
+        accessToken,
+        "analytics:billing-history",
+        () =>
+          getBillingHistory(accessToken, {
+            page: 0,
+            size: 1000,
+            sort: ["createdAt,desc"],
+          }),
+        { force, ttlMs: 120_000 },
+      );
       const payments = billingRes.success ? billingRes.data.content : [];
 
       const rev = payments.reduce(
@@ -318,10 +357,7 @@ export function AnalyticsTab() {
         const d = new Date(now - i * oneDay);
         const key = d.toISOString().slice(0, 10);
         revDailyMap[key] = {
-          date: new Date(key + "T00:00:00").toLocaleDateString(i18n.resolvedLanguage === "vi" ? "vi-VN" : "en-US", {
-            month: "short",
-            day: "numeric",
-          }),
+          date: key,
           Revenue: 0,
           Transactions: 0,
         };
@@ -355,14 +391,7 @@ export function AnalyticsTab() {
       };
       setPaymentMethodData(
         Object.entries(methodMap).map(([key, value]) => ({
-          name:
-            key === "BANK_TRANSFER"
-              ? t("admin.ui.bankTransfer")
-              : key === "CREDIT_CARD"
-                ? t("admin.ui.creditCard")
-                : key === "Unknown"
-                  ? t("admin.ui.unknown")
-                  : key.charAt(0).toUpperCase() + key.slice(1),
+          name: key,
           value,
           color: methodColors[key] || "#6B7280",
         })),
@@ -371,20 +400,20 @@ export function AnalyticsTab() {
       // Payment status distribution
       setPaymentStatusData([
         {
-          name: t("admin.ui.success"),
+          name: "SUCCESS",
           value: successCount,
           color: "#10B981",
         },
-        { name: t("admin.pending"), value: pendCount, color: "#F59E0B" },
-        { name: t("admin.ui.failed"), value: failCount, color: "#EF4444" },
-        { name: t("admin.ui.cancelled"), value: cancCount, color: "#6B7280" },
-        { name: t("admin.ui.refunded"), value: refundCount, color: "#8B5CF6" },
+        { name: "PENDING", value: pendCount, color: "#F59E0B" },
+        { name: "FAILED", value: failCount, color: "#EF4444" },
+        { name: "CANCELLED", value: cancCount, color: "#6B7280" },
+        { name: "REFUNDED", value: refundCount, color: "#8B5CF6" },
       ]);
 
       // Plan distribution
       const planMap: Record<string, number> = {};
       payments.forEach((p: any) => {
-        const plan = p.pricingPlanName || t("admin.ui.unknown");
+        const plan = p.pricingPlanName || "Unknown";
         planMap[plan] = (planMap[plan] || 0) + 1;
       });
       const planColors = [
@@ -407,7 +436,7 @@ export function AnalyticsTab() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken, i18n.resolvedLanguage]);
+  }, [accessToken]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -456,7 +485,7 @@ export function AnalyticsTab() {
           </p>
         </div>
         <button
-          onClick={fetchAnalytics}
+          onClick={() => fetchAnalytics(true)}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition-colors"
         >
           <Loader2 className="w-4 h-4" />
@@ -513,7 +542,13 @@ export function AnalyticsTab() {
                 stroke="#334155"
                 opacity={0.3}
               />
-              <XAxis dataKey="date" tick={{ fill: "#94A3B8", fontSize: 11 }} />
+              <XAxis
+                dataKey="date"
+                tickFormatter={(value) =>
+                  formatChartDate(String(value), i18n.resolvedLanguage || "en")
+                }
+                tick={{ fill: "#94A3B8", fontSize: 11 }}
+              />
               <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} />
               <Tooltip content={<ChartTooltip />} />
               <Bar
@@ -560,7 +595,7 @@ export function AnalyticsTab() {
                 wrapperStyle={{ fontSize: "12px" }}
                 formatter={(value) => (
                   <span className="text-slate-500 dark:text-slate-400">
-                    {value}
+                    {formatChartLabel(value, t)}
                   </span>
                 )}
               />
@@ -598,7 +633,7 @@ export function AnalyticsTab() {
                 wrapperStyle={{ fontSize: "12px" }}
                 formatter={(value) => (
                   <span className="text-slate-500 dark:text-slate-400">
-                    {value}
+                    {formatChartLabel(value, t)}
                   </span>
                 )}
               />
@@ -634,7 +669,7 @@ export function AnalyticsTab() {
                 wrapperStyle={{ fontSize: "12px" }}
                 formatter={(value) => (
                   <span className="text-slate-500 dark:text-slate-400">
-                    {value}
+                    {formatChartLabel(value, t)}
                   </span>
                 )}
               />
